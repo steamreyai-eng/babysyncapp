@@ -30,6 +30,8 @@ jobs:
       - name: Install CocoaPods
         run: |
           cd ios
+          # Убираем дубликат simdjson от плагина WatermelonDB, так как Expo делает автолинк сам
+          sed -i '' '/pod .simdjson./d' Podfile || true
           pod install --repo-update
         
       - name: Build Unsigned App
