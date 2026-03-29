@@ -1,0 +1,311 @@
+src/lib/exportData.ts(41,36): error TS2339: Property 'documentDirectory' does not exist on type 'typeof import("D:/project/baby log/babysync/node_modules/expo-file-system/build/index")'.
+src/lib/exportData.ts(44,28): error TS2339: Property 'EncodingType' does not exist on type 'typeof import("D:/project/baby log/babysync/node_modules/expo-file-system/build/index")'.
+src/lib/exportData.ts(91,36): error TS2339: Property 'documentDirectory' does not exist on type 'typeof import("D:/project/baby log/babysync/node_modules/expo-file-system/build/index")'.
+src/lib/exportData.ts(94,28): error TS2339: Property 'EncodingType' does not exist on type 'typeof import("D:/project/baby log/babysync/node_modules/expo-file-system/build/index")'.
+src/screens/AnalyticsScreen.tsx(250,30): error TS2339: Property 'cacheDirectory' does not exist on type 'typeof import("D:/project/baby log/babysync/node_modules/expo-file-system/build/index")'.
+src/screens/AnalyticsScreen.tsx(252,78): error TS2339: Property 'EncodingType' does not exist on type 'typeof import("D:/project/baby log/babysync/node_modules/expo-file-system/build/index")'.
+src/screens/AnalyticsScreen.tsx(268,179): error TS2554: Expected 5 arguments, but got 6.
+src/screens/AuthScreen.tsx(83,10): error TS2304: Cannot find name 'ScrollView'.
+src/screens/AuthScreen.tsx(191,11): error TS2304: Cannot find name 'ScrollView'.
+src/screens/DiaperScreen.tsx(41,11): error TS2322: Type 'number' is not assignable to type 'Date'.
+src/screens/DiaperScreen.tsx(66,20): error TS2362: The left-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.
+src/screens/DiaperScreen.tsx(66,35): error TS2363: The right-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.
+src/screens/DiaperScreen.tsx(69,40): error TS2362: The left-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.
+src/screens/DiaperScreen.tsx(69,55): error TS2363: The right-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.
+src/screens/DiaperScreen.tsx(245,114): error TS2345: Argument of type 'Date' is not assignable to parameter of type 'number'.
+src/screens/FeedingScreen.tsx(49,11): error TS2322: Type 'number' is not assignable to type 'Date'.
+src/screens/FeedingScreen.tsx(67,11): error TS2322: Type 'number' is not assignable to type 'Date'.
+src/screens/FeedingScreen.tsx(86,11): error TS2322: Type 'number' is not assignable to type 'Date'.
+src/screens/FeedingScreen.tsx(104,13): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(props: ViewProps): View', gave the following error.
+    Type '{ children: Element[]; className: string; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+  Overload 2 of 2, '(props: ViewProps, context: any): View', gave the following error.
+    Type '{ children: Element[]; className: string; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+src/screens/FeedingScreen.tsx(105,64): error TS2322: Type '{ children: Element; onPress: () => void; className: string; }' is not assignable to type 'IntrinsicAttributes & TouchableOpacityProps & RefAttributes<View>'.
+  Property 'className' does not exist on type 'IntrinsicAttributes & TouchableOpacityProps & RefAttributes<View>'.
+src/screens/HealthScreen.tsx(66,11): error TS2322: Type 'number' is not assignable to type 'Date'.
+src/screens/HomeScreen.tsx(14,30): error TS7031: Binding element 'feedings' implicitly has an 'any' type.
+src/screens/HomeScreen.tsx(14,40): error TS7031: Binding element 'sleeps' implicitly has an 'any' type.
+src/screens/HomeScreen.tsx(14,48): error TS7031: Binding element 'diapers' implicitly has an 'any' type.
+src/screens/HomeScreen.tsx(14,57): error TS7031: Binding element 'walks' implicitly has an 'any' type.
+src/screens/HomeScreen.tsx(14,64): error TS7031: Binding element 'tasks' implicitly has an 'any' type.
+src/screens/HomeScreen.tsx(78,37): error TS7006: Parameter 'w' implicitly has an 'any' type.
+src/screens/HomeScreen.tsx(78,109): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/screens/HomeScreen.tsx(78,112): error TS7006: Parameter 'w' implicitly has an 'any' type.
+src/screens/HomeScreen.tsx(110,53): error TS7006: Parameter 'f' implicitly has an 'any' type.
+src/screens/HomeScreen.tsx(110,56): error TS7006: Parameter 'i' implicitly has an 'any' type.
+src/screens/HomeScreen.tsx(110,59): error TS7006: Parameter 'arr' implicitly has an 'any' type.
+src/screens/HomeScreen.tsx(127,37): error TS7006: Parameter 'd' implicitly has an 'any' type.
+src/screens/HomeScreen.tsx(183,21): error TS7006: Parameter 'f' implicitly has an 'any' type.
+src/screens/HomeScreen.tsx(192,19): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/screens/HomeScreen.tsx(201,20): error TS7006: Parameter 'd' implicitly has an 'any' type.
+src/screens/HomeScreen.tsx(210,18): error TS7006: Parameter 'w' implicitly has an 'any' type.
+src/screens/HomeScreen.tsx(268,41): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/screens/HomeScreen.tsx(274,15): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(props: ViewProps): View', gave the following error.
+    Type '{ children: Element[]; className: string; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+  Overload 2 of 2, '(props: ViewProps, context: any): View', gave the following error.
+    Type '{ children: Element[]; className: string; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+src/screens/HomeScreen.tsx(275,17): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(props: ViewProps): View', gave the following error.
+    Type '{ children: Element[]; className: string; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+  Overload 2 of 2, '(props: ViewProps, context: any): View', gave the following error.
+    Type '{ children: Element[]; className: string; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+src/screens/HomeScreen.tsx(276,19): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(props: ViewProps): View', gave the following error.
+    Type '{ children: Element; className: string; style: { shadowColor: string; shadowOffset: { width: number; height: number; }; shadowOpacity: number; shadowRadius: number; elevation: number; }; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+  Overload 2 of 2, '(props: ViewProps, context: any): View', gave the following error.
+    Type '{ children: Element; className: string; style: { shadowColor: string; shadowOffset: { width: number; height: number; }; shadowOpacity: number; shadowRadius: number; elevation: number; }; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+src/screens/HomeScreen.tsx(284,29): error TS2322: Type '{ children: Element[]; className: string; style: { shadowColor: string; shadowOffset: { width: number; height: number; }; shadowOpacity: number; shadowRadius: number; elevation: number; borderWidth: number; borderColor: string; }; }' is not assignable to type 'IntrinsicAttributes & TouchableOpacityProps & RefAttributes<View>'.
+  Property 'className' does not exist on type 'IntrinsicAttributes & TouchableOpacityProps & RefAttributes<View>'.
+src/screens/HomeScreen.tsx(294,11): error TS2322: Type '{ children: Element[]; onPress: () => void; activeOpacity: number; className: string; style: { shadowColor: string; shadowOffset: { width: number; height: number; }; shadowOpacity: number; shadowRadius: number; elevation: number; }; }' is not assignable to type 'IntrinsicAttributes & TouchableOpacityProps & RefAttributes<View>'.
+  Property 'className' does not exist on type 'IntrinsicAttributes & TouchableOpacityProps & RefAttributes<View>'.
+src/screens/HomeScreen.tsx(298,13): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(props: LinearGradientProps): LinearGradient', gave the following error.
+    Type 'string[]' is not assignable to type 'readonly [ColorValue, ColorValue, ...ColorValue[]]'.
+      Source provides no match for required element at position 0 in target.
+  Overload 2 of 2, '(props: LinearGradientProps, context: any): LinearGradient', gave the following error.
+    Type 'string[]' is not assignable to type 'readonly [ColorValue, ColorValue, ...ColorValue[]]'.
+      Source provides no match for required element at position 0 in target.
+src/screens/HomeScreen.tsx(304,19): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(props: ViewProps): View', gave the following error.
+    Type '{ children: Element[]; className: string; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+  Overload 2 of 2, '(props: ViewProps, context: any): View', gave the following error.
+    Type '{ children: Element[]; className: string; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+src/screens/HomeScreen.tsx(313,17): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(props: ViewProps): View', gave the following error.
+    Type '{ children: Element; className: string; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+  Overload 2 of 2, '(props: ViewProps, context: any): View', gave the following error.
+    Type '{ children: Element; className: string; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+src/screens/HomeScreen.tsx(323,53): error TS2345: Argument of type '[string, { screen: string; }]' is not assignable to parameter of type 'never'.
+src/screens/HomeScreen.tsx(324,18): error TS2322: Type '{ children: (false | Element)[]; key: string; onPress: () => void; className: string; style: { borderWidth: number; borderColor: string; shadowColor: string; shadowOffset: { width: number; height: number; }; shadowOpacity: number; shadowRadius: number; elevation: number; }; }' is not assignable to type 'IntrinsicAttributes & TouchableOpacityProps & RefAttributes<View>'.
+  Property 'className' does not exist on type 'IntrinsicAttributes & TouchableOpacityProps & RefAttributes<View>'.
+src/screens/HomeScreen.tsx(327,24): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(props: ViewProps): View', gave the following error.
+    Type '{ children: Element; className: string; style: { backgroundColor: string; }; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+  Overload 2 of 2, '(props: ViewProps, context: any): View', gave the following error.
+    Type '{ children: Element; className: string; style: { backgroundColor: string; }; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+src/screens/HomeScreen.tsx(334,27): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(props: ViewProps): View', gave the following error.
+    Type '{ className: string; style: { backgroundColor: string; }; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+  Overload 2 of 2, '(props: ViewProps, context: any): View', gave the following error.
+    Type '{ className: string; style: { backgroundColor: string; }; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+src/screens/HomeScreen.tsx(342,46): error TS2769: No overload matches this call.
+  Argument of type '[string]' is not assignable to parameter of type 'never'.
+  Overload 2 of 2, '(options: never): void', gave the following error.
+    Argument of type '"Routine"' is not assignable to parameter of type 'never'.
+src/screens/HomeScreen.tsx(344,11): error TS2322: Type '{ children: Element[]; onPress: () => void; activeOpacity: number; className: string; style: { backgroundColor: string; borderWidth: number; borderColor: string; }; }' is not assignable to type 'IntrinsicAttributes & TouchableOpacityProps & RefAttributes<View>'.
+  Property 'className' does not exist on type 'IntrinsicAttributes & TouchableOpacityProps & RefAttributes<View>'.
+src/screens/HomeScreen.tsx(347,17): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(props: ViewProps): View', gave the following error.
+    Type '{ children: Element; className: string; style: { backgroundColor: string; }; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+  Overload 2 of 2, '(props: ViewProps, context: any): View', gave the following error.
+    Type '{ children: Element; className: string; style: { backgroundColor: string; }; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+src/screens/HomeScreen.tsx(350,17): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(props: ViewProps): View', gave the following error.
+    Type '{ children: Element[]; className: string; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+  Overload 2 of 2, '(props: ViewProps, context: any): View', gave the following error.
+    Type '{ children: Element[]; className: string; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+src/screens/HomeScreen.tsx(358,15): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(props: ViewProps): View', gave the following error.
+    Type '{ children: Element[]; className: string; style: { borderWidth: number; borderColor: string; shadowColor: string; shadowOffset: { width: number; height: number; }; shadowOpacity: number; shadowRadius: number; elevation: number; }; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+  Overload 2 of 2, '(props: ViewProps, context: any): View', gave the following error.
+    Type '{ children: Element[]; className: string; style: { borderWidth: number; borderColor: string; shadowColor: string; shadowOffset: { width: number; height: number; }; shadowOpacity: number; shadowRadius: number; elevation: number; }; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+src/screens/HomeScreen.tsx(359,18): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(props: ViewProps): View', gave the following error.
+    Type '{ children: Element[]; className: string; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+  Overload 2 of 2, '(props: ViewProps, context: any): View', gave the following error.
+    Type '{ children: Element[]; className: string; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+src/screens/HomeScreen.tsx(360,22): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(props: ViewProps): View', gave the following error.
+    Type '{ children: Element; className: string; style: { backgroundColor: string; }; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+  Overload 2 of 2, '(props: ViewProps, context: any): View', gave the following error.
+    Type '{ children: Element; className: string; style: { backgroundColor: string; }; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+src/screens/HomeScreen.tsx(367,49): error TS2769: No overload matches this call.
+  Argument of type '[string]' is not assignable to parameter of type 'never'.
+  Overload 2 of 2, '(options: never): void', gave the following error.
+    Argument of type '"AI"' is not assignable to parameter of type 'never'.
+src/screens/HomeScreen.tsx(368,14): error TS2322: Type '{ children: Element; onPress: () => void; className: string; style: { backgroundColor: string; }; }' is not assignable to type 'IntrinsicAttributes & TouchableOpacityProps & RefAttributes<View>'.
+  Property 'className' does not exist on type 'IntrinsicAttributes & TouchableOpacityProps & RefAttributes<View>'.
+src/screens/HomeScreen.tsx(376,15): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(props: ViewProps): View', gave the following error.
+    Type '{ children: Element[]; className: string; style: { borderWidth: number; borderColor: string; shadowColor: string; shadowOffset: { width: number; height: number; }; shadowOpacity: number; shadowRadius: number; elevation: number; }; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+  Overload 2 of 2, '(props: ViewProps, context: any): View', gave the following error.
+    Type '{ children: Element[]; className: string; style: { borderWidth: number; borderColor: string; shadowColor: string; shadowOffset: { width: number; height: number; }; shadowOpacity: number; shadowRadius: number; elevation: number; }; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+src/screens/HomeScreen.tsx(377,17): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(props: ViewProps): View', gave the following error.
+    Type '{ children: Element; className: string; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+  Overload 2 of 2, '(props: ViewProps, context: any): View', gave the following error.
+    Type '{ children: Element; className: string; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+src/screens/HomeScreen.tsx(378,19): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(props: ViewProps): View', gave the following error.
+    Type '{ children: Element[]; className: string; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+  Overload 2 of 2, '(props: ViewProps, context: any): View', gave the following error.
+    Type '{ children: Element[]; className: string; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+src/screens/HomeScreen.tsx(379,21): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(props: ViewProps): View', gave the following error.
+    Type '{ children: Element; className: string; style: { backgroundColor: string; }; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+  Overload 2 of 2, '(props: ViewProps, context: any): View', gave the following error.
+    Type '{ children: Element; className: string; style: { backgroundColor: string; }; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+src/screens/HomeScreen.tsx(386,17): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(props: ViewProps): View', gave the following error.
+    Type '{ children: any; className: string; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+  Overload 2 of 2, '(props: ViewProps, context: any): View', gave the following error.
+    Type '{ children: any; className: string; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+src/screens/HomeScreen.tsx(390,25): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/screens/HomeScreen.tsx(391,34): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(props: ViewProps): View', gave the following error.
+    Type '{ children: Element[]; key: any; className: string; style: { borderColor: string; }; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+  Overload 2 of 2, '(props: ViewProps, context: any): View', gave the following error.
+    Type '{ children: Element[]; key: any; className: string; style: { borderColor: string; }; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+src/screens/HomeScreen.tsx(392,67): error TS2322: Type '{ children: Element[]; onPress: () => Promise<void>; className: string; style: { opacity: number; }; }' is not assignable to type 'IntrinsicAttributes & TouchableOpacityProps & RefAttributes<View>'.
+  Property 'className' does not exist on type 'IntrinsicAttributes & TouchableOpacityProps & RefAttributes<View>'.
+src/screens/HomeScreen.tsx(394,27): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(props: ViewProps): View', gave the following error.
+    Type '{ children: Element; className: string; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+  Overload 2 of 2, '(props: ViewProps, context: any): View', gave the following error.
+    Type '{ children: Element; className: string; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+src/screens/HomeScreen.tsx(400,67): error TS2322: Type '{ children: Element; onPress: () => Promise<void>; className: string; }' is not assignable to type 'IntrinsicAttributes & TouchableOpacityProps & RefAttributes<View>'.
+  Property 'className' does not exist on type 'IntrinsicAttributes & TouchableOpacityProps & RefAttributes<View>'.
+src/screens/HomeScreen.tsx(408,17): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(props: ViewProps): View', gave the following error.
+    Type '{ children: Element[]; className: string; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+  Overload 2 of 2, '(props: ViewProps, context: any): View', gave the following error.
+    Type '{ children: Element[]; className: string; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+src/screens/HomeScreen.tsx(419,15): error TS2322: Type '{ children: Element; onPress: () => void; className: string; style: { backgroundColor: string; borderRadius: number; }; }' is not assignable to type 'IntrinsicAttributes & TouchableOpacityProps & RefAttributes<View>'.
+  Property 'className' does not exist on type 'IntrinsicAttributes & TouchableOpacityProps & RefAttributes<View>'.
+src/screens/HomeScreen.tsx(430,49): error TS2322: Type '{ children: Element; onPress: () => Promise<void>; className: string; style: { backgroundColor: string; borderRadius: number; shadowColor: string; shadowOffset: { width: number; height: number; }; shadowOpacity: number; shadowRadius: number; elevation: number; }; }' is not assignable to type 'IntrinsicAttributes & TouchableOpacityProps & RefAttributes<View>'.
+  Property 'className' does not exist on type 'IntrinsicAttributes & TouchableOpacityProps & RefAttributes<View>'.
+src/screens/HomeScreen.tsx(437,15): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(props: ViewProps): View', gave the following error.
+    Type '{ children: Element[]; className: string; style: { borderWidth: number; borderColor: string; shadowColor: string; shadowOffset: { width: number; height: number; }; shadowOpacity: number; shadowRadius: number; elevation: number; }; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+  Overload 2 of 2, '(props: ViewProps, context: any): View', gave the following error.
+    Type '{ children: Element[]; className: string; style: { borderWidth: number; borderColor: string; shadowColor: string; shadowOffset: { width: number; height: number; }; shadowOpacity: number; shadowRadius: number; elevation: number; }; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+src/screens/HomeScreen.tsx(442,21): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(props: ViewProps): View', gave the following error.
+    Type '{ children: Element[]; className: string; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+  Overload 2 of 2, '(props: ViewProps, context: any): View', gave the following error.
+    Type '{ children: Element[]; className: string; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+src/screens/HomeScreen.tsx(444,39): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(props: ViewProps): View', gave the following error.
+    Type '{ children: Element[]; key: any; className: string; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+  Overload 2 of 2, '(props: ViewProps, context: any): View', gave the following error.
+    Type '{ children: Element[]; key: any; className: string; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+src/screens/HomeScreen.tsx(445,31): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(props: ViewProps): View', gave the following error.
+    Type '{ children: Element; className: string; style: { backgroundColor: any; }; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+  Overload 2 of 2, '(props: ViewProps, context: any): View', gave the following error.
+    Type '{ children: Element; className: string; style: { backgroundColor: any; }; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+src/screens/HomeScreen.tsx(448,31): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(props: ViewProps): View', gave the following error.
+    Type '{ children: Element[]; className: string; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+  Overload 2 of 2, '(props: ViewProps, context: any): View', gave the following error.
+    Type '{ children: Element[]; className: string; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+src/screens/HomeScreen.tsx(450,35): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(props: ViewProps): View', gave the following error.
+    Type '{ children: Element; className: string; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+  Overload 2 of 2, '(props: ViewProps, context: any): View', gave the following error.
+    Type '{ children: Element; className: string; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+src/screens/HomeScreen.tsx(451,38): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(props: ViewProps): View', gave the following error.
+    Type '{ children: Element; className: string; style: { backgroundColor: any; }; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+  Overload 2 of 2, '(props: ViewProps, context: any): View', gave the following error.
+    Type '{ children: Element; className: string; style: { backgroundColor: any; }; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+src/screens/LoadingScreen.tsx(6,11): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(props: ViewProps): View', gave the following error.
+    Type '{ children: Element[]; className: string; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+  Overload 2 of 2, '(props: ViewProps, context: any): View', gave the following error.
+    Type '{ children: Element[]; className: string; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<View> & Readonly<ViewProps>'.
+src/screens/LoadingScreen.tsx(8,13): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(props: TextProps): Text', gave the following error.
+    Type '{ children: string; className: string; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<Text> & Readonly<TextProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<Text> & Readonly<TextProps>'.
+  Overload 2 of 2, '(props: TextProps, context: any): Text', gave the following error.
+    Type '{ children: string; className: string; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<Text> & Readonly<TextProps>'.
+      Property 'className' does not exist on type 'IntrinsicAttributes & IntrinsicClassAttributes<Text> & Readonly<TextProps>'.
+src/screens/OnboardingScreen.tsx(118,28): error TS2352: Conversion of type 'string[]' to type 'readonly [string, string]' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Target requires 2 element(s) but source may have fewer.
+src/screens/SettingsScreen.tsx(222,81): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(props: ViewProps): View', gave the following error.
+    Object literal may only specify known properties, and 'mb' does not exist in type 'ViewStyle | RecursiveArray<ViewStyle | Falsy | RegisteredStyle<ViewStyle>>'.
+  Overload 2 of 2, '(props: ViewProps, context: any): View', gave the following error.
+    Object literal may only specify known properties, and 'mb' does not exist in type 'ViewStyle | RecursiveArray<ViewStyle | Falsy | RegisteredStyle<ViewStyle>>'.
+src/screens/SleepScreen.tsx(62,14): error TS2322: Type 'number' is not assignable to type 'string'.
+src/screens/SleepScreen.tsx(63,14): error TS2322: Type 'number' is not assignable to type 'string'.
+src/screens/SleepScreen.tsx(64,14): error TS2322: Type 'number' is not assignable to type 'Date'.
+src/screens/SleepScreen.tsx(87,11): error TS2322: Type 'number' is not assignable to type 'string'.
+src/screens/SleepScreen.tsx(88,11): error TS2322: Type 'number' is not assignable to type 'string'.
+src/screens/SleepScreen.tsx(89,11): error TS2322: Type 'number' is not assignable to type 'Date'.
+src/screens/SleepScreen.tsx(122,20): error TS2362: The left-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.
+src/screens/SleepScreen.tsx(122,35): error TS2363: The right-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.
+src/screens/SleepScreen.tsx(142,50): error TS2362: The left-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.
+src/screens/SleepScreen.tsx(142,65): error TS2363: The right-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.
+src/screens/SleepScreen.tsx(154,50): error TS2365: Operator '+' cannot be applied to types 'Date' and 'number'.
+src/screens/SleepScreen.tsx(156,28): error TS2362: The left-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.
+src/screens/SleepScreen.tsx(168,46): error TS2365: Operator '+' cannot be applied to types 'Date' and 'number'.
+src/screens/SleepScreen.tsx(365,114): error TS2345: Argument of type 'string | Date' is not assignable to parameter of type 'number'.
+  Type 'string' is not assignable to type 'number'.
+src/screens/SleepScreen.tsx(365,171): error TS2365: Operator '+' cannot be applied to types 'Date' and 'number'.
+src/screens/WalkScreen.tsx(70,14): error TS2322: Type 'number' is not assignable to type 'Date'.
+src/screens/WalkScreen.tsx(96,11): error TS2322: Type 'number' is not assignable to type 'Date'.
+src/screens/WalkScreen.tsx(136,48): error TS2362: The left-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.
+src/screens/WalkScreen.tsx(136,63): error TS2363: The right-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.
+src/screens/WalkScreen.tsx(291,131): error TS2345: Argument of type 'Date' is not assignable to parameter of type 'number'.

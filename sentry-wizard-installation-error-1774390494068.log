@@ -1,0 +1,39 @@
+npm error code ERESOLVE
+npm error ERESOLVE could not resolve
+npm error
+npm error While resolving: @nozbe/with-observables@1.6.0
+npm error Found: @types/react@19.1.17
+npm error node_modules/@types/react
+npm error   peerOptional @types/react@"*" from @gorhom/bottom-sheet@5.2.8
+npm error   node_modules/@gorhom/bottom-sheet
+npm error     @gorhom/bottom-sheet@"^5.2.8" from the root project
+npm error   peerOptional @types/react@"^19.1.0" from @react-native/virtualized-lists@0.81.5
+npm error   node_modules/@react-native/virtualized-lists
+npm error     @react-native/virtualized-lists@"0.81.5" from react-native@0.81.5
+npm error     node_modules/react-native
+npm error       peerOptional react-native@"*" from @expo/cli@54.0.23
+npm error       node_modules/@expo/cli
+npm error         @expo/cli@"54.0.23" from expo@54.0.33
+npm error         node_modules/expo
+npm error       38 more (@expo/devtools, @expo/vector-icons, ...)
+npm error   3 more (react-native, zustand, the root project)
+npm error
+npm error Could not resolve dependency:
+npm error peerOptional @types/react@"^16||^17||^18" from @nozbe/with-observables@1.6.0
+npm error node_modules/@nozbe/with-observables
+npm error   @nozbe/with-observables@"^1.6.0" from the root project
+npm error
+npm error Conflicting peer dependency: @types/react@18.3.28
+npm error node_modules/@types/react
+npm error   peerOptional @types/react@"^16||^17||^18" from @nozbe/with-observables@1.6.0
+npm error   node_modules/@nozbe/with-observables
+npm error     @nozbe/with-observables@"^1.6.0" from the root project
+npm error
+npm error Fix the upstream dependency conflict, or retry
+npm error this command with --force or --legacy-peer-deps
+npm error to accept an incorrect (and potentially broken) dependency resolution.
+npm error
+npm error
+npm error For a full report see:
+npm error C:\Users\vlad\AppData\Local\npm-cache\_logs\2026-03-24T22_14_52_365Z-eresolve-report.txt
+npm error A complete log of this run can be found in: C:\Users\vlad\AppData\Local\npm-cache\_logs\2026-03-24T22_14_52_365Z-debug-0.log

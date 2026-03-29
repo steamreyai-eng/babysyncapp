@@ -1,0 +1,14 @@
+env: load .env
+env: export EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY
+Error: `ios.deploymentTarget` needs to be at least version 15.1.
+Error: `ios.deploymentTarget` needs to be at least version 15.1.
+    at maybeThrowInvalidVersions (D:\project\baby log\babysync\node_modules\expo-build-properties\build\pluginConfig.js:264:19)
+    at validateConfig (D:\project\baby log\babysync\node_modules\expo-build-properties\build\pluginConfig.js:307:5)
+    at withBuildProperties (D:\project\baby log\babysync\node_modules\expo-build-properties\build\withBuildProperties.js:14:60)
+    at withStaticPlugin (D:\project\baby log\babysync\node_modules\@expo\config-plugins\build\plugins\withStaticPlugin.js:146:12)
+    at D:\project\baby log\babysync\node_modules\@expo\config-plugins\build\plugins\withPlugins.js:30:84
+    at Array.reduce (<anonymous>)
+    at withPlugins (D:\project\baby log\babysync\node_modules\@expo\config-plugins\build\plugins\withPlugins.js:30:18)
+    at withConfigPlugins (D:\project\baby log\babysync\node_modules\@expo\config\build\plugins\withConfigPlugins.js:35:47)
+    at fillAndReturnConfig (D:\project\baby log\babysync\node_modules\@expo\config\build\Config.js:236:78)
+    at getConfig (D:\project\baby log\babysync\node_modules\@expo\config\build\Config.js:293:10)

@@ -1,0 +1,56 @@
+env: load .env
+env: export EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY
+
+{
+  name: [32m'babysync'[39m,
+  slug: [32m'babysync'[39m,
+  version: [32m'1.0.0'[39m,
+  orientation: [32m'portrait'[39m,
+  icon: [32m'./assets/icon.png'[39m,
+  userInterfaceStyle: [32m'light'[39m,
+  plugins: [
+    [
+      [32m'expo-build-properties'[39m,
+      {
+        android: {
+          kotlinVersion: [32m'1.8.20'[39m,
+          compileSdkVersion: [33m34[39m,
+          targetSdkVersion: [33m34[39m,
+          buildToolsVersion: [32m'34.0.0'[39m
+        },
+        ios: {
+          deploymentTarget: [32m'15.1'[39m
+        }
+      }
+    ],
+    [32m'@morrowdigital/watermelondb-expo-plugin'[39m
+  ],
+  description: [90mundefined[39m,
+  sdkVersion: [32m'54.0.0'[39m,
+  platforms: [
+    [32m'ios'[39m,
+    [32m'android'[39m
+  ],
+  splash: {
+    image: [32m'./assets/splash-icon.png'[39m,
+    resizeMode: [32m'contain'[39m,
+    backgroundColor: [32m'#ffffff'[39m
+  },
+  ios: {
+    supportsTablet: [33mtrue[39m
+  },
+  android: {
+    predictiveBackGestureEnabled: [33mfalse[39m,
+    package: [32m'com.anonymous.babysync'[39m,
+    adaptiveIcon: {
+      backgroundColor: [32m'#E6F4FE'[39m,
+      foregroundImage: [32m'./assets/android-icon-foreground.png'[39m,
+      backgroundImage: [32m'./assets/android-icon-background.png'[39m,
+      monochromeImage: [32m'./assets/android-icon-monochrome.png'[39m
+    }
+  },
+  web: {
+    favicon: [32m'./assets/favicon.png'[39m
+  }
+}
+

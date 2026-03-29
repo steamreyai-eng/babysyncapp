@@ -1,10 +1,11 @@
 {
   "expo": {
-    "name": "babysync",
+    "name": "BabySync",
     "slug": "babysync",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
+    "scheme": "babysync",
     "userInterfaceStyle": "light",
     "splash": {
       "image": "./assets/splash-icon.png",
@@ -12,7 +13,12 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.babysync.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "BabySync использует камеру для добавления фотографий в записи о ребёнке.",
+        "NSPhotoLibraryUsageDescription": "BabySync использует фотоплёнку для добавления фотографий в записи."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -21,10 +27,38 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "softwareKeyboardLayoutMode": "resize",
+      "package": "com.babysync.app",
+      "versionCode": 1
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35,
+            "buildToolsVersion": "35.0.0",
+            "kotlinVersion": "2.0.21"
+          },
+          "ios": {
+            "deploymentTarget": "15.1"
+          }
+        }
+      ],
+      "@morrowdigital/watermelondb-expo-plugin",
+      [
+        "@sentry/react-native/expo",
+        {
+          "url": "https://sentry.io/",
+          "project": "react-native",
+          "organization": "kapiai"
+        }
+      ]
+    ]
   }
 }

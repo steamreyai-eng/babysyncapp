@@ -1,0 +1,578 @@
+﻿> Task :expo-gradle-plugin:expo-autolinking-settings-plugin:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :gradle-plugin:shared:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-gradle-plugin:expo-autolinking-plugin-shared:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :gradle-plugin:settings-plugin:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-gradle-plugin:expo-autolinking-settings-plugin:pluginDescriptors UP-TO-DATE
+> Task :gradle-plugin:settings-plugin:pluginDescriptors UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-settings-plugin:processResources UP-TO-DATE
+> Task :gradle-plugin:settings-plugin:processResources UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-plugin-shared:compileKotlin UP-TO-DATE
+> Task :gradle-plugin:shared:compileKotlin UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-plugin-shared:compileJava NO-SOURCE
+> Task :gradle-plugin:shared:compileJava NO-SOURCE
+> Task :gradle-plugin:shared:processResources NO-SOURCE
+> Task :expo-gradle-plugin:expo-autolinking-plugin-shared:processResources NO-SOURCE
+> Task :gradle-plugin:shared:classes UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-plugin-shared:classes UP-TO-DATE
+> Task :gradle-plugin:shared:jar UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-plugin-shared:jar UP-TO-DATE
+> Task :gradle-plugin:settings-plugin:compileKotlin UP-TO-DATE
+> Task :gradle-plugin:settings-plugin:compileJava NO-SOURCE
+> Task :gradle-plugin:settings-plugin:classes UP-TO-DATE
+> Task :gradle-plugin:settings-plugin:jar UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-settings-plugin:compileKotlin UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-settings-plugin:compileJava NO-SOURCE
+> Task :expo-gradle-plugin:expo-autolinking-settings-plugin:classes UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-settings-plugin:jar UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-plugin:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :gradle-plugin:react-native-gradle-plugin:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-module-gradle-plugin:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-module-gradle-plugin:pluginDescriptors UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-plugin:compileKotlin UP-TO-DATE
+> Task :gradle-plugin:react-native-gradle-plugin:compileKotlin UP-TO-DATE
+> Task :expo-module-gradle-plugin:processResources UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-plugin:compileJava NO-SOURCE
+> Task :gradle-plugin:react-native-gradle-plugin:compileJava NO-SOURCE
+> Task :gradle-plugin:react-native-gradle-plugin:pluginDescriptors UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-plugin:pluginDescriptors UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-plugin:processResources UP-TO-DATE
+> Task :gradle-plugin:react-native-gradle-plugin:processResources UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-plugin:classes UP-TO-DATE
+> Task :gradle-plugin:react-native-gradle-plugin:classes UP-TO-DATE
+> Task :gradle-plugin:react-native-gradle-plugin:jar UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-plugin:jar UP-TO-DATE
+> Task :expo-module-gradle-plugin:compileKotlin UP-TO-DATE
+> Task :expo-module-gradle-plugin:compileJava NO-SOURCE
+> Task :expo-module-gradle-plugin:classes UP-TO-DATE
+> Task :expo-module-gradle-plugin:jar UP-TO-DATE
+
+> Configure project :
+[32m[ExpoRootProject][0m Using the following versions:
+  - buildTools:  [32m35.0.0[0m
+  - minSdk:      [32m24[0m
+  - compileSdk:  [32m35[0m
+  - targetSdk:   [32m35[0m
+  - ndk:         [32m27.1.12297006[0m
+  - kotlin:      [32m2.0.21[0m
+  - ksp:         [32m2.0.21-1.0.28[0m
+
+> Configure project :expo
+
+Using expo modules
+  - [32mexpo-constants[0m (18.0.13)
+  - [32mexpo-modules-core[0m (3.0.29)
+  - [33m[ЁЯУж][0m [32mexpo-asset[0m (12.0.12)
+  - [33m[ЁЯУж][0m [32mexpo-file-system[0m (19.0.21)
+  - [33m[ЁЯУж][0m [32mexpo-font[0m (14.0.11)
+  - [33m[ЁЯУж][0m [32mexpo-haptics[0m (15.0.8)
+  - [33m[ЁЯУж][0m [32mexpo-keep-awake[0m (15.0.8)
+  - [33m[ЁЯУж][0m [32mexpo-linear-gradient[0m (15.0.8)
+  - [33m[ЁЯУж][0m [32mexpo-linking[0m (8.0.11)
+  - [33m[ЁЯУж][0m [32mexpo-sharing[0m (14.0.8)
+  - [33m[ЁЯУж][0m [32mexpo-splash-screen[0m (31.0.13)
+
+
+> Task :react-native-async-storage_async-storage:clean UP-TO-DATE
+> Task :expo:clean UP-TO-DATE
+> Task :react-native-safe-area-context:clean UP-TO-DATE
+> Task :react-native-edge-to-edge:clean UP-TO-DATE
+> Task :react-native-community_netinfo:clean UP-TO-DATE
+> Task :react-native-community_datetimepicker:clean UP-TO-DATE
+> Task :expo-constants:clean UP-TO-DATE
+> Task :nozbe_watermelondb:clean UP-TO-DATE
+> Task :app:externalNativeBuildCleanDebug
+> Task :react-native-reanimated:cleanCmakeCache
+> Task :react-native-svg:clean UP-TO-DATE
+> Task :app:externalNativeBuildCleanDebugOptimized
+> Task :react-native-reanimated:externalNativeBuildCleanDebug
+> Task :react-native-worklets-core:deleteCmakeCache
+> Task :react-native-worklets:cleanCmakeCache
+> Task :sentry_react-native:clean UP-TO-DATE
+> Task :react-native-worklets:externalNativeBuildCleanDebug
+> Task :react-native-worklets-core:externalNativeBuildCleanDebug
+> Task :react-native-reanimated:externalNativeBuildCleanRelease
+> Task :react-native-worklets:externalNativeBuildCleanRelease
+> Task :react-native-worklets-core:externalNativeBuildCleanRelease
+> Task :react-native-reanimated:clean
+> Task :react-native-worklets:clean
+> Task :react-native-worklets-core:clean
+
+> Task :react-native-screens:externalNativeBuildCleanDebug
+Clean rnscreens-armeabi-v7a
+Clean rnscreens-arm64-v8a
+Clean rnscreens-x86
+Clean rnscreens-x86_64
+
+> Task :react-native-gesture-handler:externalNativeBuildCleanDebug
+Clean gesturehandler-armeabi-v7a
+Clean gesturehandler-arm64-v8a
+Clean gesturehandler-x86
+Clean gesturehandler-x86_64
+
+> Task :watermelondb-jsi:externalNativeBuildCleanDebug
+Clean watermelondb-jsi-armeabi-v7a
+Clean watermelondb-jsi-arm64-v8a
+Clean watermelondb-jsi-x86
+Clean watermelondb-jsi-x86_64
+
+> Task :expo-modules-core:externalNativeBuildCleanDebug
+Clean fabric-armeabi-v7a, expo-modules-core-armeabi-v7a
+Clean fabric-arm64-v8a, expo-modules-core-arm64-v8a
+Clean fabric-x86, expo-modules-core-x86
+Clean fabric-x86_64, expo-modules-core-x86_64
+
+> Task :react-native-gesture-handler:externalNativeBuildCleanRelease
+Clean gesturehandler-armeabi-v7a
+Clean gesturehandler-arm64-v8a
+Clean gesturehandler-x86
+Clean gesturehandler-x86_64
+
+> Task :react-native-screens:externalNativeBuildCleanRelease
+Clean rnscreens-armeabi-v7a
+Clean rnscreens-arm64-v8a
+Clean rnscreens-x86
+Clean rnscreens-x86_64
+
+> Task :watermelondb-jsi:externalNativeBuildCleanRelease
+Clean watermelondb-jsi-armeabi-v7a
+Clean watermelondb-jsi-arm64-v8a
+Clean watermelondb-jsi-x86
+Clean watermelondb-jsi-x86_64
+
+> Task :react-native-gesture-handler:clean
+> Task :react-native-screens:clean
+> Task :watermelondb-jsi:clean
+
+> Task :expo-modules-core:externalNativeBuildCleanRelease
+Clean fabric-armeabi-v7a, expo-modules-core-armeabi-v7a
+Clean fabric-arm64-v8a, expo-modules-core-arm64-v8a
+Clean fabric-x86, expo-modules-core-x86
+Clean fabric-x86_64, expo-modules-core-x86_64
+
+> Task :expo-modules-core:clean
+
+> Task :app:externalNativeBuildCleanRelease FAILED
+Clean react_codegen_rnreanimated-armeabi-v7a, react_codegen_safeareacontext-armeabi-v7a, react_codegen_RNWorkletsSpec-armeabi-v7a, react_codegen_rngesturehandler_codegen-armeabi-v7a, react_codegen_rnscreens-armeabi-v7a, react_codegen_RNDateTimePickerCGen-armeabi-v7a, appmodules-armeabi-v7a, react_codegen_RNEdgeToEdge-armeabi-v7a, react_codegen_rnsvg-armeabi-v7a, react_codegen_RNSentrySpec-armeabi-v7a, react_codegen_rnworklets-armeabi-v7a, react_codegen_rnasyncstorage-armeabi-v7a
+C/C++: CMake Error at D:/project/baby log/babysync/android/app/build/generated/autolinking/src/main/jni/Android-autolinking.cmake:10 (add_subdirectory):
+C/C++:   add_subdirectory given source "D:/project/baby
+C/C++:   log/babysync/node_modules/@react-native-async-storage/async-storage/android/build/generated/source/codegen/jni/"
+C/C++:   which is not an existing directory.
+C/C++: Call Stack (most recent call first):
+C/C++:   D:/project/baby log/babysync/node_modules/react-native/ReactAndroid/cmake-utils/ReactNative-application.cmake:94 (include)
+C/C++:   CMakeLists.txt:31 (include)
+C/C++: CMake Error at D:/project/baby log/babysync/android/app/build/generated/autolinking/src/main/jni/Android-autolinking.cmake:11 (add_subdirectory):
+C/C++:   add_subdirectory given source "D:/project/baby
+C/C++:   log/babysync/node_modules/@react-native-community/datetimepicker/android/build/generated/source/codegen/jni/"
+C/C++:   which is not an existing directory.
+C/C++: Call Stack (most recent call first):
+C/C++:   D:/project/baby log/babysync/node_modules/react-native/ReactAndroid/cmake-utils/ReactNative-application.cmake:94 (include)
+C/C++:   CMakeLists.txt:31 (include)
+C/C++: CMake Error at D:/project/baby log/babysync/android/app/build/generated/autolinking/src/main/jni/Android-autolinking.cmake:13 (add_subdirectory):
+C/C++:   add_subdirectory given source "D:/project/baby
+C/C++:   log/babysync/node_modules/@sentry/react-native/android/build/generated/source/codegen/jni/"
+C/C++:   which is not an existing directory.
+C/C++: Call Stack (most recent call first):
+C/C++:   D:/project/baby log/babysync/node_modules/react-native/ReactAndroid/cmake-utils/ReactNative-application.cmake:94 (include)
+C/C++:   CMakeLists.txt:31 (include)
+C/C++: CMake Error at D:/project/baby log/babysync/android/app/build/generated/autolinking/src/main/jni/Android-autolinking.cmake:15 (add_subdirectory):
+C/C++:   add_subdirectory given source "D:/project/baby
+C/C++:   log/babysync/node_modules/react-native-gesture-handler/android/build/generated/source/codegen/jni/"
+C/C++:   which is not an existing directory.
+C/C++: Call Stack (most recent call first):
+C/C++:   D:/project/baby log/babysync/node_modules/react-native/ReactAndroid/cmake-utils/ReactNative-application.cmake:94 (include)
+C/C++:   CMakeLists.txt:31 (include)
+C/C++: CMake Error at D:/project/baby log/babysync/android/app/build/generated/autolinking/src/main/jni/Android-autolinking.cmake:16 (add_subdirectory):
+C/C++:   add_subdirectory given source "D:/project/baby
+C/C++:   log/babysync/node_modules/react-native-reanimated/android/build/generated/source/codegen/jni/"
+C/C++:   which is not an existing directory.
+C/C++: Call Stack (most recent call first):
+C/C++:   D:/project/baby log/babysync/node_modules/react-native/ReactAndroid/cmake-utils/ReactNative-application.cmake:94 (include)
+C/C++:   CMakeLists.txt:31 (include)
+C/C++: CMake Error at D:/project/baby log/babysync/android/app/build/generated/autolinking/src/main/jni/Android-autolinking.cmake:20 (add_subdirectory):
+C/C++:   add_subdirectory given source "D:/project/baby
+C/C++:   log/babysync/node_modules/react-native-worklets/android/build/generated/source/codegen/jni/"
+C/C++:   which is not an existing directory.
+C/C++: Call Stack (most recent call first):
+C/C++:   D:/project/baby log/babysync/node_modules/react-native/ReactAndroid/cmake-utils/ReactNative-application.cmake:94 (include)
+C/C++:   CMakeLists.txt:31 (include)
+C/C++: CMake Error at D:/project/baby log/babysync/android/app/build/generated/autolinking/src/main/jni/Android-autolinking.cmake:21 (add_subdirectory):
+C/C++:   add_subdirectory given source "D:/project/baby
+C/C++:   log/babysync/node_modules/react-native-worklets-core/android/build/generated/source/codegen/jni/"
+C/C++:   which is not an existing directory.
+C/C++: Call Stack (most recent call first):
+C/C++:   D:/project/baby log/babysync/node_modules/react-native/ReactAndroid/cmake-utils/ReactNative-application.cmake:94 (include)
+C/C++:   CMakeLists.txt:31 (include)
+C/C++: CMake Error at D:/project/baby log/babysync/android/app/build/generated/autolinking/src/main/jni/Android-autolinking.cmake:22 (add_subdirectory):
+C/C++:   add_subdirectory given source "D:/project/baby
+C/C++:   log/babysync/node_modules/react-native-edge-to-edge/android/build/generated/source/codegen/jni/"
+C/C++:   which is not an existing directory.
+C/C++: Call Stack (most recent call first):
+C/C++:   D:/project/baby log/babysync/node_modules/react-native/ReactAndroid/cmake-utils/ReactNative-application.cmake:94 (include)
+C/C++:   CMakeLists.txt:31 (include)
+C/C++: CMake Error at D:/project/baby log/babysync/node_modules/react-native/ReactAndroid/cmake-utils/ReactNative-application.cmake:97 (target_link_libraries):
+C/C++:   Cannot specify link libraries for target "react_codegen_rnasyncstorage"
+C/C++:   which is not built by this project.
+C/C++: Call Stack (most recent call first):
+C/C++:   CMakeLists.txt:31 (include)
+C/C++: ninja: error: rebuilding 'build.ninja': subcommand failed
+
+[Incubating] Problems report is available at: file:///D:/project/baby%20log/babysync/android/build/reports/problems/problems-report.html
+.\gradlew : 
+At line:1 char:1
++ .\gradlew clean > "D:
+\project\baby log\babys
+ync\clean_error.txt" 2>
+&1
++ ~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
+~~
+    + CategoryInfo     
+         : NotSpecifi  
+  ed: (:String) [],    
+ RemoteException
+    + FullyQualifiedEr 
+   rorId : NativeComm  
+  andError
+ 
+FAILURE: Build failed w
+ith an exception.
+
+* What went wrong:
+Execution failed for ta
+sk ':app:externalNative
+BuildCleanRelease'.
+> com.android.ide.commo
+n.process.ProcessExcept
+ion: ninja: Entering di
+rectory `D:\project\bab
+y log\babysync\android\
+app\.cxx\RelWithDebInfo
+\92v6h2g5\armeabi-v7a'
+  [0/2] Re-checking glo
+bbed directories...
+  [1/2] Re-running CMak
+e...
+  -- Configuring incomp
+lete, errors occurred!
+  See also "D:/project/
+baby log/babysync/andro
+id/app/.cxx/RelWithDebI
+nfo/92v6h2g5/armeabi-v7
+a/CMakeFiles/CMakeOutpu
+t.log".
+  See also "D:/project/
+baby log/babysync/andro
+id/app/.cxx/RelWithDebI
+nfo/92v6h2g5/armeabi-v7
+a/CMakeFiles/CMakeError
+.log".
+  FAILED: build.ninja 
+  C:\Users\vlad\AppData
+\Local\Android\Sdk\cmak
+e\3.22.1\bin\cmake.exe 
+--regenerate-during-bui
+ld -S"D:\project\baby l
+og\babysync\node_module
+s\react-native\ReactAnd
+roid\cmake-utils\defaul
+t-app-setup" -B"D:\proj
+ect\baby log\babysync\a
+ndroid\app\.cxx\RelWith
+DebInfo\92v6h2g5\armeab
+i-v7a"
+  
+  C++ build system [cle
+an] failed while execut
+ing:
+      @echo off
+      "C:\\Users\\vlad\
+\AppData\\Local\\Androi
+d\\Sdk\\cmake\\3.22.1\\
+bin\\ninja.exe" ^
+        -C ^
+        "D:\\project\\b
+aby log\\babysync\\andr
+oid\\app\\.cxx\\RelWith
+DebInfo\\92v6h2g5\\arme
+abi-v7a" ^
+        clean
+    from D:\project\bab
+y log\babysync\android\
+app
+  CMake Error at D:/pro
+ject/baby log/babysync/
+android/app/build/gener
+ated/autolinking/src/ma
+in/jni/Android-autolink
+ing.cmake:10 (add_subdi
+rectory):
+    add_subdirectory gi
+ven source "D:/project/
+baby
+    log/babysync/node_m
+odules/@react-native-as
+ync-storage/async-stora
+ge/android/build/genera
+ted/source/codegen/jni/
+"
+    which is not an exi
+sting directory.
+  Call Stack (most rece
+nt call first):
+    D:/project/baby log
+/babysync/node_modules/
+react-native/ReactAndro
+id/cmake-utils/ReactNat
+ive-application.cmake:9
+4 (include)
+    CMakeLists.txt:31 (
+include)
+  
+  
+  CMake Error at D:/pro
+ject/baby log/babysync/
+android/app/build/gener
+ated/autolinking/src/ma
+in/jni/Android-autolink
+ing.cmake:11 (add_subdi
+rectory):
+    add_subdirectory gi
+ven source "D:/project/
+baby
+    log/babysync/node_m
+odules/@react-native-co
+mmunity/datetimepicker/
+android/build/generated
+/source/codegen/jni/"
+    which is not an exi
+sting directory.
+  Call Stack (most rece
+nt call first):
+    D:/project/baby log
+/babysync/node_modules/
+react-native/ReactAndro
+id/cmake-utils/ReactNat
+ive-application.cmake:9
+4 (include)
+    CMakeLists.txt:31 (
+include)
+  
+  
+  CMake Error at D:/pro
+ject/baby log/babysync/
+android/app/build/gener
+ated/autolinking/src/ma
+in/jni/Android-autolink
+ing.cmake:13 (add_subdi
+rectory):
+    add_subdirectory gi
+ven source "D:/project/
+baby
+    log/babysync/node_m
+odules/@sentry/react-na
+tive/android/build/gene
+rated/source/codegen/jn
+i/"
+    which is not an exi
+sting directory.
+  Call Stack (most rece
+nt call first):
+    D:/project/baby log
+/babysync/node_modules/
+react-native/ReactAndro
+id/cmake-utils/ReactNat
+ive-application.cmake:9
+4 (include)
+    CMakeLists.txt:31 (
+include)
+  
+  
+  CMake Error at D:/pro
+ject/baby log/babysync/
+android/app/build/gener
+ated/autolinking/src/ma
+in/jni/Android-autolink
+ing.cmake:15 (add_subdi
+rectory):
+    add_subdirectory gi
+ven source "D:/project/
+baby
+    log/babysync/node_m
+odules/react-native-ges
+ture-handler/android/bu
+ild/generated/source/co
+degen/jni/"
+    which is not an exi
+sting directory.
+  Call Stack (most rece
+nt call first):
+    D:/project/baby log
+/babysync/node_modules/
+react-native/ReactAndro
+id/cmake-utils/ReactNat
+ive-application.cmake:9
+4 (include)
+    CMakeLists.txt:31 (
+include)
+  
+  
+  CMake Error at D:/pro
+ject/baby log/babysync/
+android/app/build/gener
+ated/autolinking/src/ma
+in/jni/Android-autolink
+ing.cmake:16 (add_subdi
+rectory):
+    add_subdirectory gi
+ven source "D:/project/
+baby
+    log/babysync/node_m
+odules/react-native-rea
+nimated/android/build/g
+enerated/source/codegen
+/jni/"
+    which is not an exi
+sting directory.
+  Call Stack (most rece
+nt call first):
+    D:/project/baby log
+/babysync/node_modules/
+react-native/ReactAndro
+id/cmake-utils/ReactNat
+ive-application.cmake:9
+4 (include)
+    CMakeLists.txt:31 (
+include)
+  
+  
+  CMake Error at D:/pro
+ject/baby log/babysync/
+android/app/build/gener
+ated/autolinking/src/ma
+in/jni/Android-autolink
+ing.cmake:20 (add_subdi
+rectory):
+    add_subdirectory gi
+ven source "D:/project/
+baby
+    log/babysync/node_m
+odules/react-native-wor
+klets/android/build/gen
+erated/source/codegen/j
+ni/"
+    which is not an exi
+sting directory.
+  Call Stack (most rece
+nt call first):
+    D:/project/baby log
+/babysync/node_modules/
+react-native/ReactAndro
+id/cmake-utils/ReactNat
+ive-application.cmake:9
+4 (include)
+    CMakeLists.txt:31 (
+include)
+  
+  
+  CMake Error at D:/pro
+ject/baby log/babysync/
+android/app/build/gener
+ated/autolinking/src/ma
+in/jni/Android-autolink
+ing.cmake:21 (add_subdi
+rectory):
+    add_subdirectory gi
+ven source "D:/project/
+baby
+    log/babysync/node_m
+odules/react-native-wor
+klets-core/android/buil
+d/generated/source/code
+gen/jni/"
+    which is not an exi
+sting directory.
+  Call Stack (most rece
+nt call first):
+    D:/project/baby log
+/babysync/node_modules/
+react-native/ReactAndro
+id/cmake-utils/ReactNat
+ive-application.cmake:9
+4 (include)
+    CMakeLists.txt:31 (
+include)
+  
+  
+  CMake Error at D:/pro
+ject/baby log/babysync/
+android/app/build/gener
+ated/autolinking/src/ma
+in/jni/Android-autolink
+ing.cmake:22 (add_subdi
+rectory):
+    add_subdirectory gi
+ven source "D:/project/
+baby
+    log/babysync/node_m
+odules/react-native-edg
+e-to-edge/android/build
+/generated/source/codeg
+en/jni/"
+    which is not an exi
+sting directory.
+  Call Stack (most rece
+nt call first):
+    D:/project/baby log
+/babysync/node_modules/
+react-native/ReactAndro
+id/cmake-utils/ReactNat
+ive-application.cmake:9
+4 (include)
+    CMakeLists.txt:31 (
+include)
+  
+  
+  CMake Error at D:/pro
+ject/baby log/babysync/
+node_modules/react-nati
+ve/ReactAndroid/cmake-u
+tils/ReactNative-applic
+ation.cmake:97 (target_
+link_libraries):
+    Cannot specify link
+ libraries for target "
+react_codegen_rnasyncst
+orage"
+    which is not built 
+by this project.
+  Call Stack (most rece
+nt call first):
+    CMakeLists.txt:31 (
+include)
+  
+  
+  ninja: error: rebuild
+ing 'build.ninja': subc
+ommand failed
+
+* Try:
+> Run with --stacktrace
+ option to get the stac
+k trace.
+> Run with --info or --
+debug option to get mor
+e log output.
+> Run with --scan to ge
+t full insights.
+> Get more help at http
+s://help.gradle.org.
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/8.14.3/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD FAILED in 5s
+61 actionable tasks: 27 executed, 34 up-to-date
