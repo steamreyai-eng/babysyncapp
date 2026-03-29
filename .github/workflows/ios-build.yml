@@ -24,8 +24,11 @@ jobs:
         
       - name: Build Unsigned App
         run: |
-          xcodebuild -workspace ios/BabySync.xcworkspace \
-            -scheme BabySync -configuration Release -sdk iphoneos \
+          WORKSPACE=$(ls ios/*.xcworkspace | head -n 1)
+          SCHEME=$(basename "$WORKSPACE" .xcworkspace)
+          echo "Building workspace: $WORKSPACE with scheme: $SCHEME"
+          xcodebuild -workspace "$WORKSPACE" \
+            -scheme "$SCHEME" -configuration Release -sdk iphoneos \
             -derivedDataPath derived_data \
             CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
             
@@ -33,7 +36,9 @@ jobs:
         run: |
           cd derived_data/Build/Products/Release-iphoneos
           mkdir Payload
-          mv BabySync.app Payload/
+          APP_NAME=$(ls | grep '\.app$')
+          echo "Packaging app: $APP_NAME"
+          mv "$APP_NAME" Payload/
           zip -r BabySync.ipa Payload
           mv BabySync.ipa ../../../../
           
