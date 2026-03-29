@@ -1,0 +1,45 @@
+name: Build iOS App (React Native)
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+jobs:
+  build_ios:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'yarn'
+          
+      - name: Install Dependencies
+        run: yarn install
+        
+      - name: Expo Prebuild (Generate native code)
+        run: npx expo prebuild --platform ios --clean
+        
+      - name: Build Unsigned App
+        run: |
+          xcodebuild -workspace ios/BabySync.xcworkspace \
+            -scheme BabySync -configuration Release -sdk iphoneos \
+            -derivedDataPath derived_data \
+            CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
+            
+      - name: Package IPA
+        run: |
+          cd derived_data/Build/Products/Release-iphoneos
+          mkdir Payload
+          mv BabySync.app Payload/
+          zip -r BabySync.ipa Payload
+          mv BabySync.ipa ../../../../
+          
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BabySync-IPA
+          path: BabySync.ipa
+          retention-days: 7
