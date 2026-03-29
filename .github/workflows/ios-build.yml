@@ -20,7 +20,14 @@ jobs:
         run: npm ci --legacy-peer-deps
         
       - name: Expo Prebuild (Generate native code)
-        run: npx expo prebuild --platform ios --clean
+        run: |
+          EXPO_DEBUG=true npx expo prebuild --platform ios --clean --no-install
+          ls -la ios/
+          
+      - name: Install CocoaPods
+        run: |
+          cd ios
+          pod install --repo-update
         
       - name: Build Unsigned App
         run: |
