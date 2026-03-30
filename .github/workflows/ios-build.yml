@@ -42,6 +42,7 @@ jobs:
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
           EXPO_PUBLIC_OPENAI_API_KEY: ${{ secrets.EXPO_PUBLIC_OPENAI_API_KEY }}
           EXPO_PUBLIC_SENTRY_DSN: ${{ secrets.EXPO_PUBLIC_SENTRY_DSN }}
+          SENTRY_DISABLE_AUTO_UPLOAD: "true"
         run: |
           WORKSPACE=$(ls -d ios/*.xcworkspace | head -n 1)
           SCHEME=$(basename "$WORKSPACE" .xcworkspace)
@@ -49,7 +50,15 @@ jobs:
           xcodebuild -workspace "$WORKSPACE" \
             -scheme "$SCHEME" -configuration Release -sdk iphoneos \
             -derivedDataPath derived_data \
-            CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
+            CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO \
+            COMPILER_INDEX_STORE_ENABLE=NO || true
+          # Verify .app was actually built
+          APP_PATH=$(find derived_data/Build/Products/Release-iphoneos -name "*.app" -type d | head -n 1)
+          if [ -z "$APP_PATH" ]; then
+            echo "ERROR: Build failed - no .app found"
+            exit 1
+          fi
+          echo "Build successful: $APP_PATH"
             
       - name: Package IPA
         run: |
