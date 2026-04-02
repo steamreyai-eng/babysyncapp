@@ -20,6 +20,7 @@ interface TimerState {
   setWalkConfig: (config: Partial<TimerState['walkConfig']>) => void;
   clearSleepTimer: () => void;
   clearWalkTimer: () => void;
+  clearAllTimers: () => void;
 }
 
 export const useTimerStore = create<TimerState>()(
@@ -42,6 +43,10 @@ export const useTimerStore = create<TimerState>()(
       setWalkConfig: (config) => set((state) => ({ walkConfig: { ...state.walkConfig, ...config } })),
       clearSleepTimer: () => set((state) => ({ sleepConfig: { ...state.sleepConfig, isRunning: false, startTime: null, quality: 0 } })),
       clearWalkTimer: () => set((state) => ({ walkConfig: { ...state.walkConfig, isRunning: false, startTime: null, notes: '' } })),
+      clearAllTimers: () => set((state) => ({
+        sleepConfig: { ...state.sleepConfig, isRunning: false, startTime: null, quality: 0 },
+        walkConfig: { ...state.walkConfig, isRunning: false, startTime: null, notes: '' },
+      })),
     }),
     {
       name: 'babysync-timers',

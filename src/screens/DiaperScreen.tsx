@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Platform, Alert, KeyboardAvoidingView, TextInput } from 'react-native';
+import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -57,6 +58,26 @@ function DiaperScreenContent({ diapers }: { diapers: Diaper[] }) {
     } catch (error) {
       Alert.alert("Ошибка", "Не удалось сохранить подгузник.");
     }
+  };
+
+  const handleDeleteRecord = (record: Diaper) => {
+    Alert.alert(
+      "Удалить запись?",
+      "Это действие нельзя отменить",
+      [
+        { text: "Отмена", style: "cancel" },
+        { text: "Удалить", style: "destructive", onPress: async () => {
+            try {
+              await database.write(async () => {
+                await record.markAsDeleted();
+              });
+              triggerHaptic('success');
+            } catch (error) {
+              Alert.alert("Ошибка", "Не удалось удалить запись");
+            }
+        }}
+      ]
+    );
   };
 
   const changeDate = (days: number) => {
@@ -247,23 +268,35 @@ function DiaperScreenContent({ diapers }: { diapers: Diaper[] }) {
             <View>
               {today.map((d, i) => {
                 const cfg = typeConfig[d.type as keyof typeof typeConfig] || typeConfig.wet;
-                return (
-                  <View key={d.id} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: i < today.length - 1 ? 1 : 0, borderBottomColor: 'rgba(224, 221, 216, 0.5)' }}>
-                    <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: cfg.bg, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                      <Ionicons name={cfg.icon as any} size={20} color={cfg.color} />
-                    </View>
-                    <View style={{ flex: 1, marginRight: 8 }}>
-                      <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 15, color: '#1A1A2E' }}>
-                        {cfg.label}{d.color ? ` · ${d.color}` : ''}
-                      </Text>
-                      {d.note && <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 12, color: '#8A8A9E', marginTop: 2 }} numberOfLines={1}>{d.note}</Text>}
-                    </View>
-                    <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 13, color: '#8A8A9E' }}>{fmtTime(d.created_at)}</Text>
-                    <TouchableOpacity onPress={() => setEditTarget({ kind: 'diaper', record: d })}
-                      style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: '#F5F0E6', alignItems: 'center', justifyContent: 'center', marginLeft: 8 }}>
-                      <Ionicons name="pencil" size={14} color="#6B6B80" />
+                
+                const renderRightActions = () => (
+                  <View style={{ flexDirection: 'row', width: 140 }}>
+                    <TouchableOpacity onPress={() => setEditTarget({ kind: 'diaper', record: d })} style={{ flex: 1, backgroundColor: cfg.color, justifyContent: 'center', alignItems: 'center' }}>
+                      <Ionicons name="pencil" size={20} color="white" />
+                      <Text style={{ color: 'white', fontSize: 10, fontFamily: 'Nunito_800ExtraBold', marginTop: 4 }}>Изменить</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => handleDeleteRecord(d as Diaper)} style={{ flex: 1, backgroundColor: '#D94F4F', justifyContent: 'center', alignItems: 'center' }}>
+                      <Ionicons name="trash" size={20} color="white" />
+                      <Text style={{ color: 'white', fontSize: 10, fontFamily: 'Nunito_800ExtraBold', marginTop: 4 }}>Удалить</Text>
                     </TouchableOpacity>
                   </View>
+                );
+
+                return (
+                  <Swipeable key={d.id} renderRightActions={renderRightActions} friction={2} rightThreshold={40} containerStyle={{ overflow: 'hidden' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: i < today.length - 1 ? 1 : 0, borderBottomColor: 'rgba(224, 221, 216, 0.5)', backgroundColor: 'white' }}>
+                      <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: cfg.bg, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                        <Ionicons name={cfg.icon as any} size={20} color={cfg.color} />
+                      </View>
+                      <View style={{ flex: 1, marginRight: 8 }}>
+                        <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 15, color: '#1A1A2E' }}>
+                          {cfg.label}{d.color ? ` · ${d.color}` : ''}
+                        </Text>
+                        {d.note && <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 12, color: '#8A8A9E', marginTop: 2 }} numberOfLines={1}>{d.note}</Text>}
+                      </View>
+                      <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 13, color: '#8A8A9E' }}>{fmtTime(d.created_at)}</Text>
+                    </View>
+                  </Swipeable>
                 )
               })}
             </View>

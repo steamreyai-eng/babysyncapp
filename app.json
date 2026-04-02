@@ -52,6 +52,12 @@
       ],
       "@morrowdigital/watermelondb-expo-plugin",
       [
+        "expo-notifications",
+        {
+          "color": "#4E8FD4"
+        }
+      ],
+      [
         "@sentry/react-native/expo",
         {
           "url": "https://sentry.io/",

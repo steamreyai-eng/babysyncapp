@@ -4,6 +4,7 @@ import {
   View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet,
   Dimensions, Platform, KeyboardAvoidingView
 } from 'react-native';
+import PagerView from 'react-native-pager-view';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Smile, Moon, CalendarDays, Baby, Zap, Sparkles } from 'lucide-react-native';
@@ -626,6 +627,12 @@ const RoutineScreen = () => {
   const [activeRitual, setActiveRitual] = useState<Ritual | null>(null);
   const [editingRitual, setEditingRitual] = useState<Ritual | null>(null);
 
+  const pagerRef = useRef<PagerView>(null);
+  const handleTabPress = (tab: 'status' | 'rituals' | 'schedule', index: number) => {
+    setActiveSubTab(tab);
+    pagerRef.current?.setPage(index);
+  };
+
   const completionRate = getCompletionRate(7);
 
   // Build combined ritual list
@@ -675,7 +682,7 @@ const RoutineScreen = () => {
 
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: '#FAFBFC' }} behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}>
-       <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: Platform.OS === 'ios' ? 60 : 16, paddingBottom: 180 }}>
+       <View style={{ paddingHorizontal: 16, paddingTop: Platform.OS === 'ios' ? 60 : 16 }}>
          <Text style={{ fontSize: 32, fontFamily: 'Nunito_900Black', color: '#0F172A', letterSpacing: -0.5, marginBottom: 4 }}>Режим</Text>
          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 16 }}>
            {engine.leapInfo.status === 'during' ? (
@@ -699,10 +706,10 @@ const RoutineScreen = () => {
                { id: 'status' as const, label: 'Статус', icon: Baby },
                { id: 'rituals' as const, label: 'Ритуалы', icon: Moon },
                { id: 'schedule' as const, label: 'План', icon: CalendarDays },
-             ]).map(t => (
+             ]).map((t, index) => (
                <TouchableOpacity
                  key={t.id}
-                 onPress={() => setActiveSubTab(t.id)}
+                 onPress={() => handleTabPress(t.id, index)}
                  style={{
                    flex: 1, flexDirection: 'row', gap: 6, paddingVertical: 10, borderRadius: 100, alignItems: 'center', justifyContent: 'center',
                    backgroundColor: activeSubTab === t.id ? '#FFFFFF' : 'transparent',
@@ -718,19 +725,26 @@ const RoutineScreen = () => {
              ))}
            </View>
          )}
+       </View>
 
-         {/* Status Tab */}
-         {activeSubTab === 'status' && view === 'list' && (
-           <StatusDashboard
-             leapInfo={engine.leapInfo} norms={engine.norms}
-             adaptations={engine.adaptations} ageWeeks={engine.ageWeeks}
-             ageMo={engine.ageMo} sources={engine.sources}
-           />
-         )}
+       {view === 'list' ? (
+        <PagerView style={{ flex: 1 }} initialPage={0} ref={pagerRef} onPageSelected={e => {
+          const p = ['status', 'rituals', 'schedule'] as const;
+          setActiveSubTab(p[e.nativeEvent.position]);
+        }}>
+          <View key="status">
+            <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 180 }} showsVerticalScrollIndicator={false}>
+              <StatusDashboard
+                leapInfo={engine.leapInfo} norms={engine.norms}
+                adaptations={engine.adaptations} ageWeeks={engine.ageWeeks}
+                ageMo={engine.ageMo} sources={engine.sources}
+              />
+            </ScrollView>
+          </View>
 
-         {/* Rituals Tab */}
-         {activeSubTab === 'rituals' && view === 'list' && (
-           <View>
+          <View key="rituals">
+            <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 180 }} showsVerticalScrollIndicator={false}>
+              <View>
              {/* Weekly Stats */}
              {logs.length > 0 && (
                <View style={[styles.card, { padding: 16, marginBottom: 16 }]}>
@@ -832,36 +846,39 @@ const RoutineScreen = () => {
              </TouchableOpacity>
 
            </View>
-         )}
+           </ScrollView>
+         </View>
 
-         {/* Checklist View */}
-         {activeSubTab === 'rituals' && view === 'checklist' && activeRitual && activeLog && (
-           <RitualChecklist
-             ritual={activeRitual} log={activeLog}
-             onCompleteStep={completeStep} onFinish={handleFinishRitual}
-             onBack={() => { setView('list'); setActiveLog(null); setActiveRitual(null); }}
-             anchorPhrase={activeRitual.id === 'engine-bedtime' ? engine.bedtimeRitual.anchorPhrase : undefined}
-           />
-         )}
+         <View key="schedule">
+           <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 180 }} showsVerticalScrollIndicator={false}>
+             <EngineSchedule
+               schedule={engine.schedule} leapInfo={engine.leapInfo}
+               norms={engine.norms} onChangeWakeUp={setWakeUpTime} wakeUpTime={wakeUpTime}
+             />
+           </ScrollView>
+         </View>
+       </PagerView>
+       ) : (
+         <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 180 }} showsVerticalScrollIndicator={false}>
+            {view === 'checklist' && activeRitual && activeLog && (
+              <RitualChecklist
+                ritual={activeRitual} log={activeLog}
+                onCompleteStep={completeStep} onFinish={handleFinishRitual}
+                onBack={() => { setView('list'); setActiveLog(null); setActiveRitual(null); }}
+                anchorPhrase={activeRitual.id === 'engine-bedtime' ? engine.bedtimeRitual.anchorPhrase : undefined}
+              />
+            )}
 
-         {/* Editor View */}
-         {activeSubTab === 'rituals' && view === 'editor' && (
-            <RitualEditor
-               initial={editingRitual || undefined}
-               onSave={handleSaveRitual}
-               onBack={() => { setView('list'); setEditingRitual(null); }}
-               onDelete={editingRitual && !editingRitual.isPreset ? handleDeleteRitual : undefined}
-            />
-         )}
-
-         {/* Schedule Tab */}
-         {activeSubTab === 'schedule' && view === 'list' && (
-           <EngineSchedule
-             schedule={engine.schedule} leapInfo={engine.leapInfo}
-             norms={engine.norms} onChangeWakeUp={setWakeUpTime} wakeUpTime={wakeUpTime}
-           />
-         )}
-       </ScrollView>
+            {view === 'editor' && (
+               <RitualEditor
+                  initial={editingRitual || undefined}
+                  onSave={handleSaveRitual}
+                  onBack={() => { setView('list'); setEditingRitual(null); }}
+                  onDelete={editingRitual && !editingRitual.isPreset ? handleDeleteRitual : undefined}
+               />
+            )}
+         </ScrollView>
+       )}
     </KeyboardAvoidingView>
   );
 };

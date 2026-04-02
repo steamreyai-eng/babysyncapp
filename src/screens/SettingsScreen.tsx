@@ -6,6 +6,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuthStore, getAgeLabel } from '../store/authStore';
+import { useDataStore } from '../store/dataStore';
+import { useTimerStore } from '../store/timerStore';
 import { supabase } from '../lib/supabase';
 import { exportDataAsJSON } from '../lib/exportData';
 import PrivacyPolicyScreen from './PrivacyPolicyScreen';
@@ -72,6 +74,9 @@ export default function SettingsScreen() {
        { text: 'Отмена', style: 'cancel' },
        { text: 'Выйти', style: 'destructive', onPress: async () => {
           try {
+             useDataStore.getState().clearData();
+             useTimerStore.getState().clearAllTimers();
+             
              const { database } = require('../db');
              await database.write(async () => {
                 await database.unsafeResetDatabase();

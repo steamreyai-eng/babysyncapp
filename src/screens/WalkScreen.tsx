@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Platform, Alert, KeyboardAvoidingView, TextInput } from 'react-native';
+import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -12,6 +13,7 @@ import withObservables from '@nozbe/with-observables';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import EditRecordModal from '../components/EditRecordModal';
 import { useTimerStore } from '../store/timerStore';
+import { startWalkTimerNotification, cancelWalkTimerNotification } from '../lib/timerNotifications';
 
 const LOCATIONS = [
   { id: 'park', label: 'Парк', icon: 'leaf', color: '#059669' },
@@ -66,7 +68,9 @@ function WalkScreenContent({ walks }: { walks: Walk[] }) {
   }, [isRunning, startTime]);
 
   const handleStartTimer = () => {
-    setWalkConfig({ startTime: timerStartInput.getTime(), isRunning: true });
+    const stime = timerStartInput.getTime();
+    setWalkConfig({ startTime: stime, isRunning: true });
+    startWalkTimerNotification(stime);
   };
 
   const handleStopSave = async () => {
@@ -88,6 +92,7 @@ function WalkScreenContent({ walks }: { walks: Walk[] }) {
        }
     }
     triggerHaptic('success');
+    cancelWalkTimerNotification();
     clearWalkTimer();
     setSeconds(0);
   };
@@ -118,14 +123,24 @@ function WalkScreenContent({ walks }: { walks: Walk[] }) {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    try {
-      await database.write(async () => {
-        const walk = await database.get<Walk>('walks').find(id);
-        await walk.destroyPermanently();
-      });
-      setConfirmDelete(null);
-    } catch (e) {}
+  const handleDeleteRecord = (record: Walk) => {
+    Alert.alert(
+      "Удалить запись?",
+      "Это действие нельзя отменить",
+      [
+        { text: "Отмена", style: "cancel" },
+        { text: "Удалить", style: "destructive", onPress: async () => {
+            try {
+              await database.write(async () => {
+                await record.markAsDeleted();
+              });
+              triggerHaptic('success');
+            } catch (error) {
+              Alert.alert("Ошибка", "Не удалось удалить запись");
+            }
+        }}
+      ]
+    );
   };
 
   const fmt = (s: number) => {
@@ -138,8 +153,19 @@ function WalkScreenContent({ walks }: { walks: Walk[] }) {
     return h > 0 ? `${h}ч ${m}м` : `${m}м`;
   };
 
-  const fmtTime = (ms: number) => {
-    const d = new Date(ms);
+  const safeTime = (val: any) => {
+    if (!val) return 0;
+    if (val instanceof Date) return val.getTime();
+    if (typeof val === 'number') return val;
+    if (typeof val === 'string') {
+      if (/^\d+$/.test(val)) return parseInt(val, 10);
+      return new Date(val).getTime();
+    }
+    return new Date(val).getTime() || 0;
+  };
+
+  const fmtTime = (ms: any) => {
+    const d = new Date(safeTime(ms));
     return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
   };
 
@@ -260,7 +286,7 @@ function WalkScreenContent({ walks }: { walks: Walk[] }) {
 
           <View style={{ flexDirection: 'row', gap: 12 }}>
             {mode === 'timer' && (
-              <TouchableOpacity onPress={() => { clearWalkTimer(); setSeconds(0); }} style={{ flex: 0.8, backgroundColor: '#F4F4F8', height: 50, borderRadius: 16, alignItems: 'center', justifyContent: 'center' }}>
+              <TouchableOpacity onPress={() => { cancelWalkTimerNotification(); clearWalkTimer(); setSeconds(0); }} style={{ flex: 0.8, backgroundColor: '#F4F4F8', height: 50, borderRadius: 16, alignItems: 'center', justifyContent: 'center' }}>
                 <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 14, color: '#8A8A9E' }}>Сброс</Text>
               </TouchableOpacity>
             )}
@@ -296,44 +322,46 @@ function WalkScreenContent({ walks }: { walks: Walk[] }) {
             </View>
           ) : (
             <View style={{ gap: 12 }}>
-              {sortedWalks.map(w => (
-                <View key={w.id} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F5F0E6', padding: 12, borderRadius: 14 }}>
-                  <View style={{ width: 44, height: 44, borderRadius: 13, backgroundColor: '#DBEAFE', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                    <Ionicons name={getLoc(w.location).icon as any} size={22} color={getLoc(w.location).color} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' }}>
-                      <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 13, color: '#1A1A2E', marginRight: 6 }}>{fmtDur(w.duration_seconds)}</Text>
-                      <View style={{ backgroundColor: getLoc(w.location).color, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 100, marginRight: 6 }}>
-                        <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 9, color: 'white' }}>{getLoc(w.location).label}</Text>
-                      </View>
-                      <Ionicons name={getW(w.weather).icon as any} size={14} color={getW(w.weather).color} />
-                    </View>
-                    {w.notes && <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 11, color: '#6B6B80', marginTop: 4 }} numberOfLines={1}>{w.notes}</Text>}
-                  </View>
-                  <View style={{ alignItems: 'flex-end', flexDirection: 'row' }}>
-                    <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 11, color: '#6B6B80', marginRight: 6 }}>{fmtTime(w.created_at)}</Text>
-                    <TouchableOpacity onPress={() => setEditTarget({ kind: 'walk', record: w })}
-                      style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: 'white', alignItems: 'center', justifyContent: 'center', marginRight: 6, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 }}>
-                      <Ionicons name="pencil" size={14} color="#8A8A9E" />
+              {sortedWalks.map(w => {
+                const renderRightActions = () => (
+                  <View style={{ flexDirection: 'row', width: 140 }}>
+                    <TouchableOpacity onPress={() => setEditTarget({ kind: 'walk', record: w })} style={{ flex: 1, backgroundColor: '#10B981', justifyContent: 'center', alignItems: 'center' }}>
+                      <Ionicons name="pencil" size={20} color="white" />
+                      <Text style={{ color: 'white', fontSize: 10, fontFamily: 'Nunito_800ExtraBold', marginTop: 4 }}>Изменить</Text>
                     </TouchableOpacity>
-                    {confirmDelete === w.id ? (
-                      <View style={{ flexDirection: 'row', gap: 4 }}>
-                        <TouchableOpacity onPress={() => handleDelete(w.id)} style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: '#EF4444', alignItems: 'center', justifyContent: 'center' }}>
-                          <Ionicons name="checkmark" size={14} color="white" />
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={() => setConfirmDelete(null)} style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: '#E0DDD8', alignItems: 'center', justifyContent: 'center' }}>
-                          <Ionicons name="close" size={14} color="#6B6B80" />
-                        </TouchableOpacity>
-                      </View>
-                    ) : (
-                      <TouchableOpacity onPress={() => setConfirmDelete(w.id)} style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center' }}>
-                        <Ionicons name="trash" size={14} color="#EF4444" />
-                      </TouchableOpacity>
-                    )}
+                    <TouchableOpacity onPress={() => handleDeleteRecord(w as Walk)} style={{ flex: 1, backgroundColor: '#D94F4F', borderTopRightRadius: 14, borderBottomRightRadius: 14, justifyContent: 'center', alignItems: 'center' }}>
+                      <Ionicons name="trash" size={20} color="white" />
+                      <Text style={{ color: 'white', fontSize: 10, fontFamily: 'Nunito_800ExtraBold', marginTop: 4 }}>Удалить</Text>
+                    </TouchableOpacity>
                   </View>
-                </View>
-              ))}
+                );
+
+                return (
+                 <View key={w.id} style={{ marginBottom: 12, backgroundColor: '#F5F0E6', borderRadius: 14, overflow: 'hidden' }}>
+                  <Swipeable renderRightActions={renderRightActions} friction={2} rightThreshold={40}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F5F0E6', padding: 12, borderRadius: 14 }}>
+                      <View style={{ width: 44, height: 44, borderRadius: 13, backgroundColor: '#DBEAFE', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                        <Ionicons name={getLoc(w.location).icon as any} size={22} color={getLoc(w.location).color} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' }}>
+                          <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 13, color: '#1A1A2E', marginRight: 6 }}>{fmtDur(w.duration_seconds)}</Text>
+                          <View style={{ backgroundColor: getLoc(w.location).color, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 100, marginRight: 6 }}>
+                            <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 9, color: 'white' }}>{getLoc(w.location).label}</Text>
+                          </View>
+                          <Ionicons name={getW(w.weather).icon as any} size={14} color={getW(w.weather).color} />
+                        </View>
+                        {w.notes && <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 11, color: '#6B6B80', marginTop: 4 }} numberOfLines={1}>{w.notes}</Text>}
+                      </View>
+                      <View style={{ alignItems: 'flex-end', justifyContent: 'center' }}>
+                        <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 11, color: '#6B6B80', marginRight: 6 }}>{fmtTime(w.created_at)}</Text>
+                        <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 11, color: '#6B6B80', marginRight: 6, marginTop: 2 }}>{fmtTime(safeTime(w.created_at) + w.duration_seconds * 1000)}</Text>
+                      </View>
+                    </View>
+                  </Swipeable>
+                 </View>
+                );
+              })}
             </View>
           )}
         </View>

@@ -187,17 +187,18 @@ const DiaperEdit = ({ record, onClose }: { record: any; onClose: () => void }) =
 /* ── Sleep Edit ── */
 const safeTime = (val: any) => {
   if (!val) return 0;
+  if (val instanceof Date) return val.getTime();
   if (typeof val === 'number') return val;
   if (typeof val === 'string') {
     if (/^\d+$/.test(val)) return parseInt(val, 10);
     return new Date(val).getTime();
   }
-  return 0;
+  return new Date(val).getTime() || 0;
 };
 
 const SleepEdit = ({ record, onClose }: { record: any; onClose: () => void }) => {
-  const startMs = safeTime(record.start_time) || record.created_at;
-  const endMs = safeTime(record.end_time) || (startMs + record.duration_seconds * 1000);
+  const startMs = safeTime(record.start_time) || safeTime(record.created_at);
+  const endMs = safeTime(record.end_time) || (startMs + (record.duration_seconds || 0) * 1000);
   const [start, setStart] = useState(new Date(startMs));
   const [end, setEnd] = useState(new Date(endMs));
   const [location, setLocation] = useState(record.location || 'crib');

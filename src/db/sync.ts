@@ -139,38 +139,52 @@ export async function syncWithSupabase() {
           if (tableChanges.created?.length > 0) {
             const cleaned = tableChanges.created.map((r: any) => {
               const { _status, _changed, deleted_at, ...rest } = r;
+
+              // Convert all known timestamp/epoch fields to ISO strings for Supabase `timestampz` columns
+              const timeFields = ['created_at', 'updated_at', 'start_time', 'end_time', 'due_time', 'started_at'];
+              for (const tf of timeFields) {
+                if (rest[tf]) {
+                  const num = typeof rest[tf] === 'string' ? parseInt(rest[tf], 10) : rest[tf];
+                  if (!isNaN(num) && num > 100000000000) { // basic check for valid ms epoch
+                    rest[tf] = new Date(num).toISOString();
+                  }
+                }
+              }
+
               return {
                 ...rest,
-                created_at: rest.created_at
-                  ? new Date(rest.created_at).toISOString()
-                  : new Date().toISOString(),
-                updated_at: rest.updated_at
-                  ? new Date(rest.updated_at).toISOString()
-                  : new Date().toISOString(),
+                created_at: rest.created_at || new Date().toISOString(),
+                updated_at: rest.updated_at || new Date().toISOString(),
               };
             });
             const { error } = await supabase.from(table).upsert(cleaned);
-            if (error && __DEV__) console.warn(`[sync] Push create error for ${table}:`, error.message);
+            if (error) {
+              if (__DEV__) console.warn(`[sync] Push create error for ${table}:`, error.message);
+              throw new Error(`Push create error on ${table}: ${error.message}`);
+            }
           }
 
           // ── Push updated records (batch upsert instead of sequential update) ──
           if (tableChanges.updated?.length > 0) {
             const cleaned = tableChanges.updated.map((r: any) => {
               const { _status, _changed, ...rest } = r;
-              // Convert timestamps from ms to ISO strings
-              if (rest.created_at && typeof rest.created_at === 'number') {
-                rest.created_at = new Date(rest.created_at).toISOString();
-              }
-              if (rest.updated_at && typeof rest.updated_at === 'number') {
-                rest.updated_at = new Date(rest.updated_at).toISOString();
-              }
-              if (rest.deleted_at && typeof rest.deleted_at === 'number') {
-                rest.deleted_at = new Date(rest.deleted_at).toISOString();
+
+              const timeFields = ['created_at', 'updated_at', 'deleted_at', 'start_time', 'end_time', 'due_time', 'started_at'];
+              for (const tf of timeFields) {
+                if (rest[tf]) {
+                  const num = typeof rest[tf] === 'string' ? parseInt(rest[tf], 10) : rest[tf];
+                  if (!isNaN(num) && num > 100000000000) {
+                    rest[tf] = new Date(num).toISOString();
+                  }
+                }
               }
               return rest;
             });
             const { error } = await supabase.from(table).upsert(cleaned);
-            if (error && __DEV__) console.warn(`[sync] Push update error for ${table}:`, error.message);
+            if (error) {
+              if (__DEV__) console.warn(`[sync] Push update error for ${table}:`, error.message);
+              throw new Error(`Push update error on ${table}: ${error.message}`);
+            }
           }
 
           // ── Push deleted records (soft-delete: set deleted_at) ──
@@ -179,7 +193,10 @@ export async function syncWithSupabase() {
               .from(table)
               .update({ deleted_at: new Date().toISOString() })
               .in('id', tableChanges.deleted);
-            if (error && __DEV__) console.warn(`[sync] Push delete error for ${table}:`, error.message);
+            if (error) {
+              if (__DEV__) console.warn(`[sync] Push delete error for ${table}:`, error.message);
+              throw new Error(`Push delete error on ${table}: ${error.message}`);
+            }
           }
         }
 

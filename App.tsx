@@ -1,7 +1,9 @@
+import 'react-native-url-polyfill/auto';
 import 'react-native-gesture-handler';
 import React, { useEffect, useState, useCallback } from 'react';
 import * as Sentry from '@sentry/react-native';
 import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { StatusBar, View, Platform, AppState } from 'react-native';
@@ -15,6 +17,9 @@ import { useAuthStore } from './src/store/authStore';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AIBubble from './src/components/AIBubble';
 import FAB from './src/components/FAB';
+import LiveActivityBanner from './src/components/LiveActivityBanner';
+import { setupTimerNotifications, restoreTimerNotifications } from './src/lib/timerNotifications';
+import { useTimerStore } from './src/store/timerStore';
 
 // Expo Fonts — Nunito + Plus Jakarta Sans (matching web)
 import * as SplashScreen from 'expo-splash-screen';
@@ -33,7 +38,14 @@ import {
 } from '@expo-google-fonts/plus-jakarta-sans';
 
 import HomeScreen from './src/screens/HomeScreen';
-import TrackerStack from './src/screens/TrackerStack';
+import TrackerScreen from './src/screens/TrackerScreen';
+import SleepScreen from './src/screens/SleepScreen';
+import WalkScreen from './src/screens/WalkScreen';
+import FeedingScreen from './src/screens/FeedingScreen';
+import DiaperScreen from './src/screens/DiaperScreen';
+import HealthScreen from './src/screens/HealthScreen';
+import DoctorScreen from './src/screens/DoctorScreen';
+import GrowthScreen from './src/screens/GrowthScreen';
 import RoutineScreen from './src/screens/RoutineScreen';
 import AnalyticsScreen from './src/screens/AnalyticsScreen';
 import ShiftsScreen from './src/screens/ShiftsScreen';
@@ -48,6 +60,7 @@ import * as Linking from 'expo-linking';
 SplashScreen.preventAutoHideAsync();
 
 const Tab = createBottomTabNavigator();
+const RootStack = createNativeStackNavigator();
 
 // ── Navigation colors (matching web BottomNav.tsx) ──
 const ACTIVE_COLOR = '#2563EB';
@@ -75,6 +88,13 @@ export default Sentry.wrap(function App() {
   useEffect(() => {
     async function prepare() {
       try {
+        await setupTimerNotifications();
+        const { sleepConfig, walkConfig } = useTimerStore.getState();
+        await restoreTimerNotifications(
+           sleepConfig.isRunning, sleepConfig.startTime,
+           walkConfig.isRunning, walkConfig.startTime
+        );
+        
         await Font.loadAsync({
           Nunito_400Regular,
           Nunito_600SemiBold,
@@ -149,6 +169,9 @@ export default Sentry.wrap(function App() {
             .then(() => checkTodayShift())
             .catch(e => __DEV__ && console.warn('Sync failed', e))
         );
+      } else {
+        import('./src/store/dataStore').then(({ useDataStore }) => useDataStore.getState().clearData());
+        import('./src/store/timerStore').then(({ useTimerStore }) => useTimerStore.getState().clearAllTimers());
       }
     });
 
@@ -163,6 +186,9 @@ export default Sentry.wrap(function App() {
             .then(() => checkTodayShift())
             .catch(e => __DEV__ && console.warn('Sync failed', e))
         );
+      } else {
+        import('./src/store/dataStore').then(({ useDataStore }) => useDataStore.getState().clearData());
+        import('./src/store/timerStore').then(({ useTimerStore }) => useTimerStore.getState().clearAllTimers());
       }
     });
 
@@ -242,7 +268,7 @@ export default Sentry.wrap(function App() {
   }
 
 // Pulled to top-level to prevent unmounting when App re-renders
-const MainAppContent = () => {
+const TabNavigator = () => {
   const insets = useSafeAreaInsets();
   return (
     <View style={{ flex: 1 }}>
@@ -304,14 +330,34 @@ const MainAppContent = () => {
           })}
         >
           <Tab.Screen name="Home" component={HomeScreen} options={{ title: 'Дом' }} />
-          <Tab.Screen name="Tracker" component={TrackerStack} options={{ title: 'Трекер' }} />
+          <Tab.Screen name="Tracker" component={TrackerScreen} options={{ title: 'Трекер' }} />
           <Tab.Screen name="Routine" component={RoutineScreen} options={{ title: 'Режим' }} />
           <Tab.Screen name="Analytics" component={AnalyticsScreen} options={{ title: 'Графики' }} />
           <Tab.Screen name="Shifts" component={ShiftsScreen} options={{ title: 'Смены' }} />
           <Tab.Screen name="Settings" component={SettingsScreen} options={{ title: 'Профиль' }} />
         </Tab.Navigator>
+    </View>
+  );
+};
+
+const MainAppContent = () => {
+  return (
+    <View style={{ flex: 1 }}>
+        <RootStack.Navigator screenOptions={{ headerShown: false }}>
+           <RootStack.Screen name="MainTabs" component={TabNavigator} />
+           <RootStack.Group screenOptions={{ presentation: 'modal' }}>
+             <RootStack.Screen name="Sleep" component={SleepScreen} />
+             <RootStack.Screen name="Walk" component={WalkScreen} />
+             <RootStack.Screen name="Feeding" component={FeedingScreen} />
+             <RootStack.Screen name="Diaper" component={DiaperScreen} />
+             <RootStack.Screen name="Health" component={HealthScreen} />
+             <RootStack.Screen name="Doctor" component={DoctorScreen} />
+             <RootStack.Screen name="Growth" component={GrowthScreen} />
+           </RootStack.Group>
+        </RootStack.Navigator>
         <FAB />
         <AIBubble />
+        <LiveActivityBanner />
     </View>
   );
 };
@@ -330,18 +376,13 @@ const MainAppContent = () => {
       config: {
         screens: {
           Home: 'home',
-          Tracker: {
-            path: 'tracker',
-            screens: {
-              TrackerMain: '',
-              Feeding: 'feeding',
-              Sleep: 'sleep',
-              Diaper: 'diaper',
-              Walk: 'walk',
-              Pump: 'pump',
-              Health: 'health'
-            }
-          },
+          Tracker: 'tracker',
+          Feeding: 'feeding',
+          Sleep: 'sleep',
+          Diaper: 'diaper',
+          Walk: 'walk',
+          Pump: 'pump',
+          Health: 'health',
           Routine: 'routine',
           Analytics: 'analytics',
           Shifts: 'shifts',

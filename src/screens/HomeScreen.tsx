@@ -96,11 +96,14 @@ const HomeScreenContent = ({ feedings, sleeps, diapers, walks, tasks }: any) => 
     return 'red';
   })();
 
+  const getWalkEndMs = (w: any) =>
+    safeTime(w.created_at) + (w.duration_seconds || 0) * 1000;
+
   const walkSignal = (() => {
     const todaysSecs = walks.filter((w:any) => new Date(w.created_at).getDate() === new Date().getDate()).reduce((s:any, w:any) => s + w.duration_seconds, 0);
     if (todaysSecs >= 90 * 60) return 'green';
     if (!lastWalk) return 'neutral';
-    const hAgo = (Date.now() - new Date(lastWalk.created_at).getTime()) / 3600000;
+    const hAgo = (Date.now() - getWalkEndMs(lastWalk)) / 3600000;
     if (hAgo < 4) return 'green';
     if (hAgo < 8) return 'yellow';
     return 'red';
@@ -202,7 +205,7 @@ const HomeScreenContent = ({ feedings, sleeps, diapers, walks, tasks }: any) => 
       Icon: Footprints,
       iconColor: COLORS.walk.icon,
       label: "Прогулка",
-      time: lastWalk ? timeSince(lastWalk.created_at) : "—",
+      time: lastWalk ? timeSince(getWalkEndMs(lastWalk)) : "—",
       sub: lastWalk ? `${Math.floor(lastWalk.duration_seconds / 60)}м` : "Нет данных",
       signalColor: SIGNAL_COLORS[walkSignal as keyof typeof SIGNAL_COLORS],
       route: 'Walk'
@@ -374,7 +377,7 @@ const HomeScreenContent = ({ feedings, sleeps, diapers, walks, tasks }: any) => 
              {quickCards.map((card) => (
                 <TouchableOpacity 
                    key={card.id}
-                   onPress={() => navigation.navigate('Tracker', { screen: card.route })}
+                   onPress={() => navigation.navigate(card.route)}
                    style={{ width: 110, backgroundColor: card.signalColor.bg, padding: 14, borderRadius: 18, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 }}
                 >
                    {card.signalColor.dot !== 'transparent' && (

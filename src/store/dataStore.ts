@@ -92,6 +92,9 @@ interface DataState {
 
   // ── Baby Profile ──
   updateBaby: (updates: Partial<Omit<BabyProfile, 'id'>>) => Promise<void>;
+
+  // ── Session ──
+  clearData: () => void;
 }
 
 const getActiveParent = () => useAuthStore.getState().activeParent;
@@ -118,6 +121,20 @@ export const useDataStore = create<DataState>((set, get) => ({
   tasks: [],
   selectedDate: new Date(),
   loading: false,
+
+  clearData: () => set({
+    feedings: [],
+    sleeps: [],
+    diapers: [],
+    growthRecords: [],
+    medications: [],
+    vaccinations: [],
+    walks: [],
+    doctorVisits: [],
+    tasks: [],
+    selectedDate: new Date(),
+    loading: false,
+  }),
 
   setSelectedDate: (date: Date) => {
     set({ selectedDate: date });

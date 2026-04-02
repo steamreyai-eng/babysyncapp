@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, TextInput, Platform, Alert, KeyboardAvoidingView, Dimensions } from 'react-native';
+import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -108,6 +109,26 @@ function FeedingScreenContent({ feedings }: { feedings: Feeding[] }) {
       triggerHaptic('success');
       navigation.goBack();
     } catch (error) { Alert.alert("Ошибка", "Не удалось сохранить"); }
+  };
+
+  const handleDeleteRecord = (record: Feeding) => {
+    Alert.alert(
+      "Удалить запись?",
+      "Это действие нельзя отменить",
+      [
+        { text: "Отмена", style: "cancel" },
+        { text: "Удалить", style: "destructive", onPress: async () => {
+            try {
+              await database.write(async () => {
+                await record.markAsDeleted();
+              });
+              triggerHaptic('success');
+            } catch (error) {
+              Alert.alert("Ошибка", "Не удалось удалить запись");
+            }
+        }}
+      ]
+    );
   };
 
   const fmt = (s: number) => {
@@ -295,25 +316,39 @@ function FeedingScreenContent({ feedings }: { feedings: Feeding[] }) {
               <View style={{ position: 'absolute', left: 23, top: 16, bottom: 24, width: 2, backgroundColor: '#E5E7EB' }} />
               {today.map(f => {
                 const ts = getTypeStyle(f.type);
+                
+                const renderRightActions = () => (
+                  <View style={{ flexDirection: 'row', width: 140 }}>
+                    <TouchableOpacity onPress={() => setEditTarget({ kind: 'feeding', record: f })} style={{ flex: 1, backgroundColor: ts.color, justifyContent: 'center', alignItems: 'center' }}>
+                      <Ionicons name="pencil" size={20} color="white" />
+                      <Text style={{ color: 'white', fontSize: 10, fontFamily: 'Nunito_800ExtraBold', marginTop: 4 }}>Изменить</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => handleDeleteRecord(f as Feeding)} style={{ flex: 1, backgroundColor: '#D94F4F', borderTopRightRadius: 16, borderBottomRightRadius: 16, justifyContent: 'center', alignItems: 'center' }}>
+                      <Ionicons name="trash" size={20} color="white" />
+                      <Text style={{ color: 'white', fontSize: 10, fontFamily: 'Nunito_800ExtraBold', marginTop: 4 }}>Удалить</Text>
+                    </TouchableOpacity>
+                  </View>
+                );
+
                 return (
                   <View key={f.id} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 14, marginBottom: 16 }}>
                     <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: ts.bg, alignItems: 'center', justifyContent: 'center', zIndex: 2, borderWidth: 3, borderColor: '#FAFAFC' }}>
                       <Ionicons name={ts.icon as any} size={14} color={ts.color} />
                     </View>
-                    <View style={{ flex: 1, backgroundColor: 'white', borderRadius: 16, padding: 12, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 16, elevation: 1, borderWidth: 1, borderColor: 'rgba(0,0,0,0.04)' }}>
-                      <View style={{ flex: 1 }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                          <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 15, color: '#1A1A2E' }}>{fmtTime(f.created_at)}</Text>
-                          <View style={{ backgroundColor: ts.bg, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 }}>
-                            <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 11, color: ts.color }}>{ts.label}</Text>
+                    <View style={{ flex: 1, backgroundColor: 'white', borderRadius: 16, shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 16, elevation: 1, borderWidth: 1, borderColor: 'rgba(0,0,0,0.04)', overflow: 'hidden' }}>
+                      <Swipeable renderRightActions={renderRightActions} friction={2} rightThreshold={40}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', padding: 12, paddingHorizontal: 16, backgroundColor: 'white' }}>
+                          <View style={{ flex: 1 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                              <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 15, color: '#1A1A2E' }}>{fmtTime(f.created_at)}</Text>
+                              <View style={{ backgroundColor: ts.bg, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 }}>
+                                <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 11, color: ts.color }}>{ts.label}</Text>
+                              </View>
+                            </View>
+                            <Text numberOfLines={1} style={{ fontFamily: 'Nunito_700Bold', fontSize: 13, color: '#6B6B80' }}>{f.description}</Text>
                           </View>
                         </View>
-                        <Text numberOfLines={1} style={{ fontFamily: 'Nunito_700Bold', fontSize: 13, color: '#6B6B80' }}>{f.description}</Text>
-                      </View>
-                      <TouchableOpacity onPress={() => setEditTarget({ kind: 'feeding', record: f })}
-                        style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: '#F5F5F9', alignItems: 'center', justifyContent: 'center', marginLeft: 12 }}>
-                        <Ionicons name="pencil" size={14} color="#8A8A9E" />
-                      </TouchableOpacity>
+                      </Swipeable>
                     </View>
                   </View>
                 );

@@ -30,6 +30,9 @@ const ShiftsScreenContent = ({ feedings, sleeps, diapers, tasks, shiftsData }: a
   const [newTaskTime, setNewTaskTime] = useState<Date | null>(null);
   const [showTimePicker, setShowTimePicker] = useState(false);
 
+  // Debounce flag to prevent rapid clicks on same cell
+  const [isAssigning, setIsAssigning] = useState(false);
+
   // Parse shifts into dict: { 'YYYY-MM-DD': 'mom' | 'dad' }
   const shiftsDict = useMemo(() => {
      const dict: Record<string, string> = {};
@@ -49,7 +52,18 @@ const ShiftsScreenContent = ({ feedings, sleeps, diapers, tasks, shiftsData }: a
     setCurrentDate(d);
   };
 
+  // Helper: trigger immediate sync to propagate changes to other devices
+  const triggerSync = () => {
+    import('../db/sync').then(({ syncWithSupabase }) =>
+      syncWithSupabase().catch(e => __DEV__ && console.warn('Sync failed', e))
+    );
+  };
+
   const assignShift = async (dateStr: string, currentAssigned: string | undefined) => {
+    // Prevent rapid double-clicks causing stale data
+    if (isAssigning) return;
+    setIsAssigning(true);
+
     const next = currentAssigned === 'mom' ? 'dad' : currentAssigned === 'dad' ? null : 'mom';
     try {
       await database.write(async () => {
@@ -69,8 +83,13 @@ const ShiftsScreenContent = ({ feedings, sleeps, diapers, tasks, shiftsData }: a
             });
          }
       });
+
+      // Trigger immediate sync so shift changes propagate to other devices
+      triggerSync();
     } catch (e) {
       console.warn("assignShift error", e);
+    } finally {
+      setIsAssigning(false);
     }
   };
 
@@ -139,6 +158,7 @@ const ShiftsScreenContent = ({ feedings, sleeps, diapers, tasks, shiftsData }: a
       });
       setNewTaskTitle('');
       setNewTaskTime(null);
+      triggerSync();
     } catch (e) {
       console.warn("handleAddTask err", e);
     }
@@ -149,6 +169,7 @@ const ShiftsScreenContent = ({ feedings, sleeps, diapers, tasks, shiftsData }: a
       await database.write(async () => {
         await task.update((t: any) => { t.is_completed = !t.is_completed; });
       });
+      triggerSync();
     } catch (e) {
       console.warn("toggleTask err", e);
     }
@@ -157,6 +178,7 @@ const ShiftsScreenContent = ({ feedings, sleeps, diapers, tasks, shiftsData }: a
   const deleteTask = async (task: any) => {
     try {
       await database.write(async () => { await task.markAsDeleted(); });
+      triggerSync();
     } catch (e) {
       console.warn("deleteTask err", e);
     }

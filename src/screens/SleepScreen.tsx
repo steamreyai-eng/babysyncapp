@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Platform, Alert, KeyboardAvoidingView } from 'react-native';
+import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -12,6 +13,7 @@ import withObservables from '@nozbe/with-observables';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import EditRecordModal from '../components/EditRecordModal';
 import { useTimerStore } from '../store/timerStore';
+import { startSleepTimerNotification, cancelSleepTimerNotification } from '../lib/timerNotifications';
 
 const LOCATIONS = [
   { id: 'crib', label: 'Кроватка', icon: 'bed', color: '#8B5CF6' },
@@ -59,7 +61,9 @@ function SleepScreenContent({ sleeps }: { sleeps: Sleep[] }) {
   }, [isRunning, startTime]);
 
   const handleStartTimer = () => {
-    setSleepConfig({ startTime: timerStartInput.getTime(), isRunning: true });
+    const stime = timerStartInput.getTime();
+    setSleepConfig({ startTime: stime, isRunning: true });
+    startSleepTimerNotification(stime);
   };
 
   const handleStopSave = async () => {
@@ -82,6 +86,7 @@ function SleepScreenContent({ sleeps }: { sleeps: Sleep[] }) {
        }
     }
     triggerHaptic('success');
+    cancelSleepTimerNotification();
     clearSleepTimer();
     setSeconds(0);
   };
@@ -111,6 +116,26 @@ function SleepScreenContent({ sleeps }: { sleeps: Sleep[] }) {
     }
   };
 
+  const handleDeleteRecord = (record: Sleep) => {
+    Alert.alert(
+      "Удалить запись?",
+      "Это действие нельзя отменить",
+      [
+        { text: "Отмена", style: "cancel" },
+        { text: "Удалить", style: "destructive", onPress: async () => {
+            try {
+              await database.write(async () => {
+                await record.markAsDeleted();
+              });
+              triggerHaptic('success');
+            } catch (error) {
+              Alert.alert("Ошибка", "Не удалось удалить запись");
+            }
+        }}
+      ]
+    );
+  };
+
   const fmt = (s: number) => {
     const h = Math.floor(s / 3600); const m = Math.floor((s % 3600) / 60); const sec = s % 60;
     return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
@@ -123,12 +148,13 @@ function SleepScreenContent({ sleeps }: { sleeps: Sleep[] }) {
 
   const safeTime = (val: any) => {
     if (!val) return 0;
+    if (val instanceof Date) return val.getTime();
     if (typeof val === 'number') return val;
     if (typeof val === 'string') {
       if (/^\d+$/.test(val)) return parseInt(val, 10);
       return new Date(val).getTime();
     }
-    return 0;
+    return new Date(val).getTime() || 0;
   };
 
   const fmtTime = (ms: any) => {
@@ -175,8 +201,8 @@ function SleepScreenContent({ sleeps }: { sleeps: Sleep[] }) {
         const currentSleep = recentSleeps[i];
         const prevSleep = recentSleeps[i + 1];
 
-        const currentStartMs = safeTime(currentSleep.start_time) || currentSleep.created_at;
-        const prevEndMs = safeTime(prevSleep.end_time) || (prevSleep.created_at + prevSleep.duration_seconds * 1000);
+        const currentStartMs = safeTime(currentSleep.start_time) || safeTime(currentSleep.created_at);
+        const prevEndMs = safeTime(prevSleep.end_time) || (safeTime(prevSleep.created_at) + (prevSleep.duration_seconds || 0) * 1000);
 
         const intervalMs = currentStartMs - prevEndMs;
         if (intervalMs > 0 && intervalMs < 8 * 3600000) {
@@ -190,7 +216,7 @@ function SleepScreenContent({ sleeps }: { sleeps: Sleep[] }) {
     }
 
     const lastSleepItem = sortedSleeps[0];
-    const endMs = safeTime(lastSleepItem.end_time) || (lastSleepItem.created_at + lastSleepItem.duration_seconds * 1000);
+    const endMs = safeTime(lastSleepItem.end_time) || (safeTime(lastSleepItem.created_at) + (lastSleepItem.duration_seconds || 0) * 1000);
 
     const timeSinceWakeMs = Date.now() - endMs;
     const diffMs = avgWakeMs - timeSinceWakeMs;
@@ -345,7 +371,7 @@ function SleepScreenContent({ sleeps }: { sleeps: Sleep[] }) {
           </View>
 
           <View style={{ flexDirection: 'row', gap: 12 }}>
-            <TouchableOpacity onPress={() => { clearSleepTimer(); setSeconds(0); }} style={{ flex: 0.8, backgroundColor: '#F4F4F8', height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center' }}>
+            <TouchableOpacity onPress={() => { cancelSleepTimerNotification(); clearSleepTimer(); setSeconds(0); }} style={{ flex: 0.8, backgroundColor: '#F4F4F8', height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center' }}>
               <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 14, color: '#8A8A9E' }}>Сброс</Text>
             </TouchableOpacity>
 
@@ -389,32 +415,48 @@ function SleepScreenContent({ sleeps }: { sleeps: Sleep[] }) {
 
           {todaysSleeps.length > 0 && (
             <View style={{ gap: 12 }}>
-              {todaysSleeps.slice(0, 5).map(s => (
-                <View key={s.id} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F4F4F8', padding: 12, borderRadius: 16 }}>
-                  <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: 'white', alignItems: 'center', justifyContent: 'center', marginRight: 16 }}>
-                    <Ionicons name="moon" size={20} color="#8B6FD4" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 15, color: '#1A1A2E' }}>{fmtDur(s.duration_seconds)}</Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-                      <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 12, color: '#8A8A9E', marginRight: 8 }}>{LOCATIONS.find(l => l.id === s.location)?.label}</Text>
-                      {s.quality > 0 && (
-                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                          <Ionicons name="star" size={10} color="#F0A500" style={{ marginRight: 2 }} />
-                          <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 11, color: '#F0A500' }}>{s.quality}</Text>
-                        </View>
-                      )}
-                    </View>
-                  </View>
-                  <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 12, color: '#1A1A2E' }}>{fmtTime(s.start_time || s.created_at)} - {fmtTime(s.end_time || (s.created_at + (s.duration_seconds * 1000)))}</Text>
-                    <TouchableOpacity onPress={() => setEditTarget({ kind: 'sleep', record: s })}
-                      style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: 'white', alignItems: 'center', justifyContent: 'center', marginTop: 4, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 }}>
-                      <Ionicons name="pencil" size={14} color="#8A8A9E" />
+              {todaysSleeps.slice(0, 5).map(s => {
+                const renderRightActions = () => (
+                  <View style={{ flexDirection: 'row', width: 140 }}>
+                    <TouchableOpacity onPress={() => setEditTarget({ kind: 'sleep', record: s })} style={{ flex: 1, backgroundColor: '#8B6FD4', justifyContent: 'center', alignItems: 'center' }}>
+                      <Ionicons name="pencil" size={20} color="white" />
+                      <Text style={{ color: 'white', fontSize: 10, fontFamily: 'Nunito_800ExtraBold', marginTop: 4 }}>Изменить</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => handleDeleteRecord(s as Sleep)} style={{ flex: 1, backgroundColor: '#D94F4F', borderTopRightRadius: 16, borderBottomRightRadius: 16, justifyContent: 'center', alignItems: 'center' }}>
+                      <Ionicons name="trash" size={20} color="white" />
+                      <Text style={{ color: 'white', fontSize: 10, fontFamily: 'Nunito_800ExtraBold', marginTop: 4 }}>Удалить</Text>
                     </TouchableOpacity>
                   </View>
-                </View>
-              ))}
+                );
+
+                return (
+                 <View key={s.id} style={{ marginBottom: 12, backgroundColor: '#F4F4F8', borderRadius: 16, overflow: 'hidden' }}>
+                  <Swipeable renderRightActions={renderRightActions} friction={2} rightThreshold={40}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F4F4F8', padding: 12, borderRadius: 16 }}>
+                      <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: 'white', alignItems: 'center', justifyContent: 'center', marginRight: 16 }}>
+                        <Ionicons name="moon" size={20} color="#8B6FD4" />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 15, color: '#1A1A2E' }}>{fmtDur(s.duration_seconds)}</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                          <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 12, color: '#8A8A9E', marginRight: 8 }}>{LOCATIONS.find(l => l.id === s.location)?.label}</Text>
+                          {s.quality > 0 && (
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                              <Ionicons name="star" size={10} color="#F0A500" style={{ marginRight: 2 }} />
+                              <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 11, color: '#F0A500' }}>{s.quality}</Text>
+                            </View>
+                          )}
+                        </View>
+                      </View>
+                      <View style={{ alignItems: 'flex-end', justifyContent: 'center' }}>
+                        <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 12, color: '#1A1A2E' }}>{fmtTime(s.start_time || s.created_at)}</Text>
+                        <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 12, color: '#1A1A2E', marginTop: 2 }}>{fmtTime(s.end_time || (safeTime(s.created_at) + (s.duration_seconds * 1000)))}</Text>
+                      </View>
+                    </View>
+                  </Swipeable>
+                 </View>
+                );
+              })}
             </View>
           )}
         </View>
