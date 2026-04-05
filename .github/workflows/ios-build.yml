@@ -51,11 +51,12 @@ jobs:
             -scheme "$SCHEME" -configuration Release -sdk iphoneos \
             -derivedDataPath derived_data \
             CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO \
-            COMPILER_INDEX_STORE_ENABLE=NO || true
-          # Verify .app was actually built
+            COMPILER_INDEX_STORE_ENABLE=NO
+            
+          # Verify .app was actually built and contains the compiled binary
           APP_PATH=$(find derived_data/Build/Products/Release-iphoneos -name "*.app" -type d | head -n 1)
           if [ -z "$APP_PATH" ]; then
-            echo "ERROR: Build failed - no .app found"
+            echo "ERROR: Build failed - no .app directory found"
             exit 1
           fi
           echo "Build successful: $APP_PATH"
