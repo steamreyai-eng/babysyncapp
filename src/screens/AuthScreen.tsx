@@ -78,7 +78,7 @@ export default function AuthScreen() {
       <View style={[styles.blob, { width: 140, height: 140, backgroundColor: '#B8E8DC', top: '35%', left: -20 }]} />
 
       <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'padding'} 
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined} 
         style={styles.keyboardView}
       >
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -197,7 +197,7 @@ export default function AuthScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F6F2EB' },
-  blob: { position: 'absolute', borderRadius: 9999, opacity: 0.6, filter: 'blur(40px)' },
+  blob: { position: 'absolute', borderRadius: 9999, opacity: 0.3 },
   keyboardView: { flex: 1 },
   scrollContent: { paddingHorizontal: 20, paddingBottom: 100, paddingTop: 60, flexGrow: 1, justifyContent: 'center' },
   

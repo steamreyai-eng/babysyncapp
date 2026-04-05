@@ -4,7 +4,7 @@ import { View, Text, TouchableOpacity, ScrollView, Platform, Alert, KeyboardAvoi
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePickerModal from '../components/DateTimePickerModal';
 import { database } from '../db';
 import { Walk } from '../db/models/Walk';
 import { useAuthStore } from '../store/authStore';
@@ -176,7 +176,7 @@ function WalkScreenContent({ walks }: { walks: Walk[] }) {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#FAFBFC' }}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'padding'} style={{ flex: 1 }} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
         <View style={{ paddingTop: Math.max(insets.top, 16), paddingHorizontal: 16, paddingBottom: 16, backgroundColor: '#FAFBFC', flexDirection: 'row', alignItems: 'center' }}>
            <TouchableOpacity onPress={() => navigation.goBack()} style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'white', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2, marginRight: 16, borderWidth: 1, borderColor: '#E2E8F0' }}>
                <Ionicons name="arrow-back" size={24} color="#1A1A2E" />
@@ -224,9 +224,7 @@ function WalkScreenContent({ walks }: { walks: Walk[] }) {
                   <TouchableOpacity onPress={() => setShowTimerStartPicker(true)} style={{ backgroundColor: '#F4F4F8', paddingVertical: 10, paddingHorizontal: 20, borderRadius: 12 }}>
                     <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 16, color: '#1A1A2E' }}>{timerStartInput.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</Text>
                   </TouchableOpacity>
-                  {showTimerStartPicker && (
-                    <DateTimePicker value={timerStartInput} mode="time" display="default" is24Hour onChange={(e, d) => { setShowTimerStartPicker(Platform.OS === 'ios'); if(d) setTimerStartInput(d); }} />
-                  )}
+                    <DateTimePickerModal visible={showTimerStartPicker} value={timerStartInput} mode="time" is24Hour onChange={(d) => { if(d) setTimerStartInput(d); }} onClose={() => setShowTimerStartPicker(false)} />
                 </View>
               )}
             </View>
@@ -237,18 +235,14 @@ function WalkScreenContent({ walks }: { walks: Walk[] }) {
                 <TouchableOpacity onPress={() => setShowStartPicker(true)} style={{ backgroundColor: '#F4F4F8', padding: 16, borderRadius: 16 }}>
                   <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 16, color: '#1A1A2E' }}>{manualStart.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</Text>
                 </TouchableOpacity>
-                {showStartPicker && (
-                  <DateTimePicker value={manualStart} mode="time" display="default" is24Hour onChange={(e, d) => { setShowStartPicker(Platform.OS === 'ios'); if(d) setManualStart(d); }} />
-                )}
+                <DateTimePickerModal visible={showStartPicker} value={manualStart} mode="time" is24Hour onChange={(d) => { if(d) setManualStart(d); }} onClose={() => setShowStartPicker(false)} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 11, color: '#059669', textTransform: 'uppercase', marginBottom: 8 }}>Закончили</Text>
                 <TouchableOpacity onPress={() => setShowEndPicker(true)} style={{ backgroundColor: '#F4F4F8', padding: 16, borderRadius: 16 }}>
                   <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 16, color: '#1A1A2E' }}>{manualEnd.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</Text>
                 </TouchableOpacity>
-                {showEndPicker && (
-                  <DateTimePicker value={manualEnd} mode="time" display="default" is24Hour onChange={(e, d) => { setShowEndPicker(Platform.OS === 'ios'); if(d) setManualEnd(d); }} />
-                )}
+                <DateTimePickerModal visible={showEndPicker} value={manualEnd} mode="time" is24Hour onChange={(d) => { if(d) setManualEnd(d); }} onClose={() => setShowEndPicker(false)} />
               </View>
             </View>
           )}

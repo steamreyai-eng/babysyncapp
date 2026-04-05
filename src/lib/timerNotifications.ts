@@ -94,11 +94,13 @@ export async function startSleepTimerNotification(startTimeMs: number) {
       body: `${startTimeStr} – Сейчас  •  ${elapsed}`,
       data: { type: 'sleep-timer', startTime: startTimeMs },
       sound: false,
-      sticky: true,
       ...(Platform.OS === 'android' ? {
+        sticky: true,
         channelId: 'sleep-timer',
         color: '#8B6FD4',
-      } : {}),
+      } : {
+        interruptionLevel: 'timeSensitive',
+      }),
     } as any,
     trigger: null,
   });
@@ -114,11 +116,13 @@ export async function startSleepTimerNotification(startTimeMs: number) {
           body: `${startTimeStr} – Сейчас  •  ${newElapsed}`,
           data: { type: 'sleep-timer', startTime: startTimeMs },
           sound: false,
-          sticky: true,
           ...(Platform.OS === 'android' ? {
+            sticky: true,
             channelId: 'sleep-timer',
             color: '#8B6FD4',
-          } : {}),
+          } : {
+            interruptionLevel: 'timeSensitive',
+          }),
         } as any,
         trigger: null,
       });
@@ -155,11 +159,13 @@ export async function startWalkTimerNotification(startTimeMs: number) {
       body: `${startTimeStr} – Сейчас  •  ${elapsed}`,
       data: { type: 'walk-timer', startTime: startTimeMs },
       sound: false,
-      sticky: true,
       ...(Platform.OS === 'android' ? {
+        sticky: true,
         channelId: 'walk-timer',
         color: '#059669',
-      } : {}),
+      } : {
+        interruptionLevel: 'timeSensitive',
+      }),
     } as any,
     trigger: null,
   });
@@ -174,11 +180,13 @@ export async function startWalkTimerNotification(startTimeMs: number) {
           body: `${startTimeStr} – Сейчас  •  ${newElapsed}`,
           data: { type: 'walk-timer', startTime: startTimeMs },
           sound: false,
-          sticky: true,
           ...(Platform.OS === 'android' ? {
+            sticky: true,
             channelId: 'walk-timer',
             color: '#059669',
-          } : {}),
+          } : {
+            interruptionLevel: 'timeSensitive',
+          }),
         } as any,
         trigger: null,
       });

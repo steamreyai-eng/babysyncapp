@@ -35,7 +35,7 @@ const AIBubble = () => {
             >
                 <KeyboardAvoidingView
                     style={styles.modalOverlay}
-                    behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
+                    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                 >
                     <View style={[styles.modalContent, { marginTop: insets.top + 40 }]}>
                         <View style={styles.handle} />
@@ -57,6 +57,7 @@ const styles = StyleSheet.create({
         position: 'absolute',
         left: 16,
         zIndex: 59,
+        elevation: 59,
         width: 52,
         height: 52,
         borderRadius: 26,
@@ -67,7 +68,6 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.15,
         shadowRadius: 16,
-        elevation: 5,
     },
     bubbleInner: {
         flex: 1,

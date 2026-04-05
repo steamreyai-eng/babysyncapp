@@ -5,7 +5,7 @@ import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePickerModal from '../components/DateTimePickerModal';
 import { database } from '../db';
 import { Feeding } from '../db/models/Feeding';
 import { useAuthStore } from '../store/authStore';
@@ -142,7 +142,7 @@ function FeedingScreenContent({ feedings }: { feedings: Feeding[] }) {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#FAFBFC' }}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'padding'} style={{ flex: 1 }} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
         <View style={{ paddingTop: Math.max(insets.top, 16), paddingHorizontal: 16, paddingBottom: 16, backgroundColor: '#FAFBFC', flexDirection: 'row', alignItems: 'center' }}>
          <TouchableOpacity onPress={() => navigation.goBack()} style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'white', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2, marginRight: 16, borderWidth: 1, borderColor: '#E2E8F0' }}>
              <Ionicons name="arrow-back" size={24} color="#1A1A2E" />
@@ -359,18 +359,14 @@ function FeedingScreenContent({ feedings }: { feedings: Feeding[] }) {
         </View>
       </ScrollView>
 
-      {showPicker && (
-        <DateTimePicker
-          value={eventTime}
-          mode="time"
-          is24Hour={true}
-          display="default"
-          onChange={(event, date) => {
-            setShowPicker(Platform.OS === 'ios');
-            if (date) setEventTime(date);
-          }}
-        />
-      )}
+      <DateTimePickerModal
+        visible={showPicker}
+        value={eventTime}
+        mode="time"
+        is24Hour={true}
+        onChange={(date) => { if (date) setEventTime(date); }}
+        onClose={() => setShowPicker(false)}
+      />
       <EditRecordModal target={editTarget} onClose={() => setEditTarget(null)} />
       </KeyboardAvoidingView>
     </View>

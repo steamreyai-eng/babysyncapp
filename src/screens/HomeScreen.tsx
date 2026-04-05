@@ -13,8 +13,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import withObservables from '@nozbe/with-observables';
 import { database } from '../db';
 import { Q } from '@nozbe/watermelondb';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import FAB from '../components/FAB';
+import DateTimePickerModal from '../components/DateTimePickerModal';
+// FAB is rendered globally in App.tsx — no need to import here
 import { COLORS, FONTS } from '../lib/theme';
 import { useRoutineEngine } from '../hooks/useRoutineEngine';
 
@@ -542,22 +542,17 @@ const HomeScreenContent = ({ feedings, sleeps, diapers, walks, tasks }: any) => 
         </View>
       </ScrollView>
 
-      {/* Floating Action Button */}
-      <FAB />
+      {/* FAB is rendered globally in App.tsx */}
 
       {/* Task Time Picker */}
-      {showTaskPicker && (
-        <DateTimePicker
-          value={newTaskTime || new Date()}
-          mode="time"
-          is24Hour={true}
-          display="default"
-          onChange={(event, selectedDate) => {
-            setShowTaskPicker(false);
-            if (selectedDate) setNewTaskTime(selectedDate);
-          }}
-        />
-      )}
+      <DateTimePickerModal
+        visible={showTaskPicker}
+        value={newTaskTime || new Date()}
+        mode="time"
+        is24Hour={true}
+        onChange={(selectedDate) => { if (selectedDate) setNewTaskTime(selectedDate); }}
+        onClose={() => setShowTaskPicker(false)}
+      />
     </View>
   );
 };

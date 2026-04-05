@@ -12,7 +12,7 @@ import { useAuthStore } from '../store/authStore';
 import { database } from '../db';
 import { useRoutineEngine, type ScheduleBlock, type LeapInfo, type AgeNorms } from '../hooks/useRoutineEngine';
 import { useRituals, STEP_PALETTE, type Ritual, type RitualStep, type RitualLog } from '../hooks/useRituals';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePickerModal from '../components/DateTimePickerModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -236,21 +236,20 @@ const EngineSchedule = ({
                </View>
             </TouchableOpacity>
           </View>
-          {showTimePicker && (
-            <DateTimePicker
-               value={curDate}
-               mode="time"
-               is24Hour={true}
-               display="default"
-               onChange={handleTimeChange}
-               style={{ alignSelf: 'center', marginTop: 10 }} // iOS style adjust
-            />
-          )}
-          {Platform.OS === 'ios' && showTimePicker && (
-             <TouchableOpacity style={{ marginTop: 10, alignSelf: 'flex-end', backgroundColor: '#F5F5F9', padding: 8, borderRadius: 8 }} onPress={() => setShowTimePicker(false)}>
-                <Text style={{ fontFamily: 'Nunito_800ExtraBold', color: '#667EEA' }}>Готово</Text>
-             </TouchableOpacity>
-          )}
+          <DateTimePickerModal
+            visible={showTimePicker}
+            value={curDate}
+            mode="time"
+            is24Hour={true}
+            onChange={(selectedDate) => {
+              if (selectedDate) {
+                const h = selectedDate.getHours().toString().padStart(2, '0');
+                const m = selectedDate.getMinutes().toString().padStart(2, '0');
+                onChangeWakeUp(`${h}:${m}`);
+              }
+            }}
+            onClose={() => setShowTimePicker(false)}
+          />
         </View>
 
         {/* Leap banner */}
@@ -681,7 +680,7 @@ const RoutineScreen = () => {
   };
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: '#FAFBFC' }} behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}>
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: '#FAFBFC' }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
        <View style={{ paddingHorizontal: 16, paddingTop: Platform.OS === 'ios' ? 60 : 16 }}>
          <Text style={{ fontSize: 32, fontFamily: 'Nunito_900Black', color: '#0F172A', letterSpacing: -0.5, marginBottom: 4 }}>Режим</Text>
          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 16 }}>

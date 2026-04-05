@@ -5,7 +5,7 @@ import {
   Platform, ScrollView, KeyboardAvoidingView, Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePickerModal from './DateTimePickerModal';
 import { database } from '../db';
 import { Feeding } from '../db/models/Feeding';
 import { Sleep } from '../db/models/Sleep';
@@ -76,10 +76,8 @@ const FeedingEdit = ({ record, onClose }: { record: any; onClose: () => void }) 
             {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} {time.toLocaleDateString('ru-RU')}
           </Text>
         </TouchableOpacity>
-        {showPicker && (
-          <DateTimePicker value={time} mode="time" is24Hour display="default"
-            onChange={(e, d) => { setShowPicker(Platform.OS === 'ios'); if (d) setTime(d); }} />
-        )}
+        <DateTimePickerModal visible={showPicker} value={time} mode="time" is24Hour
+            onChange={(d) => { if (d) setTime(d); }} onClose={() => setShowPicker(false)} />
       </View>
       <View style={s.actions}>
         <TouchableOpacity onPress={handleDelete} style={s.deleteBtn}>
@@ -165,10 +163,8 @@ const DiaperEdit = ({ record, onClose }: { record: any; onClose: () => void }) =
             {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} {time.toLocaleDateString('ru-RU')}
           </Text>
         </TouchableOpacity>
-        {showPicker && (
-          <DateTimePicker value={time} mode="time" is24Hour display="default"
-            onChange={(e, d) => { setShowPicker(Platform.OS === 'ios'); if (d) setTime(d); }} />
-        )}
+        <DateTimePickerModal visible={showPicker} value={time} mode="time" is24Hour
+            onChange={(d) => { if (d) setTime(d); }} onClose={() => setShowPicker(false)} />
       </View>
       <View style={s.actions}>
         <TouchableOpacity onPress={handleDelete} style={s.deleteBtn}>
@@ -253,20 +249,16 @@ const SleepEdit = ({ record, onClose }: { record: any; onClose: () => void }) =>
           <TouchableOpacity onPress={() => setShowStartPicker(true)} style={s.input}>
             <Text style={s.inputText}>{start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
           </TouchableOpacity>
-          {showStartPicker && (
-            <DateTimePicker value={start} mode="time" is24Hour display="default"
-              onChange={(e, d) => { setShowStartPicker(Platform.OS === 'ios'); if (d) setStart(d); }} />
-          )}
+            <DateTimePickerModal visible={showStartPicker} value={start} mode="time" is24Hour
+              onChange={(d) => { if (d) setStart(d); }} onClose={() => setShowStartPicker(false)} />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={s.label}>КОНЕЦ</Text>
           <TouchableOpacity onPress={() => setShowEndPicker(true)} style={s.input}>
             <Text style={s.inputText}>{end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
           </TouchableOpacity>
-          {showEndPicker && (
-            <DateTimePicker value={end} mode="time" is24Hour display="default"
-              onChange={(e, d) => { setShowEndPicker(Platform.OS === 'ios'); if (d) setEnd(d); }} />
-          )}
+            <DateTimePickerModal visible={showEndPicker} value={end} mode="time" is24Hour
+              onChange={(d) => { if (d) setEnd(d); }} onClose={() => setShowEndPicker(false)} />
         </View>
       </View>
       {isInvalid && <Text style={{ fontSize: 12, fontFamily: 'Nunito_700Bold', color: '#EF4444' }}>Конец должен быть после начала</Text>}
@@ -384,7 +376,7 @@ export default function EditRecordModal({ target, onClose }: Props) {
     <Modal visible={!!target} transparent animationType="slide" onRequestClose={onClose}>
       <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' }}>
         <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={onClose} />
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={{
             backgroundColor: 'white', borderTopLeftRadius: 24, borderTopRightRadius: 24,
             paddingHorizontal: 20, paddingTop: 20, paddingBottom: Platform.OS === 'ios' ? 34 : 20,

@@ -13,7 +13,7 @@ import {
   Modal, TextInput, Alert, Platform,
 } from 'react-native';
 import { Plus, X, Check, Moon, Milk, Droplets, Droplet, CloudRain, Cloud, Play, Square, Utensils } from 'lucide-react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePickerModal from './DateTimePickerModal';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -516,18 +516,14 @@ const FAB = () => {
         </TouchableOpacity>
       </Modal>
 
-      {showDatePicker && (
-        <DateTimePicker
-          value={logDate}
-          mode="time"
-          is24Hour={true}
-          display="default"
-          onChange={(event, selectedDate) => {
-            setShowDatePicker(false);
-            if (selectedDate) setLogDate(selectedDate);
-          }}
-        />
-      )}
+      <DateTimePickerModal
+        visible={showDatePicker}
+        value={logDate}
+        mode="time"
+        is24Hour={true}
+        onChange={(selectedDate) => { if (selectedDate) setLogDate(selectedDate); }}
+        onClose={() => setShowDatePicker(false)}
+      />
     </>
   );
 };

@@ -787,7 +787,7 @@ const styles = StyleSheet.create({
     width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginBottom: 8
   },
   sleepBlock: {
-    padding: 12, borderRadius: 14, flex: 1, minWidth: '45%'
+    padding: 12, borderRadius: 14, flex: 1, minWidth: 140
   },
   sleepBlockTitle: {
     fontSize: 11, fontFamily: 'Nunito_800ExtraBold', color: '#8A8A9E', marginBottom: 4, textTransform: 'uppercase'

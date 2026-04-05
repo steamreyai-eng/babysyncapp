@@ -8,7 +8,7 @@ import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePickerModal from '../components/DateTimePickerModal';
 
 export default function OnboardingScreen() {
   const [step, setStep] = useState(1);
@@ -91,7 +91,7 @@ export default function OnboardingScreen() {
       <View style={[styles.blob, { width: 200, height: 200, backgroundColor: '#B8E8DC', bottom: 80, right: -50 }]} />
       <View style={[styles.blob, { width: 150, height: 150, backgroundColor: '#E8DEFF', top: '40%', right: -30 }]} />
 
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'padding'} style={{ flex: 1 }}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={{ flexGrow: 1, padding: 20, justifyContent: 'center' }} showsVerticalScrollIndicator={false}>
           
           {/* Progress Dots */}
@@ -174,23 +174,13 @@ export default function OnboardingScreen() {
                          <Text style={{ fontFamily: 'Nunito_800ExtraBold', color: birthdate ? '#1A1A2E' : '#94A3B8' }}>{birthdate || 'Выберите дату'}</Text>
                       </TouchableOpacity>
                    </View>
-                   {showDatePicker && (
-                      <DateTimePicker
-                         value={birthdate ? new Date(birthdate) : new Date()}
-                         mode="date"
-                         display="default"
-                         maximumDate={new Date()}
-                         onChange={(e, d) => {
-                            if (Platform.OS === 'android') setShowDatePicker(false);
-                            if (d) setBirthdate(d.toISOString().split('T')[0]);
-                         }}
-                      />
-                   )}
-                   {Platform.OS === 'ios' && showDatePicker && (
-                      <TouchableOpacity style={{ marginTop: 10, alignSelf: 'flex-end', backgroundColor: '#F5F5F9', padding: 8, borderRadius: 8 }} onPress={() => setShowDatePicker(false)}>
-                         <Text style={{ fontFamily: 'Nunito_800ExtraBold', color: '#4E8FD4' }}>Готово</Text>
-                      </TouchableOpacity>
-                   )}
+                   <DateTimePickerModal
+                      visible={showDatePicker}
+                      value={birthdate ? new Date(birthdate) : new Date()}
+                      mode="date"
+                      onChange={(d) => { if (d) setBirthdate(d.toISOString().split('T')[0]); }}
+                      onClose={() => setShowDatePicker(false)}
+                   />
                 </View>
              )}
 
@@ -284,7 +274,7 @@ export default function OnboardingScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#E8DEFF' },
-  blob: { position: 'absolute', borderRadius: 9999, opacity: 0.6, filter: 'blur(40px)' },
+  blob: { position: 'absolute', borderRadius: 9999, opacity: 0.3 },
   
   progressContainer: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 32, zIndex: 10 },
   progressDot: { height: 5, borderRadius: 3 },

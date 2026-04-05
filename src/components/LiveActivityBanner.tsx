@@ -218,10 +218,7 @@ const BannerItem = ({
 
         {/* Stop Button */}
         <TouchableOpacity
-          onPress={(e) => {
-            e.stopPropagation();
-            onStop();
-          }}
+          onPress={onStop}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           style={{
             width: 38,
@@ -326,6 +323,7 @@ export default function LiveActivityBanner() {
 
   return (
     <View
+      pointerEvents="box-none"
       style={{
         position: 'absolute',
         top: 0,
@@ -334,7 +332,6 @@ export default function LiveActivityBanner() {
         zIndex: 9999,
         paddingTop: Math.max(insets.top, 16) + 4,
         paddingHorizontal: 12,
-        pointerEvents: 'box-none',
       }}
     >
       {sleepRunning && (

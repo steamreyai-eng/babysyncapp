@@ -9,7 +9,7 @@ import { useAuthStore } from '../store/authStore';
 import { database } from '../db';
 import withObservables from '@nozbe/with-observables';
 import { Q } from '@nozbe/watermelondb';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePickerModal from '../components/DateTimePickerModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 
@@ -404,24 +404,14 @@ const ShiftsScreenContent = ({ feedings, sleeps, diapers, tasks, shiftsData }: a
           </TouchableOpacity>
         </View>
 
-        {showTimePicker && (
-           <DateTimePicker
-              value={newTaskTime || new Date()}
-              mode="time"
-              is24Hour={true}
-              display="default"
-              onChange={(e, date) => {
-                 if (Platform.OS === 'android') setShowTimePicker(false);
-                 if (date) setNewTaskTime(date);
-              }}
-              style={{ alignSelf: 'center', marginTop: 10 }}
-           />
-        )}
-        {Platform.OS === 'ios' && showTimePicker && (
-             <TouchableOpacity style={{ marginTop: 10, alignSelf: 'flex-end', backgroundColor: '#E0E7FF', padding: 8, borderRadius: 8 }} onPress={() => setShowTimePicker(false)}>
-                <Text style={{ fontFamily: 'Nunito_800ExtraBold', color: '#6366F1' }}>Готово</Text>
-             </TouchableOpacity>
-        )}
+         <DateTimePickerModal
+           visible={showTimePicker}
+           value={newTaskTime || new Date()}
+           mode="time"
+           is24Hour={true}
+           onChange={(date) => { if (date) setNewTaskTime(date); }}
+           onClose={() => setShowTimePicker(false)}
+         />
 
       </View>
 

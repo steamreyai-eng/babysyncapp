@@ -11,7 +11,7 @@ import { useTimerStore } from '../store/timerStore';
 import { supabase } from '../lib/supabase';
 import { exportDataAsJSON } from '../lib/exportData';
 import PrivacyPolicyScreen from './PrivacyPolicyScreen';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePickerModal from '../components/DateTimePickerModal';
 import { BellRing, Moon, Sun, Download, Shield, ChevronRight, LogOut, Edit3, Globe as GlobeIcon, CalendarDays, User } from 'lucide-react-native';
 import { NotificationSettingsModal } from '../components/NotificationSettingsModal';
 
@@ -165,18 +165,13 @@ export default function SettingsScreen() {
                <TouchableOpacity onPress={() => setShowDatePicker(true)} style={[styles.input, { justifyContent: 'center' }]}>
                   <Text style={{ fontFamily: 'Nunito_800ExtraBold', color: 'white' }}>{birthdateInput || 'Выберите дату'}</Text>
                </TouchableOpacity>
-               {showDatePicker && (
-                  <DateTimePicker
-                     value={birthdateInput ? new Date(birthdateInput) : new Date()}
-                     mode="date"
-                     display="default"
-                     maximumDate={new Date()}
-                     onChange={(e, d) => {
-                        setShowDatePicker(false);
-                        if (d) setBirthdateInput(d.toISOString().split('T')[0]);
-                     }}
-                  />
-               )}
+               <DateTimePickerModal
+                  visible={showDatePicker}
+                  value={birthdateInput ? new Date(birthdateInput) : new Date()}
+                  mode="date"
+                  onChange={(d) => { if (d) setBirthdateInput(d.toISOString().split('T')[0]); }}
+                  onClose={() => setShowDatePicker(false)}
+               />
             </View>
 
             <View style={styles.inputGroup}>

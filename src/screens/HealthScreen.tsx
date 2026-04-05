@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Platform, Alert, KeyboardAvoidingView, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePickerModal from '../components/DateTimePickerModal';
 import { database } from '../db';
 import { MedicationModel } from '../db/models/MedicationModel';
 import { GrowthRecord } from '../db/models/GrowthRecord';
@@ -105,7 +105,7 @@ function HealthScreenContent({ medications, growthRecords }: { medications: Medi
 
   return (
     <View style={{ flex: 1, backgroundColor: '#FAFBFC' }}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'padding'} style={{ flex: 1 }} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
         <View style={{ paddingTop: Math.max(insets.top, 16), paddingHorizontal: 16, paddingBottom: 16, backgroundColor: '#FAFBFC', flexDirection: 'row', alignItems: 'center' }}>
            <TouchableOpacity onPress={() => navigation.goBack()} style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'white', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2, marginRight: 16, borderWidth: 1, borderColor: '#E2E8F0' }}>
                <Ionicons name="arrow-back" size={24} color="#1A1A2E" />
@@ -310,18 +310,14 @@ function HealthScreenContent({ medications, growthRecords }: { medications: Medi
         )}
       </ScrollView>
 
-      {showTimePicker && (
-        <DateTimePicker
-          value={medTime}
-          mode="time"
-          is24Hour={true}
-          display="default"
-          onChange={(event, date) => {
-            setShowTimePicker(Platform.OS === 'ios');
-            if (date) setMedTime(date);
-          }}
-        />
-      )}
+      <DateTimePickerModal
+        visible={showTimePicker}
+        value={medTime}
+        mode="time"
+        is24Hour={true}
+        onChange={(date) => { if (date) setMedTime(date); }}
+        onClose={() => setShowTimePicker(false)}
+      />
       </KeyboardAvoidingView>
     </View>
   );
