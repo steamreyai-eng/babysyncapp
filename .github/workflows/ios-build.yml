@@ -6,14 +6,18 @@ on:
   workflow_dispatch:
 jobs:
   build_ios:
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
       
-      - name: Setup Xcode
+      - name: Setup Xcode 16
         run: |
-          sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
+          sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer
           xcodebuild -version
+          # Boot the simulator daemon to prevent "exit code 70" when downloading platform
+          xcrun simctl list devices > /dev/null
+          # Download iOS 18.2 Platform required for Storyboard compilation
+          xcodebuild -downloadPlatform iOS
         
       - name: Setup Node
         uses: actions/setup-node@v4
