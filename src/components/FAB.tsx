@@ -10,10 +10,11 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, Animated, StyleSheet,
-  Modal, TextInput, Alert, Platform,
+  Modal, TextInput, Alert, Platform, ScrollView,
 } from 'react-native';
 import { Plus, X, Check, Moon, Milk, Droplets, Droplet, CloudRain, Cloud, Play, Square, Utensils } from 'lucide-react-native';
 import DateTimePickerModal from './DateTimePickerModal';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -277,8 +278,15 @@ const FAB = () => {
       <Modal visible={activeSheet !== null} transparent animationType="slide" onRequestClose={closeSheet}>
         <TouchableOpacity style={styles.sheetOverlay} activeOpacity={1} onPress={closeSheet}>
           <View style={styles.sheet} onStartShouldSetResponder={() => true}>
-            <View style={styles.handle} />
+            {/* Close button + Handle */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+              <View style={styles.handle} />
+              <TouchableOpacity onPress={closeSheet} style={{ position: 'absolute', right: 0, top: 0, width: 36, height: 36, borderRadius: 18, backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center' }}>
+                <X size={18} color="#64748B" strokeWidth={2} />
+              </TouchableOpacity>
+            </View>
 
+            <ScrollView showsVerticalScrollIndicator={false} bounces={false} style={{ maxHeight: Platform.OS === 'ios' ? 520 : undefined }}>
             {/* ── FEEDING ── */}
             {activeSheet === 'feeding' && (
               <View>
@@ -311,6 +319,22 @@ const FAB = () => {
                   <TouchableOpacity style={styles.input} onPress={() => setShowDatePicker(true)}>
                     <Text style={{ fontSize: 16, fontWeight: '700', color: '#1A1A2E', fontFamily: 'Nunito_700Bold' }}>{formatDate(logDate)}</Text>
                   </TouchableOpacity>
+                  {Platform.OS === 'ios' && showDatePicker && (
+                    <View style={{ marginTop: 8 }}>
+                      <DateTimePicker
+                        value={logDate}
+                        mode="time"
+                        is24Hour={true}
+                        display="spinner"
+                        textColor="#1A1A2E"
+                        onChange={(e, d) => { if (d) setLogDate(d); }}
+                        style={{ height: 150 }}
+                      />
+                      <TouchableOpacity onPress={() => setShowDatePicker(false)} style={{ alignSelf: 'center', backgroundColor: '#EFF6FF', paddingHorizontal: 20, paddingVertical: 8, borderRadius: 12, marginTop: 4 }}>
+                        <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 14, color: '#2563EB' }}>Готово</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
                 </View>
 
                 {feedingType === 'breast' && (
@@ -405,6 +429,22 @@ const FAB = () => {
                   <TouchableOpacity style={styles.input} onPress={() => setShowDatePicker(true)}>
                     <Text style={{ fontSize: 16, fontWeight: '700', color: '#1A1A2E', fontFamily: 'Nunito_700Bold' }}>{formatDate(logDate)}</Text>
                   </TouchableOpacity>
+                  {Platform.OS === 'ios' && showDatePicker && (
+                    <View style={{ marginTop: 8 }}>
+                      <DateTimePicker
+                        value={logDate}
+                        mode="time"
+                        is24Hour={true}
+                        display="spinner"
+                        textColor="#1A1A2E"
+                        onChange={(e, d) => { if (d) setLogDate(d); }}
+                        style={{ height: 150 }}
+                      />
+                      <TouchableOpacity onPress={() => setShowDatePicker(false)} style={{ alignSelf: 'center', backgroundColor: '#ECFDF5', paddingHorizontal: 20, paddingVertical: 8, borderRadius: 12, marginTop: 4 }}>
+                        <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 14, color: '#059669' }}>Готово</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
                 </View>
 
                 <View style={styles.fieldGroup}>
@@ -473,6 +513,22 @@ const FAB = () => {
                       <TouchableOpacity style={styles.input} onPress={() => setShowDatePicker(true)}>
                         <Text style={{ fontSize: 16, fontWeight: '700', color: '#1A1A2E', fontFamily: 'Nunito_700Bold' }}>{formatDate(logDate)}</Text>
                       </TouchableOpacity>
+                      {Platform.OS === 'ios' && showDatePicker && (
+                        <View style={{ marginTop: 8 }}>
+                          <DateTimePicker
+                            value={logDate}
+                            mode="time"
+                            is24Hour={true}
+                            display="spinner"
+                            textColor="#1A1A2E"
+                            onChange={(e, d) => { if (d) setLogDate(d); }}
+                            style={{ height: 150 }}
+                          />
+                          <TouchableOpacity onPress={() => setShowDatePicker(false)} style={{ alignSelf: 'center', backgroundColor: '#F3E8FF', paddingHorizontal: 20, paddingVertical: 8, borderRadius: 12, marginTop: 4 }}>
+                            <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 14, color: '#8B5CF6' }}>Готово</Text>
+                          </TouchableOpacity>
+                        </View>
+                      )}
                     </View>
 
                     <View style={styles.fieldGroup}>
@@ -512,18 +568,22 @@ const FAB = () => {
                 )}
               </View>
             )}
+            </ScrollView>
           </View>
         </TouchableOpacity>
       </Modal>
 
-      <DateTimePickerModal
-        visible={showDatePicker}
-        value={logDate}
-        mode="time"
-        is24Hour={true}
-        onChange={(selectedDate) => { if (selectedDate) setLogDate(selectedDate); }}
-        onClose={() => setShowDatePicker(false)}
-      />
+      {/* Date picker — Android only uses modal (no stacking issue), iOS uses inline in sheet */}
+      {Platform.OS === 'android' && (
+        <DateTimePickerModal
+          visible={showDatePicker}
+          value={logDate}
+          mode="time"
+          is24Hour={true}
+          onChange={(selectedDate) => { if (selectedDate) setLogDate(selectedDate); }}
+          onClose={() => setShowDatePicker(false)}
+        />
+      )}
     </>
   );
 };
