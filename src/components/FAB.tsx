@@ -207,6 +207,26 @@ const FAB = () => {
     { type: 'sleep' as const, label: 'Сон', icon: Moon, color: '#8B5CF6', bg: '#F3E8FF' },
   ];
 
+  const renderInlineIOSPicker = (colorHex: string, bgColorHex: string) => {
+    if (Platform.OS !== 'ios' || !showDatePicker) return null;
+    return (
+      <View style={{ marginTop: 8 }}>
+        <DateTimePicker
+          value={logDate}
+          mode="time"
+          is24Hour={true}
+          display="spinner"
+          textColor="#1A1A2E"
+          onChange={(e, d) => { if (d) setLogDate(d); }}
+          style={{ height: 150 }}
+        />
+        <TouchableOpacity onPress={() => setShowDatePicker(false)} style={{ alignSelf: 'center', backgroundColor: bgColorHex, paddingHorizontal: 20, paddingVertical: 8, borderRadius: 12, marginTop: 4 }}>
+          <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 14, color: colorHex }}>Готово</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
   return (
     <>
       {/* Expanded items */}
@@ -319,22 +339,7 @@ const FAB = () => {
                   <TouchableOpacity style={styles.input} onPress={() => setShowDatePicker(true)}>
                     <Text style={{ fontSize: 16, fontWeight: '700', color: '#1A1A2E', fontFamily: 'Nunito_700Bold' }}>{formatDate(logDate)}</Text>
                   </TouchableOpacity>
-                  {Platform.OS === 'ios' && showDatePicker && (
-                    <View style={{ marginTop: 8 }}>
-                      <DateTimePicker
-                        value={logDate}
-                        mode="time"
-                        is24Hour={true}
-                        display="spinner"
-                        textColor="#1A1A2E"
-                        onChange={(e, d) => { if (d) setLogDate(d); }}
-                        style={{ height: 150 }}
-                      />
-                      <TouchableOpacity onPress={() => setShowDatePicker(false)} style={{ alignSelf: 'center', backgroundColor: '#EFF6FF', paddingHorizontal: 20, paddingVertical: 8, borderRadius: 12, marginTop: 4 }}>
-                        <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 14, color: '#2563EB' }}>Готово</Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
+                  {renderInlineIOSPicker('#2563EB', '#EFF6FF')}
                 </View>
 
                 {feedingType === 'breast' && (
@@ -429,22 +434,7 @@ const FAB = () => {
                   <TouchableOpacity style={styles.input} onPress={() => setShowDatePicker(true)}>
                     <Text style={{ fontSize: 16, fontWeight: '700', color: '#1A1A2E', fontFamily: 'Nunito_700Bold' }}>{formatDate(logDate)}</Text>
                   </TouchableOpacity>
-                  {Platform.OS === 'ios' && showDatePicker && (
-                    <View style={{ marginTop: 8 }}>
-                      <DateTimePicker
-                        value={logDate}
-                        mode="time"
-                        is24Hour={true}
-                        display="spinner"
-                        textColor="#1A1A2E"
-                        onChange={(e, d) => { if (d) setLogDate(d); }}
-                        style={{ height: 150 }}
-                      />
-                      <TouchableOpacity onPress={() => setShowDatePicker(false)} style={{ alignSelf: 'center', backgroundColor: '#ECFDF5', paddingHorizontal: 20, paddingVertical: 8, borderRadius: 12, marginTop: 4 }}>
-                        <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 14, color: '#059669' }}>Готово</Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
+                  {renderInlineIOSPicker('#059669', '#ECFDF5')}
                 </View>
 
                 <View style={styles.fieldGroup}>
@@ -513,22 +503,7 @@ const FAB = () => {
                       <TouchableOpacity style={styles.input} onPress={() => setShowDatePicker(true)}>
                         <Text style={{ fontSize: 16, fontWeight: '700', color: '#1A1A2E', fontFamily: 'Nunito_700Bold' }}>{formatDate(logDate)}</Text>
                       </TouchableOpacity>
-                      {Platform.OS === 'ios' && showDatePicker && (
-                        <View style={{ marginTop: 8 }}>
-                          <DateTimePicker
-                            value={logDate}
-                            mode="time"
-                            is24Hour={true}
-                            display="spinner"
-                            textColor="#1A1A2E"
-                            onChange={(e, d) => { if (d) setLogDate(d); }}
-                            style={{ height: 150 }}
-                          />
-                          <TouchableOpacity onPress={() => setShowDatePicker(false)} style={{ alignSelf: 'center', backgroundColor: '#F3E8FF', paddingHorizontal: 20, paddingVertical: 8, borderRadius: 12, marginTop: 4 }}>
-                            <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 14, color: '#8B5CF6' }}>Готово</Text>
-                          </TouchableOpacity>
-                        </View>
-                      )}
+                      {renderInlineIOSPicker('#8B5CF6', '#F3E8FF')}
                     </View>
 
                     <View style={styles.fieldGroup}>
