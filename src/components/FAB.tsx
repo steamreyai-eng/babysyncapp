@@ -10,7 +10,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, Animated, StyleSheet,
-  Modal, TextInput, Alert, Platform, ScrollView,
+  Modal, TextInput, Alert, Platform, ScrollView, KeyboardAvoidingView,
 } from 'react-native';
 import { Plus, X, Check, Moon, Milk, Droplets, Droplet, CloudRain, Cloud, Play, Square, Utensils } from 'lucide-react-native';
 import DateTimePickerModal from './DateTimePickerModal';
@@ -23,6 +23,8 @@ import { Feeding } from '../db/models/Feeding';
 import { Diaper } from '../db/models/Diaper';
 import { Sleep } from '../db/models/Sleep';
 import { useAuthStore } from '../store/authStore';
+import { useTimerStore } from '../store/timerStore';
+import { startFeedingTimerNotification, cancelFeedingTimerNotification } from '../lib/timerNotifications';
 import { triggerHaptic } from '../utils/haptics';
 
 type ActiveSheet = 'feeding' | 'diaper' | 'sleep' | null;
@@ -38,6 +40,9 @@ const FAB = () => {
   const [activeSheet, setActiveSheet] = useState<ActiveSheet>(null);
   const scaleAnim = useRef(new Animated.Value(0)).current;
 
+  // Global Timer store
+  const { feedingConfig, setFeedingConfig, clearFeedingTimer } = useTimerStore();
+
   // Common state
   const [logDate, setLogDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -46,10 +51,9 @@ const FAB = () => {
   const [feedingType, setFeedingType] = useState<'breast' | 'formula' | 'solid'>('breast');
   const [formulaBrand, setFormulaBrand] = useState('Nan Optipro');
   const [formulaVolume, setFormulaVolume] = useState('120');
-  const [timerRunningL, setTimerRunningL] = useState(false);
-  const [timerRunningR, setTimerRunningR] = useState(false);
-  const [secondsL, setSecondsL] = useState(0);
-  const [secondsR, setSecondsR] = useState(0);
+  
+  const [secondsL, setSecondsL] = useState(feedingConfig.accumulatedLeftSeconds);
+  const [secondsR, setSecondsR] = useState(feedingConfig.accumulatedRightSeconds);
   const intervalLRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const intervalRRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [solidProduct, setSolidProduct] = useState('');
@@ -67,20 +71,32 @@ const FAB = () => {
   const [showManualSleep, setShowManualSleep] = useState(false);
   const sleepIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Timers
+  // Sync state if stopped from background
   useEffect(() => {
-    if (timerRunningL) {
-      intervalLRef.current = setInterval(() => setSecondsL(s => s + 1), 1000);
+    if (!feedingConfig.leftRunning) setSecondsL(feedingConfig.accumulatedLeftSeconds);
+    if (!feedingConfig.rightRunning) setSecondsR(feedingConfig.accumulatedRightSeconds);
+  }, [feedingConfig.leftRunning, feedingConfig.rightRunning, feedingConfig.accumulatedLeftSeconds, feedingConfig.accumulatedRightSeconds]);
+
+  // Timers UI ticking
+  useEffect(() => {
+    if (feedingConfig.leftRunning) {
+      intervalLRef.current = setInterval(() => {
+        const elapsed = feedingConfig.lastLeftStart ? Math.floor((Date.now() - feedingConfig.lastLeftStart)/1000) : 0;
+        setSecondsL(feedingConfig.accumulatedLeftSeconds + elapsed);
+      }, 1000);
     } else if (intervalLRef.current) clearInterval(intervalLRef.current);
     return () => { if (intervalLRef.current) clearInterval(intervalLRef.current); };
-  }, [timerRunningL]);
+  }, [feedingConfig.leftRunning, feedingConfig.lastLeftStart, feedingConfig.accumulatedLeftSeconds]);
 
   useEffect(() => {
-    if (timerRunningR) {
-      intervalRRef.current = setInterval(() => setSecondsR(s => s + 1), 1000);
+    if (feedingConfig.rightRunning) {
+      intervalRRef.current = setInterval(() => {
+        const elapsed = feedingConfig.lastRightStart ? Math.floor((Date.now() - feedingConfig.lastRightStart)/1000) : 0;
+        setSecondsR(feedingConfig.accumulatedRightSeconds + elapsed);
+      }, 1000);
     } else if (intervalRRef.current) clearInterval(intervalRRef.current);
     return () => { if (intervalRRef.current) clearInterval(intervalRRef.current); };
-  }, [timerRunningR]);
+  }, [feedingConfig.rightRunning, feedingConfig.lastRightStart, feedingConfig.accumulatedRightSeconds]);
 
   useEffect(() => {
     if (sleepTimerRunning) {
@@ -112,6 +128,52 @@ const FAB = () => {
   // Date formatting helper
   const formatDate = (date: Date) => {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' ' + date.toLocaleDateString();
+  };
+
+  const toggleLeftBreastTimer = async () => {
+    const isNowRunning = !feedingConfig.leftRunning;
+    const sessionStart = feedingConfig.sessionStart || Date.now();
+    
+    if (isNowRunning) {
+      setFeedingConfig({ leftRunning: true, lastLeftStart: Date.now(), sessionStart });
+      await startFeedingTimerNotification(
+        feedingConfig.accumulatedLeftSeconds + feedingConfig.accumulatedRightSeconds,
+        sessionStart, true, feedingConfig.rightRunning
+      );
+    } else {
+      const elapsed = feedingConfig.lastLeftStart ? Math.floor((Date.now() - feedingConfig.lastLeftStart)/1000) : 0;
+      const newAcc = feedingConfig.accumulatedLeftSeconds + elapsed;
+      setFeedingConfig({ leftRunning: false, lastLeftStart: null, accumulatedLeftSeconds: newAcc });
+      setSecondsL(newAcc);
+      if (feedingConfig.rightRunning) {
+        await startFeedingTimerNotification(newAcc + feedingConfig.accumulatedRightSeconds, sessionStart, false, true);
+      } else {
+        await cancelFeedingTimerNotification();
+      }
+    }
+  };
+
+  const toggleRightBreastTimer = async () => {
+    const isNowRunning = !feedingConfig.rightRunning;
+    const sessionStart = feedingConfig.sessionStart || Date.now();
+    
+    if (isNowRunning) {
+      setFeedingConfig({ rightRunning: true, lastRightStart: Date.now(), sessionStart });
+      await startFeedingTimerNotification(
+        feedingConfig.accumulatedLeftSeconds + feedingConfig.accumulatedRightSeconds,
+        sessionStart, feedingConfig.leftRunning, true
+      );
+    } else {
+      const elapsed = feedingConfig.lastRightStart ? Math.floor((Date.now() - feedingConfig.lastRightStart)/1000) : 0;
+      const newAcc = feedingConfig.accumulatedRightSeconds + elapsed;
+      setFeedingConfig({ rightRunning: false, lastRightStart: null, accumulatedRightSeconds: newAcc });
+      setSecondsR(newAcc);
+      if (feedingConfig.leftRunning) {
+        await startFeedingTimerNotification(feedingConfig.accumulatedLeftSeconds + newAcc, sessionStart, true, false);
+      } else {
+        await cancelFeedingTimerNotification();
+      }
+    }
   };
 
   // ── Save handlers ──
@@ -147,7 +209,9 @@ const FAB = () => {
         });
       });
       setSolidProduct('');
-      setSecondsL(0); setSecondsR(0); setTimerRunningL(false); setTimerRunningR(false);
+      setSecondsL(0); setSecondsR(0);
+      clearFeedingTimer();
+      await cancelFeedingTimerNotification();
       closeSheet();
       triggerHaptic('success');
     } catch (e) {
@@ -296,6 +360,11 @@ const FAB = () => {
 
       {/* ── Bottom Sheet Modal ── */}
       <Modal visible={activeSheet !== null} transparent animationType="slide" onRequestClose={closeSheet}>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+        >
         <TouchableOpacity style={styles.sheetOverlay} activeOpacity={1} onPress={closeSheet}>
           <View style={styles.sheet} onStartShouldSetResponder={() => true}>
             {/* Close button + Handle */}
@@ -345,8 +414,8 @@ const FAB = () => {
                 {feedingType === 'breast' && (
                   <View style={{ flexDirection: 'row', gap: 12, marginBottom: 20 }}>
                     {[
-                      { side: 'Л', label: 'Левая грудь', seconds: secondsL, running: timerRunningL, toggle: () => setTimerRunningL(r => !r) },
-                      { side: 'П', label: 'Правая грудь', seconds: secondsR, running: timerRunningR, toggle: () => setTimerRunningR(r => !r) }
+                      { side: 'Л', label: 'Левая грудь', seconds: secondsL, running: feedingConfig.leftRunning, toggle: toggleLeftBreastTimer },
+                      { side: 'П', label: 'Правая грудь', seconds: secondsR, running: feedingConfig.rightRunning, toggle: toggleRightBreastTimer }
                     ].map(({ side, label, seconds, running, toggle }) => (
                       <View key={side} style={{ flex: 1, padding: 16, backgroundColor: 'white', borderRadius: 16, borderWidth: 1, borderColor: running ? '#5B9BD5' : '#E0DDD8', alignItems: 'center' }}>
                         <Text style={[styles.fieldLabel, { color: '#5B9BD5', marginBottom: 8 }]}>{label}</Text>
@@ -369,11 +438,11 @@ const FAB = () => {
                   <>
                     <View style={styles.fieldGroup}>
                       <Text style={styles.fieldLabel}>Бренд смеси</Text>
-                      <TextInput style={styles.input} value={formulaBrand} onChangeText={setFormulaBrand} placeholder="Nan Optipro..." />
+                      <TextInput style={styles.input} value={formulaBrand} onChangeText={setFormulaBrand} placeholder="Nan Optipro..." placeholderTextColor="#94A3B8" />
                     </View>
                     <View style={styles.fieldGroup}>
                       <Text style={styles.fieldLabel}>Объём (мл)</Text>
-                      <TextInput style={styles.input} value={formulaVolume} onChangeText={setFormulaVolume} keyboardType="number-pad" />
+                      <TextInput style={styles.input} value={formulaVolume} onChangeText={setFormulaVolume} keyboardType="number-pad" placeholder="120" placeholderTextColor="#94A3B8" />
                     </View>
                   </>
                 )}
@@ -381,11 +450,11 @@ const FAB = () => {
                   <>
                     <View style={styles.fieldGroup}>
                       <Text style={styles.fieldLabel}>Продукт</Text>
-                      <TextInput style={styles.input} value={solidProduct} onChangeText={setSolidProduct} placeholder="Каша овсяная" />
+                      <TextInput style={styles.input} value={solidProduct} onChangeText={setSolidProduct} placeholder="Каша овсяная" placeholderTextColor="#94A3B8" />
                     </View>
                     <View style={styles.fieldGroup}>
                       <Text style={styles.fieldLabel}>Количество (г)</Text>
-                      <TextInput style={styles.input} value={solidVolume} onChangeText={setSolidVolume} keyboardType="number-pad" />
+                      <TextInput style={styles.input} value={solidVolume} onChangeText={setSolidVolume} keyboardType="number-pad" placeholder="80" placeholderTextColor="#94A3B8" />
                     </View>
                   </>
                 )}
@@ -439,12 +508,12 @@ const FAB = () => {
 
                 <View style={styles.fieldGroup}>
                   <Text style={styles.fieldLabel}>Цвет / консистенция</Text>
-                  <TextInput style={styles.input} value={diaperColor} onChangeText={setDiaperColor} placeholder="Жёлтый – жидкий (норма)..." />
+                  <TextInput style={styles.input} value={diaperColor} onChangeText={setDiaperColor} placeholder="Жёлтый – жидкий (норма)..." placeholderTextColor="#94A3B8" />
                 </View>
 
                 <View style={styles.fieldGroup}>
                   <Text style={styles.fieldLabel}>Заметка</Text>
-                  <TextInput style={[styles.input, { minHeight: 60, textAlignVertical: 'top' }]} value={diaperNote} onChangeText={setDiaperNote} placeholder="Раздражение кожи..." multiline />
+                  <TextInput style={[styles.input, { minHeight: 60, textAlignVertical: 'top' }]} value={diaperNote} onChangeText={setDiaperNote} placeholder="Раздражение кожи..." placeholderTextColor="#94A3B8" multiline />
                 </View>
 
                 <TouchableOpacity style={[styles.saveBtn, { backgroundColor: '#4DBFAA' }]} onPress={handleSaveDiaper}>
@@ -546,6 +615,7 @@ const FAB = () => {
             </ScrollView>
           </View>
         </TouchableOpacity>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Date picker — Android only uses modal (no stacking issue), iOS uses inline in sheet */}

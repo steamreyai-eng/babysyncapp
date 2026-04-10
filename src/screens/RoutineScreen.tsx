@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet,
-  Dimensions, Platform, KeyboardAvoidingView
+  Dimensions, Platform, KeyboardAvoidingView, RefreshControl
 } from 'react-native';
 import PagerView from 'react-native-pager-view';
 import { Ionicons } from '@expo/vector-icons';
@@ -626,6 +626,22 @@ const RoutineScreen = () => {
   const [activeRitual, setActiveRitual] = useState<Ritual | null>(null);
   const [editingRitual, setEditingRitual] = useState<Ritual | null>(null);
 
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const { syncWithSupabase } = await import('../db/sync');
+      await syncWithSupabase(true);
+      // Also manually fetch sleeps since RoutineScreen fetches them once on mount
+      const newSleeps = await database.get('sleeps').query().fetch();
+      setSleeps(newSleeps);
+    } catch (e) {
+      console.warn("Manual sync error", e);
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
+
   const pagerRef = useRef<PagerView>(null);
   const handleTabPress = (tab: 'status' | 'rituals' | 'schedule', index: number) => {
     setActiveSubTab(tab);
@@ -732,7 +748,11 @@ const RoutineScreen = () => {
           setActiveSubTab(p[e.nativeEvent.position]);
         }}>
           <View key="status">
-            <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 180 }} showsVerticalScrollIndicator={false}>
+            <ScrollView 
+               contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 180 }} 
+               showsVerticalScrollIndicator={false}
+               refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#6366F1']} />}
+            >
               <StatusDashboard
                 leapInfo={engine.leapInfo} norms={engine.norms}
                 adaptations={engine.adaptations} ageWeeks={engine.ageWeeks}
@@ -742,7 +762,11 @@ const RoutineScreen = () => {
           </View>
 
           <View key="rituals">
-            <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 180 }} showsVerticalScrollIndicator={false}>
+            <ScrollView 
+               contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 180 }} 
+               showsVerticalScrollIndicator={false}
+               refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#6366F1']} />}
+            >
               <View>
              {/* Weekly Stats */}
              {logs.length > 0 && (

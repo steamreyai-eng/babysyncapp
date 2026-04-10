@@ -3,7 +3,7 @@ import { View, Text, Modal, TouchableOpacity, ScrollView } from 'react-native';
 import { X, BellRing, Settings2, Wand2, Milk, Droplets, Moon } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '../store/authStore';
-import { NotifSettings, DEFAULT_NOTIF, getRecommendedIntervals } from '../lib/notifications';
+import { NotifSettings, DEFAULT_NOTIF, getRecommendedIntervals, restartNotifPoller, clearFiredNotifications } from '../lib/notifications';
 
 interface Props {
   isOpen: boolean;
@@ -38,13 +38,19 @@ export function NotificationSettingsModal({ isOpen, onClose }: Props) {
   const handleNotifToggle = (key: keyof Pick<NotifSettings, "feeding" | "diaper" | "sleep">) => {
     const next = { ...notif, [key]: !notif[key] };
     setNotif(next);
-    AsyncStorage.setItem('notif_settings', JSON.stringify(next));
+    AsyncStorage.setItem('notif_settings', JSON.stringify(next)).then(() => {
+      clearFiredNotifications();
+      restartNotifPoller();
+    });
   };
 
   const handleIntervalChange = (key: keyof Pick<NotifSettings, "feedingIntervalMin" | "diaperIntervalMin" | "sleepWindowMin">, value: number) => {
     const next = { ...notif, [key]: value };
     setNotif(next);
-    AsyncStorage.setItem('notif_settings', JSON.stringify(next));
+    AsyncStorage.setItem('notif_settings', JSON.stringify(next)).then(() => {
+      clearFiredNotifications();
+      restartNotifPoller();
+    });
   };
 
   const ageMo = baby?.birthdate

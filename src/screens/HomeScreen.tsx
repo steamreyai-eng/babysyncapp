@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useCallback } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, TextInput, Dimensions, DeviceEventEmitter } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, TextInput, Dimensions, DeviceEventEmitter, RefreshControl } from 'react-native';
 import { 
   Bell, Users, Milk, Moon, Droplets, Footprints, Bot, 
   Baby, ClipboardList, ChevronRight, CheckCircle, Circle, 
@@ -14,6 +14,7 @@ import withObservables from '@nozbe/with-observables';
 import { database } from '../db';
 import { Q } from '@nozbe/watermelondb';
 import DateTimePickerModal from '../components/DateTimePickerModal';
+import { NotificationSettingsModal } from '../components/NotificationSettingsModal';
 // FAB is rendered globally in App.tsx — no need to import here
 import { COLORS, FONTS } from '../lib/theme';
 import { useRoutineEngine } from '../hooks/useRoutineEngine';
@@ -31,6 +32,7 @@ const HomeScreenContent = ({ feedings, sleeps, diapers, walks, tasks }: any) => 
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskTime, setNewTaskTime] = useState<Date | null>(null);
   const [showTaskPicker, setShowTaskPicker] = useState(false);
+  const [notifModalOpen, setNotifModalOpen] = useState(false);
 
   const babyName = baby?.name || "Малыш";
   const babyAge = baby?.birthdate ? getAgeLabel(baby.birthdate) : "—";
@@ -298,6 +300,19 @@ const HomeScreenContent = ({ feedings, sleeps, diapers, walks, tasks }: any) => 
   const scrollRef = useRef<ScrollView>(null);
   const [activeDot, setActiveDot] = useState(0);
 
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const { syncWithSupabase } = await import('../db/sync');
+      await syncWithSupabase(true);
+    } catch (e) {
+      console.warn("Manual sync error", e);
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
+
   const handleScroll = (event: any) => {
     const offsetX = event.nativeEvent.contentOffset.x;
     const itemWidth = 110 + 12;
@@ -306,7 +321,11 @@ const HomeScreenContent = ({ feedings, sleeps, diapers, walks, tasks }: any) => 
 
   return (
     <View style={{ flex: 1, backgroundColor: COLORS.background }}>
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 120 }}>
+      <ScrollView 
+        style={{ flex: 1 }} 
+        contentContainerStyle={{ paddingBottom: 120 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#6366F1']} />}
+      >
         {/* Header */}
         <View style={{ paddingHorizontal: 16, paddingTop: Math.max(16, 40), paddingBottom: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -328,6 +347,7 @@ const HomeScreenContent = ({ feedings, sleeps, diapers, walks, tasks }: any) => 
             </View>
           </View>
           <TouchableOpacity 
+             onPress={() => setNotifModalOpen(true)}
              style={{ width: 44, height: 44, backgroundColor: 'white', borderRadius: 22, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 20, elevation: 4 }}
           >
             <Bell size={18} color="#8A8A9E" />
@@ -553,6 +573,7 @@ const HomeScreenContent = ({ feedings, sleeps, diapers, walks, tasks }: any) => 
         onChange={(selectedDate) => { if (selectedDate) setNewTaskTime(selectedDate); }}
         onClose={() => setShowTaskPicker(false)}
       />
+      <NotificationSettingsModal isOpen={notifModalOpen} onClose={() => setNotifModalOpen(false)} />
     </View>
   );
 };

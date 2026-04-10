@@ -98,7 +98,11 @@ const AIScreenContent = () => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.keyboardView}>
+      <KeyboardAvoidingView
+        style={styles.keyboardView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 10 : 0}
+      >
         {/* Header */}
         <View style={styles.header}>
             <LinearGradient
@@ -210,7 +214,7 @@ const AIScreenContent = () => {
         <Text style={styles.disclaimerText}>
             <Ionicons name="sparkles" size={10} color="#6B6B80" /> Не заменяет консультацию врача
         </Text>
-      </View>
+      </KeyboardAvoidingView>
     </View>
   );
 };

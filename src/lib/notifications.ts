@@ -1,10 +1,13 @@
 /**
  * Notification engine for React Native.
- * Polling-based + expo-notifications for native push.
- * Mirrors web app's notifications.ts logic.
+ * Polling-based + @notifee/react-native for native push.
+ * Fires reminders when feeding / diaper / sleep intervals are exceeded.
  */
 
-import { Alert, AppState, AppStateStatus } from 'react-native';
+import { Alert, AppState } from 'react-native';
+import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import notifee, { AndroidImportance, AndroidVisibility } from '@notifee/react-native';
 
 // ── Settings ──
 export interface NotifSettings {
@@ -35,25 +38,97 @@ export function getRecommendedIntervals(ageMo: number) {
   return { feed: 240, diap: 300, sleep: 180 };
 }
 
-// ── Notification Delivery ──
-// For React Native, we use Alert as a fallback.
-// When expo-notifications is configured, replace showNotif with native push.
-async function showNotif(title: string, body: string) {
-  // In foreground: show React Native Alert
-  if (AppState.currentState === 'active') {
-    Alert.alert(title, body);
+// ── Notifee Channel Setup ──
+const REMINDER_CHANNEL_ID = 'babysync-reminders';
+
+export async function initReminderNotifications() {
+  if (Platform.OS !== 'android') return;
+
+  try {
+    await notifee.requestPermission();
+
+    await notifee.createChannel({
+      id: REMINDER_CHANNEL_ID,
+      name: 'Напоминания',
+      description: 'Напоминания о кормлении, сне и смене подгузников',
+      importance: AndroidImportance.HIGH,
+      vibration: true,
+      visibility: AndroidVisibility.PUBLIC,
+      sound: 'default',
+    });
+  } catch (e) {
+    console.warn('[Notifications] Error creating reminder channel:', e);
   }
-  // TODO: When expo-notifications is installed, schedule a local notification:
-  // import * as Notifications from 'expo-notifications';
-  // await Notifications.scheduleNotificationAsync({
-  //   content: { title, body },
-  //   trigger: null, // immediate
-  // });
+}
+
+// ── Notification Delivery via Notifee ──
+let notifCounter = 0;
+
+async function showNotif(title: string, body: string) {
+  notifCounter++;
+
+  // Always try native notification (works in foreground AND background)
+  try {
+    if (Platform.OS === 'android') {
+      await notifee.displayNotification({
+        id: `reminder-${notifCounter}`,
+        title,
+        body,
+        android: {
+          channelId: REMINDER_CHANNEL_ID,
+          importance: AndroidImportance.HIGH,
+          smallIcon: 'ic_notification', // uses default app icon if missing
+          pressAction: { id: 'default' },
+          autoCancel: true,
+        },
+      });
+    } else {
+      // iOS — notifee also works, just no channelId needed
+      await notifee.displayNotification({
+        id: `reminder-${notifCounter}`,
+        title,
+        body,
+        ios: {
+          sound: 'default',
+        },
+      });
+    }
+  } catch (e) {
+    console.warn('[Notifications] Notifee display error:', e);
+    // Fallback: show Alert only if app is in foreground
+    if (AppState.currentState === 'active') {
+      Alert.alert(title, body);
+    }
+  }
+}
+
+// ── Helper to read current settings ──
+async function loadNotifSettings(): Promise<NotifSettings> {
+  try {
+    const raw = await AsyncStorage.getItem('notif_settings');
+    if (raw) {
+      return { ...DEFAULT_NOTIF, ...JSON.parse(raw) };
+    }
+  } catch (e) {
+    console.warn('[Notifications] Error reading settings:', e);
+  }
+  return DEFAULT_NOTIF;
+}
+
+async function isNotificationsGloballyEnabled(): Promise<boolean> {
+  try {
+    const val = await AsyncStorage.getItem('notificationsEnabled');
+    // Default to true if not set
+    return val !== 'false';
+  } catch {
+    return true;
+  }
 }
 
 // ── Polling Engine ──
 let pollerInterval: ReturnType<typeof setInterval> | null = null;
 const firedKeys = new Set<string>();
+let getLastEventsFn: (() => PollState) | null = null;
 
 interface PollState {
   lastFeedingMs: number | null;
@@ -62,66 +137,99 @@ interface PollState {
   ageMo: number;
 }
 
+async function pollerTick() {
+  if (!getLastEventsFn) return;
+
+  // Check global toggle
+  const globalEnabled = await isNotificationsGloballyEnabled();
+  if (!globalEnabled) return;
+
+  // Read current settings (reactive to user changes)
+  const s = await loadNotifSettings();
+  if (!s.feeding && !s.diaper && !s.sleep) return;
+
+  const { lastFeedingMs, lastDiaperMs, lastSleepEndMs, ageMo } = getLastEventsFn();
+  const now = Date.now();
+
+  const recs = getRecommendedIntervals(ageMo);
+  const feedInt = s.autoMode ? recs.feed : s.feedingIntervalMin;
+  const diapInt = s.autoMode ? recs.diap : s.diaperIntervalMin;
+  const sleepInt = s.autoMode ? recs.sleep : s.sleepWindowMin;
+
+  // Feeding
+  if (s.feeding && lastFeedingMs != null) {
+    const diff = (now - lastFeedingMs) / 60000;
+    const key = `feed-${lastFeedingMs}`;
+    if (diff >= feedInt && !firedKeys.has(key)) {
+      firedKeys.add(key);
+      showNotif(
+        '🍼 Время кормления!',
+        `Прошло ${Math.round(diff)} минут с последнего кормления`
+      );
+    }
+  }
+
+  // Diaper
+  if (s.diaper && lastDiaperMs != null) {
+    const diff = (now - lastDiaperMs) / 60000;
+    const key = `diap-${lastDiaperMs}`;
+    if (diff >= diapInt && !firedKeys.has(key)) {
+      firedKeys.add(key);
+      showNotif(
+        '🧷 Пора сменить подгузник!',
+        `Прошло ${Math.round(diff)} минут с последней смены`
+      );
+    }
+  }
+
+  // Sleep window
+  if (s.sleep && lastSleepEndMs != null) {
+    const diff = (now - lastSleepEndMs) / 60000;
+    const key = `sleep-${lastSleepEndMs}`;
+    if (diff >= sleepInt && !firedKeys.has(key)) {
+      firedKeys.add(key);
+      showNotif(
+        '😴 Окно бодрствования!',
+        `Малыш не спит уже ${Math.round(diff)} минут — возможно, пора укладывать`
+      );
+    }
+  }
+}
+
 export function startNotifPoller(
   getLastEvents: () => PollState,
-  settings?: NotifSettings
+  _settings?: NotifSettings // kept for API compat, settings now read from AsyncStorage
 ) {
   if (pollerInterval) clearInterval(pollerInterval);
 
-  pollerInterval = setInterval(() => {
-    const s = settings || DEFAULT_NOTIF;
-    if (!s.feeding && !s.diaper && !s.sleep) return;
+  getLastEventsFn = getLastEvents;
 
-    const { lastFeedingMs, lastDiaperMs, lastSleepEndMs, ageMo } = getLastEvents();
-    const now = Date.now();
-
-    const recs = getRecommendedIntervals(ageMo);
-    const feedInt = s.autoMode ? recs.feed : s.feedingIntervalMin;
-    const diapInt = s.autoMode ? recs.diap : s.diaperIntervalMin;
-    const sleepInt = s.autoMode ? recs.sleep : s.sleepWindowMin;
-
-    // Feeding
-    if (s.feeding && lastFeedingMs != null) {
-      const diff = (now - lastFeedingMs) / 60000;
-      const key = `feed-${lastFeedingMs}`;
-      if (diff >= feedInt && !firedKeys.has(key)) {
-        firedKeys.add(key);
-        showNotif(
-          '🍼 Время кормления!',
-          `Прошло ${Math.round(diff)} минут с последнего кормления`
-        );
-      }
-    }
-
-    // Diaper
-    if (s.diaper && lastDiaperMs != null) {
-      const diff = (now - lastDiaperMs) / 60000;
-      const key = `diap-${lastDiaperMs}`;
-      if (diff >= diapInt && !firedKeys.has(key)) {
-        firedKeys.add(key);
-        showNotif(
-          '🧷 Пора сменить подгузник!',
-          `Прошло ${Math.round(diff)} минут с последней смены`
-        );
-      }
-    }
-
-    // Sleep window
-    if (s.sleep && lastSleepEndMs != null) {
-      const diff = (now - lastSleepEndMs) / 60000;
-      const key = `sleep-${lastSleepEndMs}`;
-      if (diff >= sleepInt && !firedKeys.has(key)) {
-        firedKeys.add(key);
-        showNotif(
-          '😴 Окно бодрствования!',
-          `Малыш не спит уже ${Math.round(diff)} минут — возможно, пора укладывать`
-        );
-      }
-    }
-  }, 60_000); // check every minute
+  // Run immediately once, then every 60 seconds
+  pollerTick();
+  pollerInterval = setInterval(pollerTick, 60_000);
 }
 
 export function stopNotifPoller() {
   if (pollerInterval) clearInterval(pollerInterval);
   pollerInterval = null;
+  getLastEventsFn = null;
+}
+
+/**
+ * Restart the poller (call after settings change).
+ * Re-reads settings from AsyncStorage automatically on next tick.
+ * If getLastEvents callback was previously set, it keeps using it.
+ */
+export function restartNotifPoller() {
+  if (getLastEventsFn) {
+    startNotifPoller(getLastEventsFn);
+  }
+}
+
+/**
+ * Clear the fired-keys cache (useful when new events are added,
+ * so the same event key can fire again after the new interval).
+ */
+export function clearFiredNotifications() {
+  firedKeys.clear();
 }

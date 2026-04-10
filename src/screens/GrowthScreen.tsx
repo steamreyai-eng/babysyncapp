@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Platform, Alert, KeyboardAvoidingView, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Platform, Alert, KeyboardAvoidingView, TextInput, RefreshControl } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -61,6 +61,19 @@ function GrowthScreenContent({ growthRecords }: { growthRecords: GrowthRecord[] 
   });
   const [saving, setSaving] = useState<Metric | null>(null);
 
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const { syncWithSupabase } = await import('../db/sync');
+      await syncWithSupabase(true);
+    } catch (e) {
+      console.warn("Manual sync error", e);
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
+
   useEffect(() => {
     AsyncStorage.getItem('growth_milestones').then(val => {
       if (val) setChecks(JSON.parse(val));
@@ -116,7 +129,11 @@ function GrowthScreenContent({ growthRecords }: { growthRecords: GrowthRecord[] 
            </View>
         </View>
 
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: Math.max(insets.bottom, 40) }} showsVerticalScrollIndicator={false}>
+        <ScrollView 
+          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: Math.max(insets.bottom, 40) }} 
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#6366F1']} />}
+        >
 
         {/* 3 Metric Cards */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 }}>

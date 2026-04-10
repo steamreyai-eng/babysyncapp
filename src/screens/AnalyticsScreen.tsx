@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator, StyleSheet, RefreshControl } from 'react-native';
 import {
   Milk, Moon, Baby, Footprints, Brain, TrendingUp,
   Clock, Activity, Droplets, AlertCircle, TrendingDown,
@@ -165,6 +165,19 @@ const AnalyticsScreenContent = ({ feedingsAll = [], sleepsAll = [], diapersAll =
   const [period, setPeriod] = useState('day'); // 'day', 'week', 'month', 'all'
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [loading, setLoading] = useState(true);
+
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const { syncWithSupabase } = await import('../db/sync');
+      await syncWithSupabase(true);
+    } catch (e) {
+      console.warn("Manual sync error", e);
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
   
   const [aiRecs, setAiRecs] = useState<string[]>([]);
   const [aiLoading, setAiLoading] = useState(false);
@@ -437,7 +450,11 @@ const AnalyticsScreenContent = ({ feedingsAll = [], sleepsAll = [], diapersAll =
   }
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: '#FAFBFC' }} contentContainerStyle={{ paddingBottom: 100 }}>
+    <ScrollView 
+       style={{ flex: 1, backgroundColor: '#FAFBFC' }} 
+       contentContainerStyle={{ paddingBottom: 100 }}
+       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#6366F1']} />}
+    >
        <View style={{ paddingHorizontal: 20, paddingTop: Math.max(20, 40), paddingBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 32, color: '#0F172A', letterSpacing: -0.5 }}>Аналитика</Text>
           <TouchableOpacity 

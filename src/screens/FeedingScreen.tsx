@@ -218,15 +218,15 @@ function FeedingScreenContent({ feedings }: { feedings: Feeding[] }) {
             <Text style={{ fontSize: 12, fontFamily: 'Nunito_800ExtraBold', color: '#8A8A9E', marginBottom: 10, textTransform: 'uppercase' }}>Параметры смеси</Text>
             <View style={{ backgroundColor: '#F5F3FF', borderRadius: 16, paddingHorizontal: 20, paddingVertical: 12, marginBottom: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#EDE9FE' }}>
               <Text style={{ fontSize: 16, fontFamily: 'Nunito_800ExtraBold', color: '#1A1A2E' }}>Объём (мл)</Text>
-              <TextInput value={formulaVolume} onChangeText={setFormulaVolume} keyboardType="numeric" style={{ fontSize: 18, fontFamily: 'Nunito_900Black', color: '#7B50C8', textAlign: 'right', minWidth: 60 }} />
+              <TextInput value={formulaVolume} onChangeText={setFormulaVolume} keyboardType="numeric" placeholder="120" placeholderTextColor="#B8A8D8" style={{ fontSize: 18, fontFamily: 'Nunito_900Black', color: '#7B50C8', textAlign: 'right', minWidth: 60 }} />
             </View>
             <View style={{ backgroundColor: '#F5F3FF', borderRadius: 16, paddingHorizontal: 20, paddingVertical: 12, marginBottom: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#EDE9FE' }}>
               <Text style={{ fontSize: 16, fontFamily: 'Nunito_800ExtraBold', color: '#1A1A2E' }}>Бренд</Text>
-              <TextInput value={formulaBrand} onChangeText={setFormulaBrand} placeholder="Nan Optipro" style={{ fontSize: 16, fontFamily: 'Nunito_800ExtraBold', color: '#7B50C8', textAlign: 'right', minWidth: 100 }} />
+              <TextInput value={formulaBrand} onChangeText={setFormulaBrand} placeholder="Nan Optipro" placeholderTextColor="#B8A8D8" style={{ fontSize: 16, fontFamily: 'Nunito_800ExtraBold', color: '#7B50C8', textAlign: 'right', minWidth: 100 }} />
             </View>
             <View style={{ backgroundColor: '#F5F3FF', borderRadius: 16, paddingHorizontal: 20, paddingVertical: 12, marginBottom: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#EDE9FE' }}>
               <Text style={{ fontSize: 16, fontFamily: 'Nunito_800ExtraBold', color: '#1A1A2E' }}>Температура (°C)</Text>
-              <TextInput value={temperature} onChangeText={setTemperature} keyboardType="numeric" style={{ fontSize: 16, fontFamily: 'Nunito_800ExtraBold', color: '#7B50C8', textAlign: 'right', minWidth: 60 }} />
+              <TextInput value={temperature} onChangeText={setTemperature} keyboardType="numeric" placeholder="37" placeholderTextColor="#B8A8D8" style={{ fontSize: 16, fontFamily: 'Nunito_800ExtraBold', color: '#7B50C8', textAlign: 'right', minWidth: 60 }} />
             </View>
 
             <TouchableOpacity onPress={handleSaveFormula} style={{ height: 56, borderRadius: 20, backgroundColor: '#7B50C8', alignItems: 'center', justifyContent: 'center', marginTop: 10, shadowColor: '#7B50C8', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 24, elevation: 6 }}>
@@ -244,11 +244,11 @@ function FeedingScreenContent({ feedings }: { feedings: Feeding[] }) {
             </TouchableOpacity>
 
             <Text style={{ fontSize: 12, fontFamily: 'Nunito_800ExtraBold', color: '#8A8A9E', marginBottom: 10, textTransform: 'uppercase' }}>Что ел малыш?</Text>
-            <TextInput placeholder="Напр. Брокколи" value={weaningProduct} onChangeText={setWeaningProduct} style={{ backgroundColor: '#F0FCF9', borderRadius: 16, padding: 16, fontFamily: 'Nunito_800ExtraBold', fontSize: 16, color: '#1A1A2E', marginBottom: 16, borderWidth: 1, borderColor: '#CCF0E6' }} />
+            <TextInput placeholder="Напр. Брокколи" placeholderTextColor="#94A3B8" value={weaningProduct} onChangeText={setWeaningProduct} style={{ backgroundColor: '#F0FCF9', borderRadius: 16, padding: 16, fontFamily: 'Nunito_800ExtraBold', fontSize: 16, color: '#1A1A2E', marginBottom: 16, borderWidth: 1, borderColor: '#CCF0E6' }} />
 
             <View style={{ backgroundColor: '#F0FCF9', borderRadius: 16, paddingHorizontal: 20, paddingVertical: 12, marginBottom: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#CCF0E6' }}>
               <Text style={{ fontSize: 16, fontFamily: 'Nunito_800ExtraBold', color: '#1A1A2E' }}>Объём (г)</Text>
-              <TextInput value={weaningVolume} onChangeText={setWeaningVolume} keyboardType="numeric" style={{ fontSize: 18, fontFamily: 'Nunito_900Black', color: '#2A9B7E', textAlign: 'right', minWidth: 60 }} />
+              <TextInput value={weaningVolume} onChangeText={setWeaningVolume} keyboardType="numeric" placeholder="100" placeholderTextColor="#7EC8B5" style={{ fontSize: 18, fontFamily: 'Nunito_900Black', color: '#2A9B7E', textAlign: 'right', minWidth: 60 }} />
             </View>
 
             <Text style={{ fontSize: 12, fontFamily: 'Nunito_800ExtraBold', color: '#8A8A9E', marginBottom: 10, textTransform: 'uppercase' }}>Реакция</Text>

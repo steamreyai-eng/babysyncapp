@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Platform, Alert, KeyboardAvoidingView, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Platform, Alert, KeyboardAvoidingView, TextInput, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import DateTimePickerModal from '../components/DateTimePickerModal';
@@ -40,6 +40,19 @@ function HealthScreenContent({ medications, growthRecords }: { medications: Medi
   const [medUnit, setMedUnit] = useState("капли");
   const [medTime, setMedTime] = useState(new Date());
   const [showTimePicker, setShowTimePicker] = useState(false);
+
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const { syncWithSupabase } = await import('../db/sync');
+      await syncWithSupabase(true);
+    } catch (e) {
+      console.warn("Manual sync error", e);
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
 
   const tabs: { id: HealthTab; label: string; icon: string }[] = [
     { id: 'vitals', label: 'Показатели', icon: 'thermometer-outline' },
@@ -115,7 +128,11 @@ function HealthScreenContent({ medications, growthRecords }: { medications: Medi
            </View>
         </View>
 
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: Math.max(insets.bottom, 40) }} showsVerticalScrollIndicator={false}>
+        <ScrollView 
+          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: Math.max(insets.bottom, 40) }} 
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#6366F1']} />}
+        >
 
         {activeTab === 'meds' && (
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'white', borderRadius: 14, padding: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 12, elevation: 2, marginBottom: 20 }}>

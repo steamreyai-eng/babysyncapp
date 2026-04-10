@@ -1,6 +1,7 @@
 import 'react-native-url-polyfill/auto';
 import 'react-native-gesture-handler';
 import React, { useEffect, useState, useCallback } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Sentry from '@sentry/react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -18,7 +19,9 @@ import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-cont
 import AIBubble from './src/components/AIBubble';
 import FAB from './src/components/FAB';
 import LiveActivityBanner from './src/components/LiveActivityBanner';
-import { setupTimerNotifications, restoreTimerNotifications } from './src/lib/timerNotifications';
+import { setupTimerNotifications, restoreTimerNotifications, handleBackgroundStopSleep, handleBackgroundStopWalk, handleBackgroundStopFeedingLeft, handleBackgroundStopFeedingRight } from './src/lib/timerNotifications';
+import { initReminderNotifications, startNotifPoller, stopNotifPoller } from './src/lib/notifications';
+import notifee, { EventType } from '@notifee/react-native';
 import { useTimerStore } from './src/store/timerStore';
 
 // Expo Fonts — Nunito + Plus Jakarta Sans (matching web)
@@ -89,10 +92,12 @@ export default Sentry.wrap(function App() {
     async function prepare() {
       try {
         await setupTimerNotifications();
-        const { sleepConfig, walkConfig } = useTimerStore.getState();
+        await initReminderNotifications();
+        const { sleepConfig, walkConfig, feedingConfig } = useTimerStore.getState();
         await restoreTimerNotifications(
            sleepConfig.isRunning, sleepConfig.startTime,
-           walkConfig.isRunning, walkConfig.startTime
+           walkConfig.isRunning, walkConfig.startTime,
+           feedingConfig
         );
         
         await Font.loadAsync({
@@ -114,6 +119,8 @@ export default Sentry.wrap(function App() {
     prepare();
   }, []);
 
+  const BABY_PROFILE_CACHE_KEY = '@babysync_baby_profile';
+
   const checkProfile = async (currentSession: any) => {
     if (!currentSession) {
       setLoading(false);
@@ -127,14 +134,48 @@ export default Sentry.wrap(function App() {
         .single();
 
       if (error || !data) {
-        setOnboardingNeeded(true);
-        setBaby(null);
+        // Network error vs. genuinely no profile:
+        // PGRST116 = "no rows" → real empty result → onboarding needed
+        // Any other error (network, timeout, etc.) → try cached profile
+        const isNoRows = error?.code === 'PGRST116';
+        if (isNoRows) {
+          setOnboardingNeeded(true);
+          setBaby(null);
+          await AsyncStorage.removeItem(BABY_PROFILE_CACHE_KEY);
+        } else {
+          // Network / server error → fall back to cache
+          const cached = await AsyncStorage.getItem(BABY_PROFILE_CACHE_KEY);
+          if (cached) {
+            const cachedBaby = JSON.parse(cached);
+            setOnboardingNeeded(false);
+            setBaby(cachedBaby);
+            if (__DEV__) console.log('[offline] Using cached baby profile');
+          } else {
+            // No cache and no network — show onboarding (first use)
+            setOnboardingNeeded(true);
+            setBaby(null);
+          }
+        }
       } else {
         setOnboardingNeeded(false);
         setBaby(data);
+        // Persist to cache for offline use
+        await AsyncStorage.setItem(BABY_PROFILE_CACHE_KEY, JSON.stringify(data));
       }
     } catch (e) {
       if (__DEV__) console.warn('Error fetching profile', e);
+      // Total failure (e.g. network down before request) → fall back to cache
+      try {
+        const cached = await AsyncStorage.getItem(BABY_PROFILE_CACHE_KEY);
+        if (cached) {
+          const cachedBaby = JSON.parse(cached);
+          setOnboardingNeeded(false);
+          setBaby(cachedBaby);
+          if (__DEV__) console.log('[offline] Using cached baby profile (catch)');
+        }
+      } catch (_cacheErr) {
+        // Nothing we can do
+      }
     } finally {
       setLoading(false);
     }
@@ -159,6 +200,53 @@ export default Sentry.wrap(function App() {
     }
   };
 
+  // ── Helper: Get latest events from WatermelonDB for notification poller ──
+  const getLastEventsFromDB = () => {
+    // This runs synchronously from cached data; the poller calls this every 60s
+    // We use a closure to cache the latest values
+    return getLastEventsCached;
+  };
+
+  // Mutable ref for cached event data
+  let getLastEventsCached = {
+    lastFeedingMs: null as number | null,
+    lastDiaperMs: null as number | null,
+    lastSleepEndMs: null as number | null,
+    ageMo: 4,
+  };
+
+  const refreshLastEventsCache = async () => {
+    try {
+      const baby = useAuthStore.getState().baby;
+      const ageMo = baby?.birthdate
+        ? (Date.now() - new Date(baby.birthdate).getTime()) / (30.44 * 24 * 3600 * 1000)
+        : 4;
+
+      const [latestFeedings, latestDiapers, latestSleeps] = await Promise.all([
+        database.get('feedings').query(Q.sortBy('created_at', Q.desc), Q.take(1)).fetch(),
+        database.get('diapers').query(Q.sortBy('created_at', Q.desc), Q.take(1)).fetch(),
+        database.get('sleeps').query(Q.sortBy('created_at', Q.desc), Q.take(1)).fetch(),
+      ]);
+
+      const lastFeeding = latestFeedings[0] as any;
+      const lastDiaper = latestDiapers[0] as any;
+      const lastSleep = latestSleeps[0] as any;
+
+      getLastEventsCached = {
+        lastFeedingMs: lastFeeding ? new Date(lastFeeding.created_at).getTime() : null,
+        lastDiaperMs: lastDiaper ? new Date(lastDiaper.created_at).getTime() : null,
+        lastSleepEndMs: lastSleep
+          ? (lastSleep.end_time
+              ? new Date(lastSleep.end_time).getTime()
+              : new Date(lastSleep.created_at).getTime() + (lastSleep.duration_seconds || 0) * 1000)
+          : null,
+        ageMo,
+      };
+    } catch (e) {
+      if (__DEV__) console.warn('[Notifications] Error refreshing event cache:', e);
+    }
+  };
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
       setSession(initialSession);
@@ -169,9 +257,18 @@ export default Sentry.wrap(function App() {
             .then(() => checkTodayShift())
             .catch(e => __DEV__ && console.warn('Sync failed', e))
         );
+        // Start notification reminder poller
+        refreshLastEventsCache().then(() => {
+          startNotifPoller(() => getLastEventsCached);
+        });
+        // Refresh event cache periodically (every 60s)
+        const cacheInterval = setInterval(refreshLastEventsCache, 60_000);
+        // Store cleanup ref
+        (globalThis as any).__notifCacheInterval = cacheInterval;
       } else {
         import('./src/store/dataStore').then(({ useDataStore }) => useDataStore.getState().clearData());
         import('./src/store/timerStore').then(({ useTimerStore }) => useTimerStore.getState().clearAllTimers());
+        stopNotifPoller();
       }
     });
 
@@ -186,13 +283,39 @@ export default Sentry.wrap(function App() {
             .then(() => checkTodayShift())
             .catch(e => __DEV__ && console.warn('Sync failed', e))
         );
+        // Re-start notification poller on re-auth
+        refreshLastEventsCache().then(() => {
+          startNotifPoller(() => getLastEventsCached);
+        });
       } else {
         import('./src/store/dataStore').then(({ useDataStore }) => useDataStore.getState().clearData());
         import('./src/store/timerStore').then(({ useTimerStore }) => useTimerStore.getState().clearAllTimers());
+        stopNotifPoller();
       }
     });
 
-    return () => subscription.unsubscribe();
+    const unsubscribeForeground = notifee.onForegroundEvent(async ({ type, detail }) => {
+      if (type === EventType.ACTION_PRESS) {
+        if (detail.pressAction?.id === 'stop-sleep') {
+          await handleBackgroundStopSleep();
+        } else if (detail.pressAction?.id === 'stop-walk') {
+          await handleBackgroundStopWalk();
+        } else if (detail.pressAction?.id === 'stop-feeding-left') {
+          await handleBackgroundStopFeedingLeft();
+        } else if (detail.pressAction?.id === 'stop-feeding-right') {
+          await handleBackgroundStopFeedingRight();
+        }
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+      unsubscribeForeground();
+      stopNotifPoller();
+      if ((globalThis as any).__notifCacheInterval) {
+        clearInterval((globalThis as any).__notifCacheInterval);
+      }
+    };
   }, []);
 
   useEffect(() => {

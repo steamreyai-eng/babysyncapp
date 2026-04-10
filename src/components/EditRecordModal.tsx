@@ -61,12 +61,12 @@ const FeedingEdit = ({ record, onClose }: { record: any; onClose: () => void }) 
     <View style={{ gap: 16 }}>
       <View>
         <Text style={s.label}>ОПИСАНИЕ</Text>
-        <TextInput value={desc} onChangeText={setDesc} style={s.input} />
+        <TextInput value={desc} onChangeText={setDesc} placeholder="Описание..." placeholderTextColor="#A0A0B0" style={s.input} />
       </View>
       {record.type === 'formula' && (
         <View>
           <Text style={s.label}>ОБЪЁМ (мл)</Text>
-          <TextInput value={vol} onChangeText={setVol} keyboardType="numeric" style={s.input} />
+          <TextInput value={vol} onChangeText={setVol} keyboardType="numeric" placeholder="0" placeholderTextColor="#A0A0B0" style={s.input} />
         </View>
       )}
       <View>
@@ -376,7 +376,7 @@ export default function EditRecordModal({ target, onClose }: Props) {
     <Modal visible={!!target} transparent animationType="slide" onRequestClose={onClose}>
       <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' }}>
         <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={onClose} />
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <View style={{
             backgroundColor: 'white', borderTopLeftRadius: 24, borderTopRightRadius: 24,
             paddingHorizontal: 20, paddingTop: 20, paddingBottom: Platform.OS === 'ios' ? 34 : 20,

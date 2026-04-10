@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import withObservables from '@nozbe/with-observables';
@@ -74,6 +74,19 @@ const getCardSub = (id: string, feedings: any[], sleeps: any[], diapers: any[], 
 const TrackerScreenContent = ({ feedings, sleeps, diapers, walks, growthRecords }: any) => {
   const navigation = useNavigation<any>();
 
+  const [refreshing, setRefreshing] = React.useState(false);
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const { syncWithSupabase } = await import('../db/sync');
+      await syncWithSupabase(true);
+    } catch (e) {
+      console.warn("Manual sync error", e);
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
+
   // Build recent events from all data
   const recentEvents = React.useMemo(() => {
     const events: { type: string; icon: string; iconColor: string; iconBg: string; label: string; sub: string; time: number }[] = [];
@@ -107,7 +120,10 @@ const TrackerScreenContent = ({ feedings, sleeps, diapers, walks, growthRecords 
 
   return (
     <View style={{ flex: 1, paddingTop: 16, backgroundColor: '#FAFBFC' }}>
-      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 100 }}>
+      <ScrollView 
+        contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#6366F1']} />}
+      >
         <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 30, color: '#0F172A', marginBottom: 4 }}>Трекер</Text>
         <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 13, color: '#64748B', marginBottom: 24 }}>Быстрый доступ к разделам</Text>
 

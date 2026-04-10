@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, TextInput,
-  StyleSheet, Alert, Dimensions, Platform
+  StyleSheet, Alert, Dimensions, Platform, RefreshControl
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../store/authStore';
@@ -32,6 +32,19 @@ const ShiftsScreenContent = ({ feedings, sleeps, diapers, tasks, shiftsData }: a
 
   // Debounce flag to prevent rapid clicks on same cell
   const [isAssigning, setIsAssigning] = useState(false);
+
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const { syncWithSupabase } = await import('../db/sync');
+      await syncWithSupabase(true);
+    } catch (e) {
+      console.warn("Manual sync error", e);
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
 
   // Parse shifts into dict: { 'YYYY-MM-DD': 'mom' | 'dad' }
   const shiftsDict = useMemo(() => {
@@ -245,7 +258,12 @@ const ShiftsScreenContent = ({ feedings, sleeps, diapers, tasks, shiftsData }: a
         </TouchableOpacity>
         <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 24, color: '#1A1A2E' }}>Смены родителей</Text>
       </View>
-      <ScrollView style={{ flex: 1, paddingHorizontal: 16 }} contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 160) }} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={{ flex: 1, paddingHorizontal: 16 }} 
+        contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 160) }} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#6366F1']} />}
+      >
 
       {/* Active parent banner */}
       <View style={styles.banner}>
