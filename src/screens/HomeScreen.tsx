@@ -269,7 +269,7 @@ const HomeScreenContent = ({ feedings, sleeps, diapers, walks, tasks }: any) => 
       setNewTaskTitle('');
       setNewTaskTime(null);
     } catch (e) {
-      console.warn("Error adding task", e);
+      if (__DEV__) console.warn("Error adding task", e);
     }
   };
 
@@ -281,7 +281,7 @@ const HomeScreenContent = ({ feedings, sleeps, diapers, walks, tasks }: any) => 
         });
       });
     } catch (e) {
-      console.warn("Error toggling task", e);
+      if (__DEV__) console.warn("Error toggling task", e);
     }
   };
 
@@ -291,7 +291,7 @@ const HomeScreenContent = ({ feedings, sleeps, diapers, walks, tasks }: any) => 
         await task.markAsDeleted();
       });
     } catch (e) {
-      console.warn("Error deleting task", e);
+      if (__DEV__) console.warn("Error deleting task", e);
     }
   };
 
@@ -307,7 +307,7 @@ const HomeScreenContent = ({ feedings, sleeps, diapers, walks, tasks }: any) => 
       const { syncWithSupabase } = await import('../db/sync');
       await syncWithSupabase(true);
     } catch (e) {
-      console.warn("Manual sync error", e);
+      if (__DEV__) console.warn("Manual sync error", e);
     } finally {
       setRefreshing(false);
     }

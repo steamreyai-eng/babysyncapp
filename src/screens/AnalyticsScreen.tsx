@@ -16,7 +16,6 @@ import { BarChart, PieChart, LineChart } from 'react-native-gifted-charts';
 import Skeleton from '../components/Skeleton';
 const FileSystem = require('expo-file-system') as any;
 import * as Sharing from 'expo-sharing';
-import * as XLSX from 'xlsx';
 
 import { calcDayIndex, scoreColor } from '../utils/metrics';
 import { callAI } from '../lib/ai';
@@ -173,7 +172,7 @@ const AnalyticsScreenContent = ({ feedingsAll = [], sleepsAll = [], diapersAll =
       const { syncWithSupabase } = await import('../db/sync');
       await syncWithSupabase(true);
     } catch (e) {
-      console.warn("Manual sync error", e);
+      if (__DEV__) console.warn("Manual sync error", e);
     } finally {
       setRefreshing(false);
     }
@@ -263,45 +262,70 @@ const AnalyticsScreenContent = ({ feedingsAll = [], sleepsAll = [], diapersAll =
 
   const handleExportExcel = async () => {
     try {
-      const wb = XLSX.utils.book_new();
-      
-      const feedData = feedings.map((f: any) => ({
-         "Дата": new Date(f.created_at).toLocaleString("ru-RU"),
-         "Тип": f.type === 'breast' ? 'Грудь' : f.type === 'formula' ? 'Смесь' : 'Прикорм',
-      }));
-      const sleepData = sleeps.map((s: any) => ({
-         "Дата": new Date(s.created_at).toLocaleString("ru-RU"),
-         "Длительность (сек)": s.duration_seconds,
-      }));
-      const diaperData = diapers.map((d: any) => ({
-         "Дата": new Date(d.created_at).toLocaleString("ru-RU"),
-         "Тип": d.type,
-      }));
-      const walkData = walks.map((w: any) => ({
-         "Дата": new Date(w.created_at).toLocaleString("ru-RU"),
-         "Длительность (сек)": w.duration_seconds,
-      }));
-      
-      if (feedData.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(feedData), "Кормления");
-      if (sleepData.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sleepData), "Сны");
-      if (diaperData.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(diaperData), "Подгу");
-      if (walkData.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(walkData), "Прогулки");
+      // Build CSV content (UTF-8 BOM for Excel compatibility with Cyrillic)
+      const BOM = '\uFEFF';
+      const sections: string[] = [];
 
-      if (wb.SheetNames.length === 0) {
-        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([{ "Сообщение": "Нет данных" }]), "Пусто");
+      // Feedings
+      if (feedings.length > 0) {
+        sections.push('--- КОРМЛЕНИЯ ---');
+        sections.push('Дата,Тип');
+        feedings.forEach((f: any) => {
+          const date = new Date(f.created_at).toLocaleString('ru-RU');
+          const type = f.type === 'breast' ? 'Грудь' : f.type === 'formula' ? 'Смесь' : 'Прикорм';
+          sections.push(`"${date}","${type}"`);
+        });
+        sections.push('');
       }
 
-      const wbout = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
-      const uri = FileSystem.cacheDirectory + `BabySync_Analytics.xlsx`;
-      
-      await FileSystem.writeAsStringAsync(uri, wbout, { encoding: FileSystem.EncodingType.Base64 });
-      
+      // Sleeps
+      if (sleeps.length > 0) {
+        sections.push('--- СОН ---');
+        sections.push('Дата,Длительность (мин)');
+        sleeps.forEach((s: any) => {
+          const date = new Date(s.created_at).toLocaleString('ru-RU');
+          sections.push(`"${date}",${Math.round(s.duration_seconds / 60)}`);
+        });
+        sections.push('');
+      }
+
+      // Diapers
+      if (diapers.length > 0) {
+        sections.push('--- ПОДГУЗНИКИ ---');
+        sections.push('Дата,Тип');
+        diapers.forEach((d: any) => {
+          const date = new Date(d.created_at).toLocaleString('ru-RU');
+          const type = d.type === 'wet' ? 'Мокрый' : d.type === 'dirty' ? 'Грязный' : 'Оба';
+          sections.push(`"${date}","${type}"`);
+        });
+        sections.push('');
+      }
+
+      // Walks
+      if (walks.length > 0) {
+        sections.push('--- ПРОГУЛКИ ---');
+        sections.push('Дата,Длительность (мин)');
+        walks.forEach((w: any) => {
+          const date = new Date(w.created_at).toLocaleString('ru-RU');
+          sections.push(`"${date}",${Math.round(w.duration_seconds / 60)}`);
+        });
+      }
+
+      if (sections.length === 0) {
+        sections.push('Нет данных для экспорта');
+      }
+
+      const csvContent = BOM + sections.join('\n');
+      const uri = FileSystem.cacheDirectory + 'BabySync_Analytics.csv';
+
+      await FileSystem.writeAsStringAsync(uri, csvContent, { encoding: FileSystem.EncodingType.UTF8 });
+
       await Sharing.shareAsync(uri, {
-        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        mimeType: 'text/csv',
         dialogTitle: 'Экспорт Аналитики',
       });
     } catch (e) {
-      console.error("Export Error:", e);
+      if (__DEV__) console.error("Export Error:", e);
     }
   };
 

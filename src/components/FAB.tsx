@@ -11,6 +11,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, Animated, StyleSheet,
   Modal, TextInput, Alert, Platform, ScrollView, KeyboardAvoidingView,
+  Keyboard, Animated as RNAnimated,
 } from 'react-native';
 import { Plus, X, Check, Moon, Milk, Droplets, Droplet, CloudRain, Cloud, Play, Square, Utensils } from 'lucide-react-native';
 import DateTimePickerModal from './DateTimePickerModal';
@@ -39,6 +40,35 @@ const FAB = () => {
   const [expanded, setExpanded] = useState(false);
   const [activeSheet, setActiveSheet] = useState<ActiveSheet>(null);
   const scaleAnim = useRef(new Animated.Value(0)).current;
+
+  // Manual keyboard tracking for Android (KeyboardAvoidingView broken inside Modal on Android)
+  const fabKeyboardPadding = useRef(new RNAnimated.Value(0)).current;
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+
+    const showSub = Keyboard.addListener('keyboardDidShow', (e) => {
+      if (activeSheet) {
+        RNAnimated.timing(fabKeyboardPadding, {
+          toValue: e.endCoordinates.height,
+          duration: 250,
+          useNativeDriver: false,
+        }).start();
+      }
+    });
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => {
+      RNAnimated.timing(fabKeyboardPadding, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: false,
+      }).start();
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [activeSheet]);
 
   // Global Timer store
   const { feedingConfig, setFeedingConfig, clearFeedingTimer } = useTimerStore();
@@ -215,7 +245,7 @@ const FAB = () => {
       closeSheet();
       triggerHaptic('success');
     } catch (e) {
-      console.warn("handleSaveFeeding error:", e);
+      if (__DEV__) console.warn("handleSaveFeeding error:", e);
     }
   };
 
@@ -236,7 +266,7 @@ const FAB = () => {
       closeSheet();
       triggerHaptic('success');
     } catch (e) {
-      console.warn("handleSaveDiaper error:", e);
+      if (__DEV__) console.warn("handleSaveDiaper error:", e);
     }
   };
 
@@ -261,7 +291,7 @@ const FAB = () => {
       closeSheet();
       triggerHaptic('success');
     } catch (e) {
-      console.warn("handleSaveSleep error:", e);
+      if (__DEV__) console.warn("handleSaveSleep error:", e);
     }
   };
 
@@ -291,49 +321,228 @@ const FAB = () => {
     );
   };
 
+  // ── Sheet content (shared between iOS and Android wrappers) ──
+  const renderSheetContent = () => (
+    <>
+      {activeSheet === 'feeding' && (
+        <View>
+          <View style={styles.sheetHeader}>
+            <View style={[styles.sheetIcon, { backgroundColor: '#EDE4F8' }]}>
+              <Milk size={22} color="#8B6FD4" strokeWidth={1.5} />
+            </View>
+            <Text style={styles.sheetTitle}>Новое кормление</Text>
+          </View>
+          <View style={styles.typeTabs}>
+            {([
+              { id: 'breast' as const, label: 'Грудное' },
+              { id: 'formula' as const, label: 'Смесь' },
+              { id: 'solid' as const, label: 'Прикорм' },
+            ]).map(t => (
+              <TouchableOpacity key={t.id} style={[styles.typeTab, feedingType === t.id && styles.typeTabActive]} onPress={() => setFeedingType(t.id)}>
+                <Text style={[styles.typeTabText, feedingType === t.id && { color: '#4E8FD4' }]}>{t.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>Время</Text>
+            <TouchableOpacity style={styles.input} onPress={() => setShowDatePicker(true)}>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: '#1A1A2E', fontFamily: 'Nunito_700Bold' }}>{formatDate(logDate)}</Text>
+            </TouchableOpacity>
+            {renderInlineIOSPicker('#2563EB', '#EFF6FF')}
+          </View>
+          {feedingType === 'breast' && (
+            <View style={{ flexDirection: 'row', gap: 12, marginBottom: 20 }}>
+              {[
+                { side: 'Л', label: 'Левая грудь', seconds: secondsL, running: feedingConfig.leftRunning, toggle: toggleLeftBreastTimer },
+                { side: 'П', label: 'Правая грудь', seconds: secondsR, running: feedingConfig.rightRunning, toggle: toggleRightBreastTimer }
+              ].map(({ side, label, seconds, running, toggle }) => (
+                <View key={side} style={{ flex: 1, padding: 16, backgroundColor: 'white', borderRadius: 16, borderWidth: 1, borderColor: running ? '#5B9BD5' : '#E0DDD8', alignItems: 'center' }}>
+                  <Text style={[styles.fieldLabel, { color: '#5B9BD5', marginBottom: 8 }]}>{label}</Text>
+                  <Text style={{ fontSize: 32, fontWeight: '900', color: running ? '#5B9BD5' : '#1A1A2E', marginBottom: 16, fontFamily: 'Nunito_900Black' }}>{fmt(seconds)}</Text>
+                  <TouchableOpacity style={{ width: '100%', paddingVertical: 10, borderRadius: 12, backgroundColor: running ? '#E05A5A' : '#E8DEFF', alignItems: 'center' }} onPress={toggle}>
+                    <Text style={{ color: running ? 'white' : '#1A1A2E', fontSize: 14, fontWeight: '800', fontFamily: 'Nunito_800ExtraBold' }}>{running ? 'Стоп' : 'Старт'}</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          )}
+          {feedingType === 'formula' && (
+            <>
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>Бренд смеси</Text>
+                <TextInput style={styles.input} value={formulaBrand} onChangeText={setFormulaBrand} placeholder="Nan Optipro..." placeholderTextColor="#94A3B8" />
+              </View>
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>Объём (мл)</Text>
+                <TextInput style={styles.input} value={formulaVolume} onChangeText={setFormulaVolume} keyboardType="number-pad" placeholder="120" placeholderTextColor="#94A3B8" />
+              </View>
+            </>
+          )}
+          {feedingType === 'solid' && (
+            <>
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>Продукт</Text>
+                <TextInput style={styles.input} value={solidProduct} onChangeText={setSolidProduct} placeholder="Каша овсяная" placeholderTextColor="#94A3B8" />
+              </View>
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>Количество (г)</Text>
+                <TextInput style={styles.input} value={solidVolume} onChangeText={setSolidVolume} keyboardType="number-pad" placeholder="80" placeholderTextColor="#94A3B8" />
+              </View>
+            </>
+          )}
+          <TouchableOpacity style={[styles.saveBtn, { backgroundColor: '#5B9BD5' }]} onPress={handleSaveFeeding}>
+            <Check size={20} color="white" strokeWidth={2.5} />
+            <Text style={styles.saveBtnText}>Сохранить</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {activeSheet === 'diaper' && (
+        <View>
+          <View style={styles.sheetHeader}>
+            <View style={[styles.sheetIcon, { backgroundColor: '#D4F3EC' }]}>
+              <Droplets size={22} color="#3DBFAA" strokeWidth={1.5} />
+            </View>
+            <Text style={styles.sheetTitle}>Подгузник</Text>
+          </View>
+          <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
+            {([
+              { id: 'wet' as const, label: 'Мокрый', IconComp: Droplet, color: '#4E8FD4', bg: '#DEEAF8' },
+              { id: 'both' as const, label: 'Смешан.', IconComp: CloudRain, color: '#8B6FD4', bg: '#EDE4F8' },
+              { id: 'dirty' as const, label: 'Грязный', IconComp: Cloud, color: '#E69600', bg: '#FFF0CC' },
+            ]).map(t => (
+              <TouchableOpacity key={t.id} style={[styles.diaperOption, { backgroundColor: diaperType === t.id ? t.bg : 'white', borderColor: diaperType === t.id ? t.color : '#E2E8F0' }]} onPress={() => setDiaperType(t.id)}>
+                <View style={[styles.diaperIcon, { backgroundColor: t.bg }]}>
+                  <t.IconComp size={18} color={t.color} strokeWidth={1.5} />
+                </View>
+                <Text style={[styles.diaperLabel, { color: diaperType === t.id ? t.color : '#1A1A2E' }]}>{t.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>Время</Text>
+            <TouchableOpacity style={styles.input} onPress={() => setShowDatePicker(true)}>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: '#1A1A2E', fontFamily: 'Nunito_700Bold' }}>{formatDate(logDate)}</Text>
+            </TouchableOpacity>
+            {renderInlineIOSPicker('#059669', '#ECFDF5')}
+          </View>
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>Цвет / консистенция</Text>
+            <TextInput style={styles.input} value={diaperColor} onChangeText={setDiaperColor} placeholder="Жёлтый – жидкий (норма)..." placeholderTextColor="#94A3B8" />
+          </View>
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>Заметка</Text>
+            <TextInput style={[styles.input, { minHeight: 60, textAlignVertical: 'top' }]} value={diaperNote} onChangeText={setDiaperNote} placeholder="Раздражение кожи..." placeholderTextColor="#94A3B8" multiline />
+          </View>
+          <TouchableOpacity style={[styles.saveBtn, { backgroundColor: '#4DBFAA' }]} onPress={handleSaveDiaper}>
+            <Check size={20} color="white" strokeWidth={2.5} />
+            <Text style={styles.saveBtnText}>Сохранить</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {activeSheet === 'sleep' && (
+        <View>
+          <View style={styles.sheetHeader}>
+            <View style={[styles.sheetIcon, { backgroundColor: '#DEEAF8' }]}>
+              <Moon size={22} color="#4E8FD4" strokeWidth={1.5} />
+            </View>
+            <Text style={styles.sheetTitle}>Новый сон</Text>
+          </View>
+          {!showManualSleep ? (
+            <>
+              <View style={{ alignItems: 'center', marginBottom: 20 }}>
+                <Text style={[styles.sleepBigNum, { fontSize: 64, color: '#8B6FD4' }]}>{fmt(sleepSeconds)}</Text>
+                <Text style={{ fontSize: 14, color: '#6B6B80', marginTop: 4 }}>{sleepTimerRunning ? 'Сон идёт...' : 'Готов к запуску'}</Text>
+              </View>
+              <TouchableOpacity
+                style={[styles.saveBtn, { backgroundColor: sleepTimerRunning ? '#D94F4F' : '#8B6FD4' }]}
+                onPress={() => { if (sleepTimerRunning) { setSleepTimerRunning(false); handleSaveSleep(); } else { setSleepSeconds(0); setSleepTimerRunning(true); } }}
+              >
+                {sleepTimerRunning ? <Square size={20} color="white" strokeWidth={2.5} /> : <Play size={20} color="white" strokeWidth={2.5} />}
+                <Text style={styles.saveBtnText}>{sleepTimerRunning ? 'Остановить и сохранить' : 'Начать сон'}</Text>
+              </TouchableOpacity>
+              {!sleepTimerRunning && (
+                <TouchableOpacity style={[styles.saveBtn, { backgroundColor: '#FFFFFF', borderColor: '#E2E8F0', marginTop: 12 }]} onPress={() => setShowManualSleep(true)}>
+                  <Text style={[styles.saveBtnText, { color: '#64748B' }]}>Ввести время вручную</Text>
+                </TouchableOpacity>
+              )}
+            </>
+          ) : (
+            <>
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>Время начала</Text>
+                <TouchableOpacity style={styles.input} onPress={() => setShowDatePicker(true)}>
+                  <Text style={{ fontSize: 16, fontWeight: '700', color: '#1A1A2E', fontFamily: 'Nunito_700Bold' }}>{formatDate(logDate)}</Text>
+                </TouchableOpacity>
+                {renderInlineIOSPicker('#8B5CF6', '#F3E8FF')}
+              </View>
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>Длительность (мин)</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 16, marginBottom: 16 }}>
+                  <TouchableOpacity style={styles.stepperBtn} onPress={() => setSleepMinutes(String(Math.max(5, (parseInt(sleepMinutes) || 60) - 5)))}>
+                    <Text style={styles.stepperText}>−</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.sleepBigNum}>{sleepMinutes}</Text>
+                  <TouchableOpacity style={styles.stepperBtn} onPress={() => setSleepMinutes(String((parseInt(sleepMinutes) || 60) + 5))}>
+                    <Text style={styles.stepperText}>+</Text>
+                  </TouchableOpacity>
+                </View>
+                <Text style={{ textAlign: 'center', fontSize: 12, color: '#6B6B80', marginBottom: 12 }}>
+                  {parseInt(sleepMinutes) || 0} минут = {Math.floor((parseInt(sleepMinutes) || 0) / 60)}ч {(parseInt(sleepMinutes) || 0) % 60}м
+                </Text>
+              </View>
+              <TouchableOpacity style={[styles.saveBtn, { backgroundColor: '#8B6FD4' }]} onPress={handleSaveSleep}>
+                <Check size={20} color="white" strokeWidth={2.5} />
+                <Text style={styles.saveBtnText}>Сохранить</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.saveBtn, { backgroundColor: '#FFFFFF', borderColor: '#E2E8F0', marginTop: 12 }]} onPress={() => setShowManualSleep(false)}>
+                <Text style={[styles.saveBtnText, { color: '#64748B' }]}>Назад к таймеру</Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+      )}
+    </>
+  );
+
+  // ── Sheet shell (handle + close + scrollview) ──
+  const renderSheetShell = () => (
+    <TouchableOpacity style={styles.sheetOverlay} activeOpacity={1} onPress={closeSheet}>
+      <View style={styles.sheet} onStartShouldSetResponder={() => true}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+          <View style={styles.handle} />
+          <TouchableOpacity onPress={closeSheet} style={{ position: 'absolute', right: 0, top: 0, width: 36, height: 36, borderRadius: 18, backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center' }}>
+            <X size={18} color="#64748B" strokeWidth={2} />
+          </TouchableOpacity>
+        </View>
+        <ScrollView showsVerticalScrollIndicator={false} bounces={false} style={Platform.OS === 'ios' ? { maxHeight: 520 } : undefined} keyboardShouldPersistTaps="handled">
+          {renderSheetContent()}
+        </ScrollView>
+      </View>
+    </TouchableOpacity>
+  );
+
   return (
     <>
       {/* Expanded items */}
       {expanded && (
-        <TouchableOpacity
-          style={styles.backdrop}
-          activeOpacity={1}
-          onPress={toggleExpand}
-        >
+        <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={toggleExpand}>
           {fabItems.map((item, i) => {
             const getOffsets = (index: number) => {
-              if (index === 0) return { tx: -65, ty: -160 }; // Feeding
-              if (index === 1) return { tx: -25, ty: -90 }; // Diaper
-              if (index === 2) return { tx: -105, ty: -90 }; // Sleep
+              if (index === 0) return { tx: -65, ty: -160 };
+              if (index === 1) return { tx: -25, ty: -90 };
+              if (index === 2) return { tx: -105, ty: -90 };
               return { tx: 0, ty: 0 };
             };
             const { tx, ty } = getOffsets(i);
-
-            const translateY = scaleAnim.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0, ty],
-            });
-            const translateX = scaleAnim.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0, tx],
-            });
+            const translateY = scaleAnim.interpolate({ inputRange: [0, 1], outputRange: [0, ty] });
+            const translateX = scaleAnim.interpolate({ inputRange: [0, 1], outputRange: [0, tx] });
             const opacity = scaleAnim.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0, 0, 1] });
 
             return (
-              <Animated.View
-                key={item.type}
-                style={[styles.fabItem, {
-                  bottom: fabBottom,
-                  transform: [{ translateX }, { translateY }, { scale: scaleAnim }],
-                  opacity,
-                }]}
-              >
-                <TouchableOpacity
-                  testID={`fab-item-${item.type}`}
-                  style={[styles.fabItemBtn, { backgroundColor: item.bg, borderColor: item.color + '40' }]}
-                  onPress={() => openSheet(item.type)}
-                  activeOpacity={0.8}
-                >
+              <Animated.View key={item.type} style={[styles.fabItem, { bottom: fabBottom, transform: [{ translateX }, { translateY }, { scale: scaleAnim }], opacity }]}>
+                <TouchableOpacity testID={`fab-item-${item.type}`} style={[styles.fabItemBtn, { backgroundColor: item.bg, borderColor: item.color + '40' }]} onPress={() => openSheet(item.type)} activeOpacity={0.8}>
                   <item.icon size={24} color={item.color} strokeWidth={1.5} />
                   <Text style={[styles.fabItemLabel, { color: item.color }]}>{item.label}</Text>
                 </TouchableOpacity>
@@ -344,281 +553,26 @@ const FAB = () => {
       )}
 
       {/* Main FAB button */}
-      <TouchableOpacity
-        testID="fab-main-button"
-        style={[styles.fab, { bottom: fabBottom }, expanded && styles.fabActive]}
-        onPress={toggleExpand}
-        activeOpacity={0.9}
-      >
-        <Animated.View style={{
-          transform: [{ rotate: scaleAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '45deg'] }) }],
-        }}>
+      <TouchableOpacity testID="fab-main-button" style={[styles.fab, { bottom: fabBottom }, expanded && styles.fabActive]} onPress={toggleExpand} activeOpacity={0.9}>
+        <Animated.View style={{ transform: [{ rotate: scaleAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '45deg'] }) }] }}>
           <Plus size={32} color="white" strokeWidth={2.5} />
         </Animated.View>
       </TouchableOpacity>
 
-
       {/* ── Bottom Sheet Modal ── */}
       <Modal visible={activeSheet !== null} transparent animationType="slide" onRequestClose={closeSheet}>
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
-        >
-        <TouchableOpacity style={styles.sheetOverlay} activeOpacity={1} onPress={closeSheet}>
-          <View style={styles.sheet} onStartShouldSetResponder={() => true}>
-            {/* Close button + Handle */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-              <View style={styles.handle} />
-              <TouchableOpacity onPress={closeSheet} style={{ position: 'absolute', right: 0, top: 0, width: 36, height: 36, borderRadius: 18, backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center' }}>
-                <X size={18} color="#64748B" strokeWidth={2} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false} bounces={false} style={{ maxHeight: Platform.OS === 'ios' ? 520 : undefined }}>
-            {/* ── FEEDING ── */}
-            {activeSheet === 'feeding' && (
-              <View>
-                <View style={styles.sheetHeader}>
-                  <View style={[styles.sheetIcon, { backgroundColor: '#EDE4F8' }]}>
-                    <Milk size={22} color="#8B6FD4" strokeWidth={1.5} />
-                  </View>
-                  <Text style={styles.sheetTitle}>Новое кормление</Text>
-                </View>
-
-                {/* Type tabs */}
-                <View style={styles.typeTabs}>
-                  {[
-                    { id: 'breast' as const, label: 'Грудное' },
-                    { id: 'formula' as const, label: 'Смесь' },
-                    { id: 'solid' as const, label: 'Прикорм' },
-                  ].map(t => (
-                    <TouchableOpacity
-                      key={t.id}
-                      style={[styles.typeTab, feedingType === t.id && styles.typeTabActive]}
-                      onPress={() => setFeedingType(t.id)}
-                    >
-                      <Text style={[styles.typeTabText, feedingType === t.id && { color: '#4E8FD4' }]}>{t.label}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>Время</Text>
-                  <TouchableOpacity style={styles.input} onPress={() => setShowDatePicker(true)}>
-                    <Text style={{ fontSize: 16, fontWeight: '700', color: '#1A1A2E', fontFamily: 'Nunito_700Bold' }}>{formatDate(logDate)}</Text>
-                  </TouchableOpacity>
-                  {renderInlineIOSPicker('#2563EB', '#EFF6FF')}
-                </View>
-
-                {feedingType === 'breast' && (
-                  <View style={{ flexDirection: 'row', gap: 12, marginBottom: 20 }}>
-                    {[
-                      { side: 'Л', label: 'Левая грудь', seconds: secondsL, running: feedingConfig.leftRunning, toggle: toggleLeftBreastTimer },
-                      { side: 'П', label: 'Правая грудь', seconds: secondsR, running: feedingConfig.rightRunning, toggle: toggleRightBreastTimer }
-                    ].map(({ side, label, seconds, running, toggle }) => (
-                      <View key={side} style={{ flex: 1, padding: 16, backgroundColor: 'white', borderRadius: 16, borderWidth: 1, borderColor: running ? '#5B9BD5' : '#E0DDD8', alignItems: 'center' }}>
-                        <Text style={[styles.fieldLabel, { color: '#5B9BD5', marginBottom: 8 }]}>{label}</Text>
-                        <Text style={{ fontSize: 32, fontWeight: '900', color: running ? '#5B9BD5' : '#1A1A2E', marginBottom: 16, fontFamily: 'Nunito_900Black' }}>
-                          {fmt(seconds)}
-                        </Text>
-                        <TouchableOpacity
-                          style={{ width: '100%', paddingVertical: 10, borderRadius: 12, backgroundColor: running ? '#E05A5A' : '#E8DEFF', alignItems: 'center' }}
-                          onPress={toggle}
-                        >
-                          <Text style={{ color: running ? 'white' : '#1A1A2E', fontSize: 14, fontWeight: '800', fontFamily: 'Nunito_800ExtraBold' }}>
-                            {running ? 'Стоп' : 'Старт'}
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                    ))}
-                  </View>
-                )}
-                {feedingType === 'formula' && (
-                  <>
-                    <View style={styles.fieldGroup}>
-                      <Text style={styles.fieldLabel}>Бренд смеси</Text>
-                      <TextInput style={styles.input} value={formulaBrand} onChangeText={setFormulaBrand} placeholder="Nan Optipro..." placeholderTextColor="#94A3B8" />
-                    </View>
-                    <View style={styles.fieldGroup}>
-                      <Text style={styles.fieldLabel}>Объём (мл)</Text>
-                      <TextInput style={styles.input} value={formulaVolume} onChangeText={setFormulaVolume} keyboardType="number-pad" placeholder="120" placeholderTextColor="#94A3B8" />
-                    </View>
-                  </>
-                )}
-                {feedingType === 'solid' && (
-                  <>
-                    <View style={styles.fieldGroup}>
-                      <Text style={styles.fieldLabel}>Продукт</Text>
-                      <TextInput style={styles.input} value={solidProduct} onChangeText={setSolidProduct} placeholder="Каша овсяная" placeholderTextColor="#94A3B8" />
-                    </View>
-                    <View style={styles.fieldGroup}>
-                      <Text style={styles.fieldLabel}>Количество (г)</Text>
-                      <TextInput style={styles.input} value={solidVolume} onChangeText={setSolidVolume} keyboardType="number-pad" placeholder="80" placeholderTextColor="#94A3B8" />
-                    </View>
-                  </>
-                )}
-
-                <TouchableOpacity style={[styles.saveBtn, { backgroundColor: '#5B9BD5' }]} onPress={handleSaveFeeding}>
-                  <Check size={20} color="white" strokeWidth={2.5} />
-                  <Text style={styles.saveBtnText}>Сохранить</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {/* ── DIAPER ── */}
-            {activeSheet === 'diaper' && (
-              <View>
-                <View style={styles.sheetHeader}>
-                  <View style={[styles.sheetIcon, { backgroundColor: '#D4F3EC' }]}>
-                    <Droplets size={22} color="#3DBFAA" strokeWidth={1.5} />
-                  </View>
-                  <Text style={styles.sheetTitle}>Подгузник</Text>
-                </View>
-
-                <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
-                  {[
-                    { id: 'wet' as const, label: 'Мокрый', IconComp: Droplet, color: '#4E8FD4', bg: '#DEEAF8' },
-                    { id: 'both' as const, label: 'Смешан.', IconComp: CloudRain, color: '#8B6FD4', bg: '#EDE4F8' },
-                    { id: 'dirty' as const, label: 'Грязный', IconComp: Cloud, color: '#E69600', bg: '#FFF0CC' },
-                  ].map(t => (
-                    <TouchableOpacity
-                      key={t.id}
-                      style={[styles.diaperOption, {
-                        backgroundColor: diaperType === t.id ? t.bg : 'white',
-                        borderColor: diaperType === t.id ? t.color : '#E2E8F0',
-                      }]}
-                      onPress={() => setDiaperType(t.id)}
-                    >
-                      <View style={[styles.diaperIcon, { backgroundColor: t.bg }]}>
-                        <t.IconComp size={18} color={t.color} strokeWidth={1.5} />
-                      </View>
-                      <Text style={[styles.diaperLabel, { color: diaperType === t.id ? t.color : '#1A1A2E' }]}>{t.label}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>Время</Text>
-                  <TouchableOpacity style={styles.input} onPress={() => setShowDatePicker(true)}>
-                    <Text style={{ fontSize: 16, fontWeight: '700', color: '#1A1A2E', fontFamily: 'Nunito_700Bold' }}>{formatDate(logDate)}</Text>
-                  </TouchableOpacity>
-                  {renderInlineIOSPicker('#059669', '#ECFDF5')}
-                </View>
-
-                <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>Цвет / консистенция</Text>
-                  <TextInput style={styles.input} value={diaperColor} onChangeText={setDiaperColor} placeholder="Жёлтый – жидкий (норма)..." placeholderTextColor="#94A3B8" />
-                </View>
-
-                <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>Заметка</Text>
-                  <TextInput style={[styles.input, { minHeight: 60, textAlignVertical: 'top' }]} value={diaperNote} onChangeText={setDiaperNote} placeholder="Раздражение кожи..." placeholderTextColor="#94A3B8" multiline />
-                </View>
-
-                <TouchableOpacity style={[styles.saveBtn, { backgroundColor: '#4DBFAA' }]} onPress={handleSaveDiaper}>
-                  <Check size={20} color="white" strokeWidth={2.5} />
-                  <Text style={styles.saveBtnText}>Сохранить</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {/* ── SLEEP ── */}
-            {activeSheet === 'sleep' && (
-              <View>
-                <View style={styles.sheetHeader}>
-                  <View style={[styles.sheetIcon, { backgroundColor: '#DEEAF8' }]}>
-                    <Moon size={22} color="#4E8FD4" strokeWidth={1.5} />
-                  </View>
-                  <Text style={styles.sheetTitle}>Новый сон</Text>
-                </View>
-
-                {!showManualSleep ? (
-                  <>
-                    <View style={{ alignItems: 'center', marginBottom: 20 }}>
-                      <Text style={[styles.sleepBigNum, { fontSize: 64, color: '#8B6FD4' }]}>{fmt(sleepSeconds)}</Text>
-                      <Text style={{ fontSize: 14, color: '#6B6B80', marginTop: 4 }}>
-                        {sleepTimerRunning ? 'Сон идёт...' : 'Готов к запуску'}
-                      </Text>
-                    </View>
-
-                    <TouchableOpacity
-                      style={[styles.saveBtn, { backgroundColor: sleepTimerRunning ? '#D94F4F' : '#8B6FD4' }]}
-                      onPress={() => {
-                        if (sleepTimerRunning) {
-                          setSleepTimerRunning(false); handleSaveSleep();
-                        } else {
-                          setSleepSeconds(0); setSleepTimerRunning(true);
-                        }
-                      }}
-                    >
-                      {sleepTimerRunning ? <Square size={20} color="white" strokeWidth={2.5} /> : <Play size={20} color="white" strokeWidth={2.5} />}
-                      <Text style={styles.saveBtnText}>{sleepTimerRunning ? 'Остановить и сохранить' : 'Начать сон'}</Text>
-                    </TouchableOpacity>
-
-                    {!sleepTimerRunning && (
-                      <TouchableOpacity
-                        style={[styles.saveBtn, { backgroundColor: '#FFFFFF', borderColor: '#E2E8F0', marginTop: 12 }]}
-                        onPress={() => setShowManualSleep(true)}
-                      >
-                        <Text style={[styles.saveBtnText, { color: '#64748B' }]}>Ввести время вручную</Text>
-                      </TouchableOpacity>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <View style={styles.fieldGroup}>
-                      <Text style={styles.fieldLabel}>Время начала</Text>
-                      <TouchableOpacity style={styles.input} onPress={() => setShowDatePicker(true)}>
-                        <Text style={{ fontSize: 16, fontWeight: '700', color: '#1A1A2E', fontFamily: 'Nunito_700Bold' }}>{formatDate(logDate)}</Text>
-                      </TouchableOpacity>
-                      {renderInlineIOSPicker('#8B5CF6', '#F3E8FF')}
-                    </View>
-
-                    <View style={styles.fieldGroup}>
-                      <Text style={styles.fieldLabel}>Длительность (мин)</Text>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 16, marginBottom: 16 }}>
-                        <TouchableOpacity
-                          style={styles.stepperBtn}
-                          onPress={() => setSleepMinutes(String(Math.max(5, (parseInt(sleepMinutes) || 60) - 5)))}
-                        >
-                          <Text style={styles.stepperText}>−</Text>
-                        </TouchableOpacity>
-                        <Text style={styles.sleepBigNum}>{sleepMinutes}</Text>
-                        <TouchableOpacity
-                          style={styles.stepperBtn}
-                          onPress={() => setSleepMinutes(String((parseInt(sleepMinutes) || 60) + 5))}
-                        >
-                          <Text style={styles.stepperText}>+</Text>
-                        </TouchableOpacity>
-                      </View>
-                      <Text style={{ textAlign: 'center', fontSize: 12, color: '#6B6B80', marginBottom: 12 }}>
-                        {parseInt(sleepMinutes) || 0} минут = {Math.floor((parseInt(sleepMinutes) || 0) / 60)}ч {(parseInt(sleepMinutes) || 0) % 60}м
-                      </Text>
-                    </View>
-
-                    <TouchableOpacity style={[styles.saveBtn, { backgroundColor: '#8B6FD4' }]} onPress={handleSaveSleep}>
-                      <Check size={20} color="white" strokeWidth={2.5} />
-                      <Text style={styles.saveBtnText}>Сохранить</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={[styles.saveBtn, { backgroundColor: '#FFFFFF', borderColor: '#E2E8F0', marginTop: 12 }]}
-                      onPress={() => setShowManualSleep(false)}
-                    >
-                      <Text style={[styles.saveBtnText, { color: '#64748B' }]}>Назад к таймеру</Text>
-                    </TouchableOpacity>
-                  </>
-                )}
-              </View>
-            )}
-            </ScrollView>
-          </View>
-        </TouchableOpacity>
-        </KeyboardAvoidingView>
+        {Platform.OS === 'ios' ? (
+          <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
+            {renderSheetShell()}
+          </KeyboardAvoidingView>
+        ) : (
+          <RNAnimated.View style={{ flex: 1, paddingBottom: fabKeyboardPadding }}>
+            {renderSheetShell()}
+          </RNAnimated.View>
+        )}
       </Modal>
 
-      {/* Date picker — Android only uses modal (no stacking issue), iOS uses inline in sheet */}
+      {/* Date picker — Android only uses modal */}
       {Platform.OS === 'android' && (
         <DateTimePickerModal
           visible={showDatePicker}
@@ -666,4 +620,3 @@ const styles = StyleSheet.create({
 });
 
 export default FAB;
-

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Modal, StyleSheet, Platform, SafeAreaView, DeviceEventEmitter, KeyboardAvoidingView } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, StyleSheet, DeviceEventEmitter } from 'react-native';
 import { Sparkles, X } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AIScreen from '../screens/AIScreen';
@@ -33,10 +33,8 @@ const AIBubble = () => {
                 transparent={true}
                 onRequestClose={() => setOpen(false)}
             >
-                <KeyboardAvoidingView
+                <View
                     style={styles.modalOverlay}
-                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                    keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
                 >
                     <View style={[styles.modalContent, { marginTop: insets.top + 40 }]}>
                         <View style={styles.handle} />
@@ -47,7 +45,7 @@ const AIBubble = () => {
                             <AIScreen />
                         </View>
                     </View>
-                </KeyboardAvoidingView>
+                </View>
             </Modal>
         </>
     );

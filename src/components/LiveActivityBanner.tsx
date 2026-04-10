@@ -272,7 +272,7 @@ export default function LiveActivityBanner() {
              });
            });
          } catch (error) {
-           console.warn("Error saving sleep from banner", error);
+           if (__DEV__) console.warn("Error saving sleep from banner", error);
          }
       }
     }
@@ -297,7 +297,7 @@ export default function LiveActivityBanner() {
              });
            });
          } catch (error) {
-           console.warn("Error saving walk from banner", error);
+           if (__DEV__) console.warn("Error saving walk from banner", error);
          }
       }
     }

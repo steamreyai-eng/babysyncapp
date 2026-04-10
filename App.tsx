@@ -2,6 +2,7 @@ import 'react-native-url-polyfill/auto';
 import 'react-native-gesture-handler';
 import React, { useEffect, useState, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 import * as Sentry from '@sentry/react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -69,11 +70,20 @@ const RootStack = createNativeStackNavigator();
 const ACTIVE_COLOR = '#2563EB';
 const IDLE_COLOR = '#64748B';
 
-// Sentry Initialization
+// Sentry Initialization with security hardening
 Sentry.init({
   dsn: process.env.EXPO_PUBLIC_SENTRY_DSN || '',
   enableNativeFramesTracking: !__DEV__,
   tracesSampleRate: 1.0,
+  beforeSend(event) {
+    // Strip PII from Sentry events
+    if (event.user) {
+      delete event.user.email;
+      delete event.user.ip_address;
+      delete event.user.username;
+    }
+    return event;
+  },
 });
 
 export default Sentry.wrap(function App() {
@@ -119,7 +129,7 @@ export default Sentry.wrap(function App() {
     prepare();
   }, []);
 
-  const BABY_PROFILE_CACHE_KEY = '@babysync_baby_profile';
+  const BABY_PROFILE_CACHE_KEY = 'babysync_baby_profile';
 
   const checkProfile = async (currentSession: any) => {
     if (!currentSession) {
@@ -141,10 +151,10 @@ export default Sentry.wrap(function App() {
         if (isNoRows) {
           setOnboardingNeeded(true);
           setBaby(null);
-          await AsyncStorage.removeItem(BABY_PROFILE_CACHE_KEY);
+          await SecureStore.deleteItemAsync(BABY_PROFILE_CACHE_KEY);
         } else {
-          // Network / server error → fall back to cache
-          const cached = await AsyncStorage.getItem(BABY_PROFILE_CACHE_KEY);
+          // Network / server error → fall back to SecureStore cache
+          const cached = await SecureStore.getItemAsync(BABY_PROFILE_CACHE_KEY);
           if (cached) {
             const cachedBaby = JSON.parse(cached);
             setOnboardingNeeded(false);
@@ -160,13 +170,13 @@ export default Sentry.wrap(function App() {
         setOnboardingNeeded(false);
         setBaby(data);
         // Persist to cache for offline use
-        await AsyncStorage.setItem(BABY_PROFILE_CACHE_KEY, JSON.stringify(data));
+        await SecureStore.setItemAsync(BABY_PROFILE_CACHE_KEY, JSON.stringify(data));
       }
     } catch (e) {
       if (__DEV__) console.warn('Error fetching profile', e);
       // Total failure (e.g. network down before request) → fall back to cache
       try {
-        const cached = await AsyncStorage.getItem(BABY_PROFILE_CACHE_KEY);
+        const cached = await SecureStore.getItemAsync(BABY_PROFILE_CACHE_KEY);
         if (cached) {
           const cachedBaby = JSON.parse(cached);
           setOnboardingNeeded(false);
@@ -348,11 +358,12 @@ export default Sentry.wrap(function App() {
          'growth_records', 'medications', 'vaccinations',
          'doctor_visits', 'shifts',
        ];
+       const userId = session?.user?.id;
        channel = supabase.channel('baby-sync');
        for (const table of REALTIME_TABLES) {
          channel = channel.on(
            'postgres_changes',
-           { event: '*', schema: 'public', table },
+           { event: '*', schema: 'public', table, filter: userId ? `user_id=eq.${userId}` : undefined },
            (payload: any) => {
              if (__DEV__) console.log(`[realtime] ${table}:`, payload.eventType);
              import('./src/db/sync').then(({ syncWithSupabase }) =>

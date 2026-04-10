@@ -40,7 +40,7 @@ const ShiftsScreenContent = ({ feedings, sleeps, diapers, tasks, shiftsData }: a
       const { syncWithSupabase } = await import('../db/sync');
       await syncWithSupabase(true);
     } catch (e) {
-      console.warn("Manual sync error", e);
+      if (__DEV__) console.warn("Manual sync error", e);
     } finally {
       setRefreshing(false);
     }
@@ -68,7 +68,7 @@ const ShiftsScreenContent = ({ feedings, sleeps, diapers, tasks, shiftsData }: a
   // Helper: trigger immediate sync to propagate changes to other devices
   const triggerSync = () => {
     import('../db/sync').then(({ syncWithSupabase }) =>
-      syncWithSupabase().catch(e => __DEV__ && console.warn('Sync failed', e))
+      syncWithSupabase().catch(e => { if (__DEV__) console.warn('Sync failed', e); })
     );
   };
 
@@ -100,7 +100,7 @@ const ShiftsScreenContent = ({ feedings, sleeps, diapers, tasks, shiftsData }: a
       // Trigger immediate sync so shift changes propagate to other devices
       triggerSync();
     } catch (e) {
-      console.warn("assignShift error", e);
+      if (__DEV__) console.warn("assignShift error", e);
     } finally {
       setIsAssigning(false);
     }
@@ -173,7 +173,7 @@ const ShiftsScreenContent = ({ feedings, sleeps, diapers, tasks, shiftsData }: a
       setNewTaskTime(null);
       triggerSync();
     } catch (e) {
-      console.warn("handleAddTask err", e);
+      if (__DEV__) console.warn("handleAddTask err", e);
     }
   };
 
@@ -184,7 +184,7 @@ const ShiftsScreenContent = ({ feedings, sleeps, diapers, tasks, shiftsData }: a
       });
       triggerSync();
     } catch (e) {
-      console.warn("toggleTask err", e);
+      if (__DEV__) console.warn("toggleTask err", e);
     }
   };
 
@@ -193,7 +193,7 @@ const ShiftsScreenContent = ({ feedings, sleeps, diapers, tasks, shiftsData }: a
       await database.write(async () => { await task.markAsDeleted(); });
       triggerSync();
     } catch (e) {
-      console.warn("deleteTask err", e);
+      if (__DEV__) console.warn("deleteTask err", e);
     }
   };
 

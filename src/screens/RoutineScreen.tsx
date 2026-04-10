@@ -636,7 +636,7 @@ const RoutineScreen = () => {
       const newSleeps = await database.get('sleeps').query().fetch();
       setSleeps(newSleeps);
     } catch (e) {
-      console.warn("Manual sync error", e);
+      if (__DEV__) console.warn("Manual sync error", e);
     } finally {
       setRefreshing(false);
     }

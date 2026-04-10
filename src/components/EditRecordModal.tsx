@@ -1,8 +1,9 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, Modal, TextInput, Alert,
   Platform, ScrollView, KeyboardAvoidingView, Dimensions,
+  Keyboard, Animated as RNAnimated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePickerModal from './DateTimePickerModal';
@@ -370,34 +371,71 @@ const titles = {
 };
 
 export default function EditRecordModal({ target, onClose }: Props) {
+  // Manual keyboard tracking for Android (KeyboardAvoidingView broken inside Modal on Android)
+  const keyboardPadding = useRef(new RNAnimated.Value(0)).current;
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+
+    const showSub = Keyboard.addListener('keyboardDidShow', (e) => {
+      RNAnimated.timing(keyboardPadding, {
+        toValue: e.endCoordinates.height,
+        duration: 250,
+        useNativeDriver: false,
+      }).start();
+    });
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => {
+      RNAnimated.timing(keyboardPadding, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: false,
+      }).start();
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
   if (!target) return null;
+
+  const sheetContent = (
+    <View style={{
+      backgroundColor: 'white', borderTopLeftRadius: 24, borderTopRightRadius: 24,
+      paddingHorizontal: 20, paddingTop: 20, paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+      maxHeight: Dimensions.get('window').height * 0.85,
+    }}>
+      <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: '#E0DDD8', alignSelf: 'center', marginBottom: 16 }} />
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+        <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 17, color: '#1A1A2E' }}>{titles[target.kind]}</Text>
+        <TouchableOpacity onPress={onClose}
+          style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#F5F0E6', alignItems: 'center', justifyContent: 'center' }}>
+          <Ionicons name="close" size={18} color="#6B6B80" />
+        </TouchableOpacity>
+      </View>
+      <ScrollView showsVerticalScrollIndicator={false} bounces={false} keyboardShouldPersistTaps="handled">
+        {target.kind === 'feeding' && <FeedingEdit record={target.record} onClose={onClose} />}
+        {target.kind === 'diaper' && <DiaperEdit record={target.record} onClose={onClose} />}
+        {target.kind === 'sleep' && <SleepEdit record={target.record} onClose={onClose} />}
+        {target.kind === 'walk' && <WalkEdit record={target.record} onClose={onClose} />}
+      </ScrollView>
+    </View>
+  );
 
   return (
     <Modal visible={!!target} transparent animationType="slide" onRequestClose={onClose}>
       <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' }}>
         <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={onClose} />
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-          <View style={{
-            backgroundColor: 'white', borderTopLeftRadius: 24, borderTopRightRadius: 24,
-            paddingHorizontal: 20, paddingTop: 20, paddingBottom: Platform.OS === 'ios' ? 34 : 20,
-            maxHeight: Dimensions.get('window').height * 0.85,
-          }}>
-            <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: '#E0DDD8', alignSelf: 'center', marginBottom: 16 }} />
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-              <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 17, color: '#1A1A2E' }}>{titles[target.kind]}</Text>
-              <TouchableOpacity onPress={onClose}
-                style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#F5F0E6', alignItems: 'center', justifyContent: 'center' }}>
-                <Ionicons name="close" size={18} color="#6B6B80" />
-              </TouchableOpacity>
-            </View>
-            <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
-              {target.kind === 'feeding' && <FeedingEdit record={target.record} onClose={onClose} />}
-              {target.kind === 'diaper' && <DiaperEdit record={target.record} onClose={onClose} />}
-              {target.kind === 'sleep' && <SleepEdit record={target.record} onClose={onClose} />}
-              {target.kind === 'walk' && <WalkEdit record={target.record} onClose={onClose} />}
-            </ScrollView>
-          </View>
-        </KeyboardAvoidingView>
+        {Platform.OS === 'ios' ? (
+          <KeyboardAvoidingView behavior="padding">
+            {sheetContent}
+          </KeyboardAvoidingView>
+        ) : (
+          <RNAnimated.View style={{ paddingBottom: keyboardPadding }}>
+            {sheetContent}
+          </RNAnimated.View>
+        )}
       </View>
     </Modal>
   );

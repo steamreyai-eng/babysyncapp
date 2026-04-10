@@ -134,7 +134,7 @@ const DoctorScreenContent = ({ doctorVisits, vaccinations }: { doctorVisits: Doc
       setShowAddForm(false);
       Alert.alert('✓', 'Визит добавлен');
     } catch(err) {
-      console.warn("handleAddVisit error:", err);
+      if (__DEV__) console.warn("handleAddVisit error:", err);
       Alert.alert('Ошибка', 'Не удалось сохранить визит');
     }
   };
@@ -159,7 +159,7 @@ const DoctorScreenContent = ({ doctorVisits, vaccinations }: { doctorVisits: Doc
         }
       });
     } catch (err) {
-      console.warn("handleToggleVaccination error:", err);
+      if (__DEV__) console.warn("handleToggleVaccination error:", err);
     }
   };
 

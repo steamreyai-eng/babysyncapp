@@ -24,7 +24,7 @@ export async function exportDataAsJSON() {
     for (const table of TABLES) {
       const { data, error } = await supabase.from(table).select('*').order('created_at', { ascending: false });
       if (error) {
-        console.warn(`Export error for ${table}:`, error.message);
+        if (__DEV__) console.warn(`Export error for ${table}:`, error.message);
         allData[table] = [];
       } else {
         allData[table] = data || [];
@@ -59,7 +59,7 @@ export async function exportDataAsJSON() {
 
     return true;
   } catch (e) {
-    console.error('Export failed:', e);
+    if (__DEV__) console.error('Export failed:', e);
     Alert.alert('Ошибка', 'Не удалось экспортировать данные');
     return false;
   }
@@ -109,7 +109,7 @@ export async function exportTableAsCSV(tableName: string) {
 
     return true;
   } catch (e) {
-    console.error(`CSV export failed for ${tableName}:`, e);
+    if (__DEV__) console.error(`CSV export failed for ${tableName}:`, e);
     Alert.alert('Ошибка', 'Не удалось экспортировать данные');
     return false;
   }

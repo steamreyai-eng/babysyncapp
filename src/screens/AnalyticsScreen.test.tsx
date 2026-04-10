@@ -32,20 +32,11 @@ jest.mock('@nozbe/with-observables', () => {
 jest.mock('expo-file-system', () => ({
   writeAsStringAsync: jest.fn(),
   cacheDirectory: 'file://cache/',
-  EncodingType: { Base64: 'base64' }
+  EncodingType: { Base64: 'base64', UTF8: 'utf8' }
 }));
 
 jest.mock('expo-sharing', () => ({
   shareAsync: jest.fn(),
-}));
-
-jest.mock('xlsx', () => ({
-  utils: {
-    book_new: jest.fn().mockReturnValue({ SheetNames: [] }),
-    json_to_sheet: jest.fn(),
-    book_append_sheet: jest.fn()
-  },
-  write: jest.fn(),
 }));
 
 jest.mock('react-native-gifted-charts', () => ({

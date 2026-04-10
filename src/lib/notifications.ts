@@ -53,11 +53,11 @@ export async function initReminderNotifications() {
       description: 'Напоминания о кормлении, сне и смене подгузников',
       importance: AndroidImportance.HIGH,
       vibration: true,
-      visibility: AndroidVisibility.PUBLIC,
+      visibility: AndroidVisibility.PRIVATE,
       sound: 'default',
     });
   } catch (e) {
-    console.warn('[Notifications] Error creating reminder channel:', e);
+    if (__DEV__) console.warn('[Notifications] Error creating reminder channel:', e);
   }
 }
 
@@ -80,6 +80,7 @@ async function showNotif(title: string, body: string) {
           smallIcon: 'ic_notification', // uses default app icon if missing
           pressAction: { id: 'default' },
           autoCancel: true,
+          visibility: AndroidVisibility.PRIVATE,
         },
       });
     } else {
@@ -94,7 +95,7 @@ async function showNotif(title: string, body: string) {
       });
     }
   } catch (e) {
-    console.warn('[Notifications] Notifee display error:', e);
+    if (__DEV__) console.warn('[Notifications] Notifee display error:', e);
     // Fallback: show Alert only if app is in foreground
     if (AppState.currentState === 'active') {
       Alert.alert(title, body);
@@ -110,7 +111,7 @@ async function loadNotifSettings(): Promise<NotifSettings> {
       return { ...DEFAULT_NOTIF, ...JSON.parse(raw) };
     }
   } catch (e) {
-    console.warn('[Notifications] Error reading settings:', e);
+    if (__DEV__) console.warn('[Notifications] Error reading settings:', e);
   }
   return DEFAULT_NOTIF;
 }

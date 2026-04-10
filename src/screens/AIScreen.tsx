@@ -3,7 +3,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, TextInput,
   StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator,
+  Keyboard, Animated as RNAnimated, Modal,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { callAI } from '../lib/ai';
@@ -16,6 +18,8 @@ interface Message {
   text: string;
 }
 
+const AI_CONSENT_KEY = '@babysync_ai_consent';
+
 const AIScreenContent = () => {
   const [messages, setMessages] = useState<Message[]>([
       { role: 'assistant', text: 'Привет! Я AI-ассистент. Могу анализировать паттерны, давать советы по нормам ВОЗ. Чем помочь?' }
@@ -24,6 +28,7 @@ const AIScreenContent = () => {
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const [isOnline, setIsOnline] = useState(true);
+  const [consentGiven, setConsentGiven] = useState<boolean | null>(null); // null = loading
 
   const [feedings, setFeedings] = useState<any[]>([]);
   const [sleeps, setSleeps] = useState<any[]>([]);
@@ -31,6 +36,50 @@ const AIScreenContent = () => {
   const [walks, setWalks] = useState<any[]>([]);
   const [growthRecords, setGrowthRecords] = useState<any[]>([]);
   const { baby } = useAuthStore();
+
+  // Keyboard height tracking for Android (KeyboardAvoidingView doesn't work in Modal on Android)
+  const keyboardPadding = useRef(new RNAnimated.Value(0)).current;
+
+  useEffect(() => {
+    // Check AI consent on mount
+    AsyncStorage.getItem(AI_CONSENT_KEY).then(val => {
+      setConsentGiven(val === 'true');
+    });
+  }, []);
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+
+    const showSub = Keyboard.addListener('keyboardDidShow', (e) => {
+      RNAnimated.timing(keyboardPadding, {
+        toValue: e.endCoordinates.height,
+        duration: 250,
+        useNativeDriver: false,
+      }).start();
+      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+    });
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => {
+      RNAnimated.timing(keyboardPadding, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: false,
+      }).start();
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  const handleAcceptConsent = async () => {
+    await AsyncStorage.setItem(AI_CONSENT_KEY, 'true');
+    setConsentGiven(true);
+  };
+
+  const handleDeclineConsent = () => {
+    setConsentGiven(false);
+  };
 
   const quickPrompts = [
     baby?.gender === "girl" ? "Почему она плачет? 😭" : "Почему он плачет? 😭",
@@ -69,6 +118,61 @@ const AIScreenContent = () => {
     };
   };
 
+  // ── COPPA Consent Screen ──
+  if (consentGiven === null) {
+    // Loading consent state
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FAFBFC' }}>
+        <ActivityIndicator size="large" color="#6366F1" />
+      </View>
+    );
+  }
+
+  if (!consentGiven) {
+    return (
+      <View style={styles.consentContainer}>
+        <View style={styles.consentCard}>
+          <View style={styles.consentIconWrap}>
+            <Ionicons name="shield-checkmark" size={40} color="#6366F1" />
+          </View>
+          <Text style={styles.consentTitle}>AI-ассистент</Text>
+          <Text style={styles.consentSubtitle}>Согласие на обработку данных</Text>
+
+          <View style={styles.consentBody}>
+            <Text style={styles.consentText}>
+              AI-ассистент BabySync использует OpenAI для анализа данных вашего ребёнка и предоставления персонализированных рекомендаций.
+            </Text>
+            <Text style={[styles.consentText, { marginTop: 12 }]}>
+              <Text style={{ fontFamily: 'Nunito_900Black' }}>Что передаётся:</Text>
+              {'\n'}• Возраст ребёнка (в месяцах) и пол
+              {'\n'}• Статистика кормлений, сна, подгузников
+              {'\n'}• Данные роста и веса
+            </Text>
+            <Text style={[styles.consentText, { marginTop: 12 }]}>
+              <Text style={{ fontFamily: 'Nunito_900Black', color: '#059669' }}>Что НЕ передаётся:</Text>
+              {'\n'}• Имя ребёнка и родителей
+              {'\n'}• Дата рождения и город
+              {'\n'}• Email и другие личные данные
+            </Text>
+            <Text style={[styles.consentText, { marginTop: 12, color: '#64748B', fontSize: 11 }]}>
+              Данные обрабатываются через серверную функцию Supabase и не сохраняются на серверах OpenAI.
+              Советы AI не являются медицинским диагнозом.
+            </Text>
+          </View>
+
+          <TouchableOpacity style={styles.consentAcceptBtn} onPress={handleAcceptConsent}>
+            <Ionicons name="checkmark-circle" size={20} color="white" />
+            <Text style={styles.consentAcceptText}>Согласен, начать</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.consentDeclineBtn} onPress={handleDeclineConsent}>
+            <Text style={styles.consentDeclineText}>Не сейчас</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
   const sendMessage = async (text: string) => {
     if (!text.trim() || loading) return;
     const userMsg: Message = { role: 'user', text: text.trim() };
@@ -96,125 +200,144 @@ const AIScreenContent = () => {
     }
   };
 
+  const renderContent = () => (
+    <>
+      {/* Header */}
+      <View style={styles.header}>
+          <LinearGradient
+              colors={['#F0E8FF', '#DBCDF0']}
+              start={{x:0,y:0}} end={{x:1,y:1}}
+              style={styles.aiIcon}
+          >
+              <Ionicons name="sparkles" size={22} color="#8B6FD4" />
+          </LinearGradient>
+          <View>
+              <Text style={styles.title}>AI-Ассистент</Text>
+              <View style={styles.statusRow}>
+                  <View style={styles.statusDot} />
+                  <Text style={styles.statusText}>Онлайн · знает малыша</Text>
+              </View>
+          </View>
+      </View>
+
+      {/* Offline Banner */}
+      {!isOnline && (
+          <View style={styles.offlineBanner}>
+              <Ionicons name="wifi" size={18} color="#D94F4F" />
+              <Text style={styles.offlineText}>Интернета нет. AI-функции недоступны.</Text>
+          </View>
+      )}
+
+      {/* Messages */}
+      <ScrollView
+        ref={scrollRef}
+        style={styles.messages}
+        contentContainerStyle={{ paddingBottom: 20, paddingHorizontal: 16 }}
+        showsVerticalScrollIndicator={false}
+        onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
+        keyboardShouldPersistTaps="handled"
+      >
+        {messages.map((msg, i) => (
+            <View key={i} style={[styles.bubbleWrap, msg.role === 'user' ? styles.userWrap : styles.aiWrap]}>
+                {msg.role === 'assistant' && (
+                    <LinearGradient
+                        colors={['#F0E8FF', '#DBCDF0']}
+                        style={styles.aiAvatar}
+                    >
+                        <Ionicons name="sparkles" size={14} color="#8B6FD4" />
+                    </LinearGradient>
+                )}
+                {msg.role === 'user' ? (
+                    <LinearGradient
+                        colors={['#764BA2', '#667EEA']}
+                        start={{x:0, y:0}} end={{x:1, y:1}}
+                        style={[styles.bubble, styles.userBubble]}
+                    >
+                        <Text style={[styles.bubbleText, styles.userBubbleText]}>{msg.text}</Text>
+                    </LinearGradient>
+                ) : (
+                    <View style={[styles.bubble, styles.aiBubble]}>
+                        <Text style={[styles.bubbleText, styles.aiBubbleText]}>{msg.text}</Text>
+                    </View>
+                )}
+            </View>
+        ))}
+
+        {loading && (
+           <View style={[styles.bubbleWrap, styles.aiWrap]}>
+               <LinearGradient colors={['#F0E8FF', '#DBCDF0']} style={styles.aiAvatar}>
+                   <Ionicons name="sparkles" size={14} color="#8B6FD4" />
+               </LinearGradient>
+               <View style={[styles.bubble, styles.aiBubble, { flexDirection: 'row', alignItems: 'center' }]}>
+                   <ActivityIndicator size="small" color="#8B6FD4" style={{ marginRight: 8 }} />
+               </View>
+           </View>
+        )}
+      </ScrollView>
+
+      {/* Quick actions */}
+      <View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickActionsContainer}>
+              {quickPrompts.map((qp, i) => (
+                  <TouchableOpacity
+                      key={i}
+                      style={styles.quickBtn}
+                      onPress={() => sendMessage(qp)}
+                  >
+                      <Text style={styles.quickBtnText}>{qp}</Text>
+                  </TouchableOpacity>
+              ))}
+          </ScrollView>
+      </View>
+
+      {/* Input */}
+      <View style={styles.inputBar}>
+        <TextInput
+          style={styles.input}
+          value={input}
+          onChangeText={setInput}
+          placeholder="Ваш вопрос..."
+          placeholderTextColor="#A8A8B6"
+          multiline
+          maxLength={500}
+          onSubmitEditing={() => sendMessage(input)}
+          blurOnSubmit
+        />
+        <TouchableOpacity
+          style={[styles.sendBtn, (!input.trim() || loading) && { opacity: 0.5, backgroundColor: '#A8A8B6' }]}
+          onPress={() => sendMessage(input)}
+          disabled={!input.trim() || loading}
+        >
+          <Ionicons name="send" size={16} color="white" />
+        </TouchableOpacity>
+      </View>
+      <Text style={styles.disclaimerText}>
+          <Ionicons name="sparkles" size={10} color="#6B6B80" /> Не заменяет консультацию врача
+      </Text>
+    </>
+  );
+
+  // iOS: use KeyboardAvoidingView (works fine inside modal on iOS)
+  // Android: use manual keyboard padding (KeyboardAvoidingView broken inside Modal on Android)
+  if (Platform.OS === 'ios') {
+    return (
+      <View style={styles.container}>
+        <KeyboardAvoidingView
+          style={styles.keyboardView}
+          behavior="padding"
+          keyboardVerticalOffset={10}
+        >
+          {renderContent()}
+        </KeyboardAvoidingView>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
-      <KeyboardAvoidingView
-        style={styles.keyboardView}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 10 : 0}
-      >
-        {/* Header */}
-        <View style={styles.header}>
-            <LinearGradient
-                colors={['#F0E8FF', '#DBCDF0']}
-                start={{x:0,y:0}} end={{x:1,y:1}}
-                style={styles.aiIcon}
-            >
-                <Ionicons name="sparkles" size={22} color="#8B6FD4" />
-            </LinearGradient>
-            <View>
-                <Text style={styles.title}>AI-Ассистент</Text>
-                <View style={styles.statusRow}>
-                    <View style={styles.statusDot} />
-                    <Text style={styles.statusText}>Онлайн · знает малыша</Text>
-                </View>
-            </View>
-        </View>
-
-        {/* Offline Banner */}
-        {!isOnline && (
-            <View style={styles.offlineBanner}>
-                <Ionicons name="wifi" size={18} color="#D94F4F" />
-                <Text style={styles.offlineText}>Интернета нет. AI-функции недоступны.</Text>
-            </View>
-        )}
-
-        {/* Messages */}
-        <ScrollView
-          ref={scrollRef}
-          style={styles.messages}
-          contentContainerStyle={{ paddingBottom: 20, paddingHorizontal: 16 }}
-          showsVerticalScrollIndicator={false}
-          onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
-        >
-          {messages.map((msg, i) => (
-              <View key={i} style={[styles.bubbleWrap, msg.role === 'user' ? styles.userWrap : styles.aiWrap]}>
-                  {msg.role === 'assistant' && (
-                      <LinearGradient
-                          colors={['#F0E8FF', '#DBCDF0']}
-                          style={styles.aiAvatar}
-                      >
-                          <Ionicons name="sparkles" size={14} color="#8B6FD4" />
-                      </LinearGradient>
-                  )}
-                  {msg.role === 'user' ? (
-                      <LinearGradient
-                          colors={['#764BA2', '#667EEA']}
-                          start={{x:0, y:0}} end={{x:1, y:1}}
-                          style={[styles.bubble, styles.userBubble]}
-                      >
-                          <Text style={[styles.bubbleText, styles.userBubbleText]}>{msg.text}</Text>
-                      </LinearGradient>
-                  ) : (
-                      <View style={[styles.bubble, styles.aiBubble]}>
-                          <Text style={[styles.bubbleText, styles.aiBubbleText]}>{msg.text}</Text>
-                      </View>
-                  )}
-              </View>
-          ))}
-
-          {loading && (
-             <View style={[styles.bubbleWrap, styles.aiWrap]}>
-                 <LinearGradient colors={['#F0E8FF', '#DBCDF0']} style={styles.aiAvatar}>
-                     <Ionicons name="sparkles" size={14} color="#8B6FD4" />
-                 </LinearGradient>
-                 <View style={[styles.bubble, styles.aiBubble, { flexDirection: 'row', alignItems: 'center' }]}>
-                     <ActivityIndicator size="small" color="#8B6FD4" style={{ marginRight: 8 }} />
-                 </View>
-             </View>
-          )}
-        </ScrollView>
-
-        {/* Quick actions */}
-        <View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickActionsContainer}>
-                {quickPrompts.map((qp, i) => (
-                    <TouchableOpacity
-                        key={i}
-                        style={styles.quickBtn}
-                        onPress={() => sendMessage(qp)}
-                    >
-                        <Text style={styles.quickBtnText}>{qp}</Text>
-                    </TouchableOpacity>
-                ))}
-            </ScrollView>
-        </View>
-
-        {/* Input */}
-        <View style={styles.inputBar}>
-          <TextInput
-            style={styles.input}
-            value={input}
-            onChangeText={setInput}
-            placeholder="Ваш вопрос..."
-            placeholderTextColor="#A8A8B6"
-            multiline
-            maxLength={500}
-            onSubmitEditing={() => sendMessage(input)}
-            blurOnSubmit
-          />
-          <TouchableOpacity
-            style={[styles.sendBtn, (!input.trim() || loading) && { opacity: 0.5, backgroundColor: '#A8A8B6' }]}
-            onPress={() => sendMessage(input)}
-            disabled={!input.trim() || loading}
-          >
-            <Ionicons name="send" size={16} color="white" />
-          </TouchableOpacity>
-        </View>
-        <Text style={styles.disclaimerText}>
-            <Ionicons name="sparkles" size={10} color="#6B6B80" /> Не заменяет консультацию врача
-        </Text>
-      </KeyboardAvoidingView>
+      <RNAnimated.View style={[styles.keyboardView, { paddingBottom: keyboardPadding }]}>
+        {renderContent()}
+      </RNAnimated.View>
     </View>
   );
 };
@@ -255,6 +378,19 @@ const styles = StyleSheet.create({
   input: { flex: 1, backgroundColor: 'white', borderRadius: 24, paddingLeft: 20, paddingRight: 48, paddingTop: 14, paddingBottom: 14, fontSize: 14, fontFamily: 'Nunito_700Bold', color: '#1A1A2E', maxHeight: 100, shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.06, shadowRadius: 24, elevation: 2, borderWidth: 1, borderColor: '#F5F0E6' },
   sendBtn: { position: 'absolute', right: 24, bottom: 14, width: 38, height: 38, borderRadius: 19, backgroundColor: '#8B6FD4', alignItems: 'center', justifyContent: 'center', shadowColor: '#8B6FD4', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 4, zIndex: 10 },
   disclaimerText: { textAlign: 'center', fontSize: 10, fontFamily: 'Nunito_800ExtraBold', color: '#6B6B80', paddingBottom: 12 },
+
+  // Consent screen styles
+  consentContainer: { flex: 1, backgroundColor: '#FAFBFC', justifyContent: 'center', paddingHorizontal: 24 },
+  consentCard: { backgroundColor: 'white', borderRadius: 24, padding: 28, borderWidth: 1.5, borderColor: '#F0ECE8', shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.08, shadowRadius: 24, elevation: 4, alignItems: 'center' },
+  consentIconWrap: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#EEF2FF', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  consentTitle: { fontSize: 22, fontFamily: 'Nunito_900Black', color: '#1A1A2E', marginBottom: 4 },
+  consentSubtitle: { fontSize: 13, fontFamily: 'Nunito_700Bold', color: '#64748B', marginBottom: 20 },
+  consentBody: { width: '100%', backgroundColor: '#F8FAFC', borderRadius: 16, padding: 16, marginBottom: 24 },
+  consentText: { fontSize: 13, fontFamily: 'Nunito_700Bold', color: '#334155', lineHeight: 20 },
+  consentAcceptBtn: { width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#6366F1', borderRadius: 16, paddingVertical: 16, shadowColor: '#6366F1', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 16, elevation: 4, marginBottom: 12 },
+  consentAcceptText: { fontSize: 15, fontFamily: 'Nunito_900Black', color: 'white' },
+  consentDeclineBtn: { paddingVertical: 12 },
+  consentDeclineText: { fontSize: 13, fontFamily: 'Nunito_700Bold', color: '#94A3B8' },
 });
 
 export default function AIScreen() {

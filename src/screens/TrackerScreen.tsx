@@ -81,7 +81,7 @@ const TrackerScreenContent = ({ feedings, sleeps, diapers, walks, growthRecords 
       const { syncWithSupabase } = await import('../db/sync');
       await syncWithSupabase(true);
     } catch (e) {
-      console.warn("Manual sync error", e);
+      if (__DEV__) console.warn("Manual sync error", e);
     } finally {
       setRefreshing(false);
     }

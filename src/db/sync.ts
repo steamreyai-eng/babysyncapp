@@ -13,6 +13,7 @@
 import { synchronize } from '@nozbe/watermelondb/sync'
 import { database } from './index'
 import { supabase } from '../lib/supabase'
+import { useAuthStore } from '../store/authStore'
 
 const SYNC_TABLES = [
   'feedings',
@@ -89,6 +90,9 @@ export async function syncWithSupabase(force = false) {
                 const deleted: string[] = [];
 
                 for (const r of (records || [])) {
+                  // ── Validate required fields ──
+                  if (!r.id || typeof r.id !== 'string') continue;
+
                   // ── Soft-delete detection ──
                   if (r.deleted_at) {
                     if (localMap.has(r.id)) {
@@ -103,6 +107,10 @@ export async function syncWithSupabase(force = false) {
                     if (r[field] !== undefined) mapped[field] = r[field];
                   }
                   if (!mapped.id) continue;
+
+                  // Validate timestamps — reject records with unparseable dates
+                  if (r.created_at && isNaN(new Date(r.created_at).getTime())) continue;
+                  if (r.updated_at && isNaN(new Date(r.updated_at).getTime())) continue;
 
                   // Convert timestamps to milliseconds for WatermelonDB
                   if (r.created_at) mapped.created_at = new Date(r.created_at).getTime();
@@ -161,6 +169,7 @@ export async function syncWithSupabase(force = false) {
 
             // ── Push created records (batch upsert) ──
             if (tableChanges.created?.length > 0) {
+              const userId = useAuthStore.getState().session?.user?.id;
               const cleaned = tableChanges.created.map((r: any) => {
                 const { _status, _changed, deleted_at, ...rest } = r;
 
@@ -177,6 +186,7 @@ export async function syncWithSupabase(force = false) {
 
                 return {
                   ...rest,
+                  user_id: rest.user_id || userId,
                   created_at: rest.created_at || new Date().toISOString(),
                   updated_at: rest.updated_at || new Date().toISOString(),
                 };

@@ -14,16 +14,18 @@ import { VaccinationModel } from './models/VaccinationModel'
 import { DoctorVisitModel } from './models/DoctorVisitModel'
 import { ShiftModel } from './models/ShiftModel'
 import { setGenerator } from '@nozbe/watermelondb/utils/common/randomId'
+import * as Crypto from 'expo-crypto';
 
 // Supabase requires standard UUIDs for primary keys. WatermelonDB locally generates IDs as
 // 16-character alphanumeric strings, which Supabase rejects.
-// Using setGenerator override to ensure that local creations match Supabase's UUID validation.
+// Using cryptographically secure randomness via expo-crypto for UUID v4 generation.
 export function generateUUID() {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    const r = Math.random() * 16 | 0;
-    const v = c === 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
+  const bytes = Crypto.getRandomBytes(16);
+  // Set version (4) and variant (10xx) bits per RFC 4122
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
 }
 setGenerator(generateUUID);
 
@@ -32,7 +34,7 @@ const adapter = new SQLiteAdapter({
   migrations,
   jsi: process.env.NODE_ENV !== 'test',
   onSetUpError: error => {
-    console.warn('WMDB setup error', error)
+    if (__DEV__) console.warn('WMDB setup error', error)
   }
 })
 

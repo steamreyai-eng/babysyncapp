@@ -64,7 +64,8 @@
           "project": "react-native",
           "organization": "kapiai"
         }
-      ]
+      ],
+      "expo-secure-store"
     ]
   }
 }

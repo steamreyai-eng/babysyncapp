@@ -38,7 +38,7 @@ export async function setupTimerNotifications() {
     name: 'Таймер сна',
     importance: AndroidImportance.LOW,
     vibration: false,
-    visibility: AndroidVisibility.PUBLIC,
+    visibility: AndroidVisibility.PRIVATE,
   });
 
   await notifee.createChannel({
@@ -46,7 +46,7 @@ export async function setupTimerNotifications() {
     name: 'Таймер прогулки',
     importance: AndroidImportance.LOW,
     vibration: false,
-    visibility: AndroidVisibility.PUBLIC,
+    visibility: AndroidVisibility.PRIVATE,
   });
 
   await notifee.createChannel({
@@ -54,7 +54,7 @@ export async function setupTimerNotifications() {
     name: 'Таймер кормления',
     importance: AndroidImportance.LOW,
     vibration: false,
-    visibility: AndroidVisibility.PUBLIC,
+    visibility: AndroidVisibility.PRIVATE,
   });
 }
 
@@ -217,7 +217,7 @@ export async function handleBackgroundStopSleep() {
          });
        });
      } catch (error) {
-       console.warn("Error saving sleep from bg notification", error);
+       if (__DEV__) console.warn("Error saving sleep from bg notification", error);
      }
   }
   store.clearSleepTimer();
@@ -243,7 +243,7 @@ export async function handleBackgroundStopWalk() {
          });
        });
      } catch (error) {
-       console.warn("Error saving walk from bg notification", error);
+       if (__DEV__) console.warn("Error saving walk from bg notification", error);
      }
   }
   store.clearWalkTimer();

@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Switch, ScrollView, Alert, TextInput, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, Switch, ScrollView, Alert, TextInput, StyleSheet, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -12,7 +13,7 @@ import { supabase } from '../lib/supabase';
 import { exportDataAsJSON } from '../lib/exportData';
 import PrivacyPolicyScreen from './PrivacyPolicyScreen';
 import DateTimePickerModal from '../components/DateTimePickerModal';
-import { BellRing, Moon, Sun, Download, Shield, ChevronRight, LogOut, Edit3, Globe as GlobeIcon, CalendarDays, User } from 'lucide-react-native';
+import { BellRing, Moon, Sun, Download, Shield, ChevronRight, LogOut, Edit3, Globe as GlobeIcon, CalendarDays, User, Trash2 } from 'lucide-react-native';
 import { NotificationSettingsModal } from '../components/NotificationSettingsModal';
 
 export default function SettingsScreen() {
@@ -36,6 +37,7 @@ export default function SettingsScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [isDark, setIsDark] = useState(false);
   const [notifModalOpen, setNotifModalOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     AsyncStorage.getItem('notificationsEnabled').then(val => {
@@ -82,13 +84,109 @@ export default function SettingsScreen() {
                 await database.unsafeResetDatabase();
              });
           } catch (e) {
-             console.warn('Ошибка при сбросе базы данных:', e);
+             if (__DEV__) console.warn('Ошибка при сбросе базы данных:', e);
           }
           await supabase.auth.signOut();
           setSession(null);
           setBaby(null);
        }}
     ]);
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      '⚠️ Удаление аккаунта',
+      'Все ваши данные будут безвозвратно удалены:\n\n• Профиль ребёнка\n• Кормления, сон, подгузники\n• Прогулки и рост\n• Лекарства и прививки\n• Визиты к врачу\n• История чата с AI\n\nЭто действие НЕЛЬЗЯ отменить.',
+      [
+        { text: 'Отмена', style: 'cancel' },
+        {
+          text: 'Удалить всё',
+          style: 'destructive',
+          onPress: () => confirmDeleteAccount(),
+        },
+      ]
+    );
+  };
+
+  const confirmDeleteAccount = () => {
+    Alert.prompt
+      ? Alert.prompt(
+          'Подтверждение удаления',
+          'Введите УДАЛИТЬ для подтверждения:',
+          [
+            { text: 'Отмена', style: 'cancel' },
+            {
+              text: 'Подтвердить',
+              style: 'destructive',
+              onPress: (text: string | undefined) => {
+                if (text?.trim() === 'УДАЛИТЬ') {
+                  executeDeleteAccount();
+                } else {
+                  Alert.alert('Ошибка', 'Неверное подтверждение. Введите слово УДАЛИТЬ.');
+                }
+              },
+            },
+          ],
+          'plain-text'
+        )
+      : // Android fallback (no Alert.prompt)
+        Alert.alert(
+          'Последнее подтверждение',
+          'Вы уверены? Все данные будут безвозвратно удалены. Это действие НЕЛЬЗЯ отменить.',
+          [
+            { text: 'Отмена', style: 'cancel' },
+            { text: 'Да, удалить навсегда', style: 'destructive', onPress: () => executeDeleteAccount() },
+          ]
+        );
+  };
+
+  const executeDeleteAccount = async () => {
+    setDeleting(true);
+    try {
+      // 1. Delete all user data from Supabase tables
+      const tables = [
+        'feedings', 'sleeps', 'diapers', 'walks', 'tasks',
+        'growth_records', 'medications', 'vaccinations',
+        'doctor_visits', 'shifts', 'chat_history',
+      ];
+
+      for (const table of tables) {
+        // RLS ensures only current user's data is deleted
+        await supabase.from(table).delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      }
+
+      // 2. Delete baby profile
+      await supabase.from('baby_profile').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+
+      // 3. Clear local database
+      try {
+        useDataStore.getState().clearData();
+        useTimerStore.getState().clearAllTimers();
+        const { database } = require('../db');
+        await database.write(async () => {
+          await database.unsafeResetDatabase();
+        });
+      } catch (e) {
+        if (__DEV__) console.warn('Local DB reset error:', e);
+      }
+
+      // 4. Clear SecureStore cache
+      try {
+        await SecureStore.deleteItemAsync('babysync_baby_profile');
+      } catch (e) {}
+
+      // 5. Sign out
+      await supabase.auth.signOut();
+      setSession(null);
+      setBaby(null);
+
+      Alert.alert('Готово', 'Ваш аккаунт и все данные удалены.');
+    } catch (e: any) {
+      if (__DEV__) console.warn('Delete account error:', e);
+      Alert.alert('Ошибка', 'Не удалось удалить аккаунт: ' + (e?.message || 'Неизвестная ошибка'));
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const handleExport = async () => {
@@ -343,6 +441,18 @@ export default function SettingsScreen() {
          <Text style={styles.logoutBtnText}>Выйти из аккаунта</Text>
       </TouchableOpacity>
 
+      {/* Delete Account */}
+      <TouchableOpacity onPress={handleDeleteAccount} disabled={deleting} style={styles.deleteAccountBtn}>
+         {deleting ? (
+           <ActivityIndicator size="small" color="#FFFFFF" />
+         ) : (
+           <>
+             <Trash2 size={16} color="#FFFFFF" />
+             <Text style={styles.deleteAccountBtnText}>Удалить аккаунт и все данные</Text>
+           </>
+         )}
+      </TouchableOpacity>
+
       <Text style={styles.footerText}>BabySync v1.1.0 · Сделано с ❤️ для молодых родителей</Text>
       
       <NotificationSettingsModal isOpen={notifModalOpen} onClose={() => setNotifModalOpen(false)} />
@@ -379,8 +489,10 @@ const styles = StyleSheet.create({
   settingLabel: { fontSize: 15, fontFamily: 'Nunito_800ExtraBold', color: '#0F172A', marginBottom: 2 },
   settingSub: { fontSize: 12, fontFamily: 'Nunito_700Bold', color: '#64748B' },
 
-  logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 16, marginBottom: 32 },
+  logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 16, marginBottom: 8 },
   logoutBtnText: { fontSize: 15, fontFamily: 'Nunito_800ExtraBold', color: '#EF4444' },
+  deleteAccountBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, marginBottom: 32, backgroundColor: '#991B1B', borderRadius: 16, marginHorizontal: 32 },
+  deleteAccountBtnText: { fontSize: 13, fontFamily: 'Nunito_800ExtraBold', color: '#FFFFFF' },
   footerText: { textAlign: 'center', fontSize: 10, fontFamily: 'Nunito_700Bold', color: '#6B6B80', marginBottom: 16 },
 });
 

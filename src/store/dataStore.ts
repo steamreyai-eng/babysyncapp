@@ -99,6 +99,7 @@ interface DataState {
 
 const getActiveParent = () => useAuthStore.getState().activeParent;
 const getBaby = () => useAuthStore.getState().baby;
+const getUserId = () => useAuthStore.getState().session?.user?.id;
 
 // ── Helper: date range for a single day ──
 function dayRange(date: Date) {
@@ -233,7 +234,7 @@ export const useDataStore = create<DataState>((set, get) => ({
 
   // ── Feeding ──
   addFeeding: async (f) => {
-    const payload = { ...f, recorded_by: getActiveParent() };
+    const payload = { ...f, recorded_by: getActiveParent(), user_id: getUserId() };
     const { data, error } = await supabase.from('feedings').insert([payload]).select().single();
     if (error) { if (__DEV__) console.error('error:', error); return; }
     set((s) => ({ feedings: [data as Feeding, ...s.feedings] }));
@@ -251,7 +252,7 @@ export const useDataStore = create<DataState>((set, get) => ({
 
   // ── Sleep ──
   addSleep: async (s) => {
-    const payload = { ...s, recorded_by: getActiveParent() };
+    const payload = { ...s, recorded_by: getActiveParent(), user_id: getUserId() };
     const { data, error } = await supabase.from('sleeps').insert([payload]).select().single();
     if (error) { if (__DEV__) console.error('error:', error); return; }
     set((st) => ({ sleeps: [data as Sleep, ...st.sleeps] }));
@@ -269,7 +270,7 @@ export const useDataStore = create<DataState>((set, get) => ({
 
   // ── Diaper ──
   addDiaper: async (d) => {
-    const payload = { ...d, recorded_by: getActiveParent() };
+    const payload = { ...d, recorded_by: getActiveParent(), user_id: getUserId() };
     const { data, error } = await supabase.from('diapers').insert([payload]).select().single();
     if (error) { if (__DEV__) console.error('error:', error); return; }
     set((s) => ({ diapers: [data as Diaper, ...s.diapers] }));
@@ -287,7 +288,7 @@ export const useDataStore = create<DataState>((set, get) => ({
 
   // ── Walk ──
   addWalk: async (w) => {
-    const payload = { ...w, recorded_by: getActiveParent() };
+    const payload = { ...w, recorded_by: getActiveParent(), user_id: getUserId() };
     const { data, error } = await supabase.from('walks').insert([payload]).select().single();
     if (error) { if (__DEV__) console.error('error:', error); return; }
     set((s) => ({ walks: [data as Walk, ...s.walks] }));
@@ -300,7 +301,7 @@ export const useDataStore = create<DataState>((set, get) => ({
 
   // ── Growth ──
   addGrowthRecord: async (g) => {
-    const payload = { ...g, recorded_by: getActiveParent() };
+    const payload = { ...g, recorded_by: getActiveParent(), user_id: getUserId() };
     const { data, error } = await supabase.from('growth_records').insert([payload]).select().single();
     if (error) { if (__DEV__) console.error('error:', error); return; }
     set((s) => ({ growthRecords: [data as GrowthRecord, ...s.growthRecords] }));
@@ -308,7 +309,7 @@ export const useDataStore = create<DataState>((set, get) => ({
 
   // ── Medication ──
   addMedication: async (m) => {
-    const payload = { ...m, recorded_by: getActiveParent() };
+    const payload = { ...m, recorded_by: getActiveParent(), user_id: getUserId() };
     const { data, error } = await supabase.from('medications').insert([payload]).select().single();
     if (error) { if (__DEV__) console.error('error:', error); return; }
     set((s) => ({ medications: [...s.medications, data as Medication] }));
@@ -334,7 +335,7 @@ export const useDataStore = create<DataState>((set, get) => ({
     if (done) {
       const { data, error } = await supabase
         .from('vaccinations')
-        .insert([{ vaccine_name, recorded_by: getActiveParent() }])
+        .insert([{ vaccine_name, recorded_by: getActiveParent(), user_id: getUserId() }])
         .select()
         .single();
       if (error) { if (__DEV__) console.error('error:', error); return; }
@@ -348,7 +349,7 @@ export const useDataStore = create<DataState>((set, get) => ({
 
   // ── Doctor Visits ──
   addDoctorVisit: async (v) => {
-    const payload = { ...v, recorded_by: getActiveParent() };
+    const payload = { ...v, recorded_by: getActiveParent(), user_id: getUserId() };
     const { data, error } = await supabase.from('doctor_visits').insert([payload]).select().single();
     if (error) { if (__DEV__) console.error('error:', error); return; }
     set((s) => ({ doctorVisits: [data as DoctorVisit, ...s.doctorVisits] }));
@@ -356,7 +357,7 @@ export const useDataStore = create<DataState>((set, get) => ({
 
   // ── Tasks ──
   addTask: async (title, due_time) => {
-    const payload = { title, is_completed: false, recorded_by: getActiveParent(), due_time };
+    const payload = { title, is_completed: false, recorded_by: getActiveParent(), due_time, user_id: getUserId() };
     const { data, error } = await supabase.from('tasks').insert([payload]).select().single();
     if (error) { if (__DEV__) console.error('error:', error); return; }
     set((s) => ({ tasks: [...s.tasks, data as Task] }));

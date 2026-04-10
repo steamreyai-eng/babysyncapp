@@ -9,5 +9,5 @@ export const useAppDatabase = () => {
 export const syncWithSupabase = async () => {
     // This function will be called by a Background Task and manual refresh.
     // It will push local SQLite changes to Supabase, and pull new changes.
-    console.log("Sync requested (Offline-First)");
+    if (__DEV__) console.log("Sync requested (Offline-First)");
 }
