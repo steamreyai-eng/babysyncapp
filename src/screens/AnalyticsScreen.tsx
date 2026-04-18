@@ -1,11 +1,9 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator, StyleSheet, RefreshControl } from 'react-native';
+import { ScrollView, TouchableOpacity, Dimensions, ActivityIndicator, RefreshControl } from 'react-native';
 import {
   Milk, Moon, Baby, Footprints, Brain, TrendingUp,
-  Clock, Activity, Droplets, AlertCircle, TrendingDown,
-  WifiOff, BarChart3, ChevronUp, ChevronDown, CalendarDays, Download, ChevronLeft, ChevronRight, Info,
-  LineChart as LineChartIcon, PieChart as PieChartIcon
+  Clock, Activity, Droplets, BarChart3, ChevronLeft, ChevronRight, Info,
+  Download, CalendarDays
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path, Defs, LinearGradient as SvgLinearGradient, Stop, Text as SvgText } from 'react-native-svg';
@@ -19,6 +17,10 @@ import * as Sharing from 'expo-sharing';
 
 import { calcDayIndex, scoreColor } from '../utils/metrics';
 import { callAI } from '../lib/ai';
+
+import { Wrapper } from '../components/ui/Wrapper';
+import { Surface } from '../components/ui/Surface';
+import { Typography } from '../components/ui/Typography';
 
 const { width } = Dimensions.get('window');
 
@@ -38,36 +40,34 @@ const COLORS = {
   scoreRed: "#E05A5A", 
 };
 
-// scoreColor is now imported from '../utils/metrics'
-
 const Delta = ({ value, unit = "" }: { value: number; unit?: string }) => {
   if (!isFinite(value) || value === 0) return null;
   const up = value > 0;
   const color = up ? COLORS.scoreGreen : COLORS.scoreRed;
   const bg = up ? '#4DBFAA18' : '#E05A5A18';
   return (
-    <View style={{ backgroundColor: bg, borderRadius: 6, paddingHorizontal: 5, paddingVertical: 1, marginLeft: 4, flexDirection: 'row', alignItems: 'center' }}>
-      <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 9, color }}>
+    <Wrapper bg={bg} radius="sm" px={5} py={1} ml={4} dir="row" align="center">
+      <Typography variant="tiny" weight="extraBold" style={{ fontSize: 9, color }}>
         {up ? "↑ " : "↓ "}{Math.abs(value)}{unit}
-      </Text>
-    </View>
+      </Typography>
+    </Wrapper>
   );
 };
 
 const StatCard = ({ icon: Icon, value, label, bg, iconColor, delta, deltaUnit }: any) => (
-  <View style={styles.statCard}>
-    <View style={[{ backgroundColor: bg }, styles.statIconWrapper]}>
+  <Surface bg="white" p={16} radius="xl" variant="elevated" style={{ minWidth: 150, flex: 1, borderColor: '#E2E8F0', borderWidth: 1 }}>
+    <Wrapper width={44} height={44} radius="lg" align="center" justify="center" mb={8} bg={bg}>
       <Icon size={22} color={iconColor} strokeWidth={2} />
-    </View>
-    <View style={{ flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap', marginBottom: 2 }}>
-      <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 20, color: '#0F172A', lineHeight: 24 }}>{value}</Text>
+    </Wrapper>
+    <Wrapper dir="row" align="baseline" wrap="wrap" mb={2}>
+      <Typography variant="h3" weight="black" color="#0F172A" style={{ fontSize: 20, lineHeight: 24 }}>{value}</Typography>
       {delta !== undefined && <Delta value={delta} unit={deltaUnit} />}
-    </View>
-    <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 11, color: '#6B6B80', lineHeight: 14 }} numberOfLines={2}>{label}</Text>
+    </Wrapper>
+    <Typography variant="tiny" weight="bold" color="#6B6B80" style={{ fontSize: 11, lineHeight: 14 }} numberOfLines={2}>{label}</Typography>
     {delta !== undefined && (
-      <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 10, color: '#94A3B8', marginTop: 2 }}>vs пред.</Text>
+      <Typography variant="tiny" weight="bold" color="#94A3B8" mt={2} style={{ fontSize: 10 }}>vs пред.</Typography>
     )}
-  </View>
+  </Surface>
 );
 
 const GaugeArc = ({ score }: { score: number }) => {
@@ -76,7 +76,7 @@ const GaugeArc = ({ score }: { score: number }) => {
   const dash = (score / 100) * circumference;
   const color = scoreColor(score);
   return (
-    <View style={{ width: 110, height: 76, alignItems: 'center' }}>
+    <Wrapper width={110} height={76} align="center">
       <Svg width={110} height={110} viewBox="0 0 110 110">
         <Defs>
           <SvgLinearGradient id="gaugeGrad" x1="0" y1="0" x2="1" y2="0">
@@ -84,50 +84,37 @@ const GaugeArc = ({ score }: { score: number }) => {
             <Stop offset="100%" stopColor={score >= 70 ? "#3DBFAA" : color} />
           </SvgLinearGradient>
         </Defs>
-        {/* Track */}
-        <Path 
-          d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`}
-          fill="none" stroke="#F0ECE8" strokeWidth={12} strokeLinecap="round"
-        />
-        {/* Fill */}
-        <Path 
-          d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`}
-          fill="none" stroke="url(#gaugeGrad)" strokeWidth={12} strokeLinecap="round"
-          strokeDasharray={`${dash} ${circumference}`}
-        />
-        <SvgText x={cx} y={cy - 2} textAnchor="middle" fontSize={26} fontWeight="900" fill={color} fontFamily="Nunito_900Black">
-          {score}
-        </SvgText>
-        <SvgText x={cx} y={cy + 14} textAnchor="middle" fontSize={10} fontWeight="800" fill="#8A8A9E" fontFamily="Nunito_800ExtraBold">
-          ИЗ 100
-        </SvgText>
+        <Path d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`} fill="none" stroke="#F0ECE8" strokeWidth={12} strokeLinecap="round" />
+        <Path d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`} fill="none" stroke="url(#gaugeGrad)" strokeWidth={12} strokeLinecap="round" strokeDasharray={`${dash} ${circumference}`} />
+        <SvgText x={cx} y={cy - 2} textAnchor="middle" fontSize={26} fontWeight="900" fill={color} fontFamily="Nunito_900Black">{score}</SvgText>
+        <SvgText x={cx} y={cy + 14} textAnchor="middle" fontSize={10} fontWeight="800" fill="#8A8A9E" fontFamily="Nunito_800ExtraBold">ИЗ 100</SvgText>
       </Svg>
-    </View>
+    </Wrapper>
   );
 };
 
 const DayIndexCard = ({ score, rows, periodLabel }: any) => {
   const [showTooltip, setShowTooltip] = useState(false);
   return (
-    <View style={styles.card}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <View>
-          <TouchableOpacity onPress={() => setShowTooltip(!showTooltip)} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-             <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 20, color: '#0F172A' }}>Индекс дня</Text>
+    <Surface bg="white" p={20} radius="xxl" variant="elevated" mb={20} borderWidth={1} borderColor="#E2E8F0">
+      <Wrapper dir="row" justify="space-between" align="center" mb={20}>
+        <Wrapper>
+          <Wrapper as={TouchableOpacity} onPress={() => setShowTooltip(!showTooltip)} dir="row" align="center" style={{ gap: 6 }}>
+             <Typography variant="h3" weight="black" color="#0F172A" style={{ fontSize: 20 }}>Индекс дня</Typography>
              <Info size={16} color="#94A3B8" />
-          </TouchableOpacity>
+          </Wrapper>
           {showTooltip && (
-            <View style={{ marginTop: 8, padding: 12, borderRadius: 16, backgroundColor: '#F0F4FA', borderWidth: 1, borderColor: '#E2E8F0', maxWidth: 260 }}>
-              <Text style={{ fontSize: 11, fontFamily: 'Nunito_700Bold', color: '#475569', lineHeight: 16 }}>
+            <Wrapper mt={8} p={12} radius="xl" bg="#F0F4FA" borderWidth={1} borderColor="#E2E8F0" style={{ maxWidth: 260 }}>
+              <Typography variant="tiny" weight="bold" color="#475569" style={{ fontSize: 11, lineHeight: 16 }}>
                 Индекс считается на основе выполнения норм ВОЗ по кормлению, сну, прогулкам и подгузникам {periodLabel}.
-              </Text>
-            </View>
+              </Typography>
+            </Wrapper>
           )}
-          <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 13, color: '#8A8A9E', marginTop: 4 }}>Сводка {periodLabel}</Text>
-        </View>
+          <Typography variant="tiny" weight="bold" color="#8A8A9E" mt={4} style={{ fontSize: 13 }}>Сводка {periodLabel}</Typography>
+        </Wrapper>
         <GaugeArc score={score} />
-      </View>
-      <View style={{ gap: 16, marginTop: 8 }}>
+      </Wrapper>
+      <Wrapper gap={16} mt={8}>
         {rows.map((row: any) => {
            let IconComponent = Milk;
            if (row.label.includes('Сон')) IconComponent = Moon;
@@ -136,32 +123,32 @@ const DayIndexCard = ({ score, rows, periodLabel }: any) => {
            if (row.label.includes('Объём')) IconComponent = Milk;
            
            return (
-             <View key={row.label}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      <View style={{ padding: 4, borderRadius: 8, backgroundColor: `${row.color}15` }}>
+             <Wrapper key={row.label}>
+                <Wrapper dir="row" align="center" justify="space-between" mb={6}>
+                   <Wrapper dir="row" align="center" gap={8}>
+                      <Wrapper p={4} radius="sm" bg={`${row.color}15`}>
                          <IconComponent size={14} color={row.color} />
-                      </View>
-                      <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 13, color: '#0F172A' }}>{row.label}</Text>
-                      <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 12, color: '#475569' }}>— {row.val}</Text>
-                   </View>
-                   <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 13, color: scoreColor(row.score) }}>{row.score}%</Text>
-                </View>
-                <View style={{ height: 8, borderRadius: 4, overflow: 'hidden', width: '100%', backgroundColor: '#F0ECE8', marginBottom: 4 }}>
-                   <View style={{ height: '100%', borderRadius: 4, width: `${row.score}%`, backgroundColor: scoreColor(row.score) }} />
-                </View>
-                <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 10, color: '#6B6B80', textAlign: 'right' }}>Норма ВОЗ: {row.norm}</Text>
-             </View>
+                      </Wrapper>
+                      <Typography variant="tiny" weight="extraBold" color="#0F172A" style={{ fontSize: 13 }}>{row.label}</Typography>
+                      <Typography variant="tiny" weight="bold" color="#475569" style={{ fontSize: 12 }}>— {row.val}</Typography>
+                   </Wrapper>
+                   <Typography variant="tiny" weight="black" style={{ fontSize: 13, color: scoreColor(row.score) }}>{row.score}%</Typography>
+                </Wrapper>
+                <Wrapper height={8} radius="sm" overflow="hidden" width="100%" bg="#F0ECE8" mb={4}>
+                   <Wrapper height="100%" radius="sm" bg={scoreColor(row.score)} style={{ width: `${row.score}%` }} />
+                </Wrapper>
+                <Typography variant="tiny" weight="bold" color="#6B6B80" style={{ fontSize: 10, textAlign: 'right' }}>Норма ВОЗ: {row.norm}</Typography>
+             </Wrapper>
            );
         })}
-      </View>
-    </View>
+      </Wrapper>
+    </Surface>
   );
 };
 
 const AnalyticsScreenContent = ({ feedingsAll = [], sleepsAll = [], diapersAll = [], walksAll = [] }: any) => {
   const { baby } = useAuthStore();
-  const [period, setPeriod] = useState('day'); // 'day', 'week', 'month', 'all'
+  const [period, setPeriod] = useState('day');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [loading, setLoading] = useState(true);
 
@@ -196,7 +183,7 @@ const AnalyticsScreenContent = ({ feedingsAll = [], sleepsAll = [], diapersAll =
     setLoading(true);
     const now = new Date();
     const refDate = period === "day" ? new Date(selectedDate) : now;
-    const daysBack = period === "day" ? 1 : period === "week" ? 7 : period === "month" ? 30 : 3650; // all ~ 10 years
+    const daysBack = period === "day" ? 1 : period === "week" ? 7 : period === "month" ? 30 : 3650;
     
     const currentStart = new Date(refDate);
     if (period !== "all") {
@@ -234,7 +221,7 @@ const AnalyticsScreenContent = ({ feedingsAll = [], sleepsAll = [], diapersAll =
     setPrevWalks(filterPrev(walksAll));
 
     setLoading(false);
-    setAiLoaded(false); // Reset AI on change
+    setAiLoaded(false);
   }, [period, selectedDate, feedingsAll, sleepsAll, diapersAll, walksAll]);
 
   const fetchAiInsight = useCallback(async () => {
@@ -262,11 +249,9 @@ const AnalyticsScreenContent = ({ feedingsAll = [], sleepsAll = [], diapersAll =
 
   const handleExportExcel = async () => {
     try {
-      // Build CSV content (UTF-8 BOM for Excel compatibility with Cyrillic)
       const BOM = '\uFEFF';
       const sections: string[] = [];
 
-      // Feedings
       if (feedings.length > 0) {
         sections.push('--- КОРМЛЕНИЯ ---');
         sections.push('Дата,Тип');
@@ -278,7 +263,6 @@ const AnalyticsScreenContent = ({ feedingsAll = [], sleepsAll = [], diapersAll =
         sections.push('');
       }
 
-      // Sleeps
       if (sleeps.length > 0) {
         sections.push('--- СОН ---');
         sections.push('Дата,Длительность (мин)');
@@ -289,7 +273,6 @@ const AnalyticsScreenContent = ({ feedingsAll = [], sleepsAll = [], diapersAll =
         sections.push('');
       }
 
-      // Diapers
       if (diapers.length > 0) {
         sections.push('--- ПОДГУЗНИКИ ---');
         sections.push('Дата,Тип');
@@ -301,7 +284,6 @@ const AnalyticsScreenContent = ({ feedingsAll = [], sleepsAll = [], diapersAll =
         sections.push('');
       }
 
-      // Walks
       if (walks.length > 0) {
         sections.push('--- ПРОГУЛКИ ---');
         sections.push('Дата,Длительность (мин)');
@@ -335,7 +317,6 @@ const AnalyticsScreenContent = ({ feedingsAll = [], sleepsAll = [], diapersAll =
 
   const totalFormulaVolumeML = feedings.reduce((a, f) => a + (f.formula_volume_ml || 0), 0);
   
-  // Averages for day index depending on period
   const daysInPeriod = period === "day" ? 1 : period === "week" ? 7 : period === "month" ? 30 : Math.max(1, feedings.length);
   const feedCountForIndex = period === "day" ? feedings.length : feedings.length / daysInPeriod;
   const sleepSecForIndex = period === "day" ? sleeps.reduce((a,s)=>a+s.duration_seconds,0) : sleeps.reduce((a,s)=>a+s.duration_seconds,0) / daysInPeriod;
@@ -347,7 +328,6 @@ const AnalyticsScreenContent = ({ feedingsAll = [], sleepsAll = [], diapersAll =
   
   const periodLabel = period === "day" ? "сегодня" : period === "week" ? "за 7 дней" : period === "month" ? "за 30 дней" : "за всё время";
 
-  // --- STATS & DELTAS CALCULATION ---
   const totalSleepSec = sleeps.reduce((acc, s) => acc + s.duration_seconds, 0);
   const totalSleepHr = Math.floor(totalSleepSec / 3600);
   const totalSleepMin = Math.floor((totalSleepSec % 3600) / 60);
@@ -371,7 +351,6 @@ const AnalyticsScreenContent = ({ feedingsAll = [], sleepsAll = [], diapersAll =
   const avgSleepStr = totalSleepSec > 0 ? `${Math.floor(avgSleepSec / 3600)}ч ${Math.floor((avgSleepSec % 3600) / 60)}м` : "—";
   const avgWalkMin = walks.length > 0 ? Math.round(totalWalkSec / walks.length / 60) : 0;
 
-  // Sleep Metrics
   let daySec = 0, nightSec = 0;
   sleeps.forEach(s => {
     const endD = new Date(s.end_time || s.created_at);
@@ -394,7 +373,6 @@ const AnalyticsScreenContent = ({ feedingsAll = [], sleepsAll = [], diapersAll =
   }
   const avgWakeWin = wakeCount > 0 ? Math.round(wakeTotalMin / wakeCount) : 0;
 
-  // Feeding Intervals
   const feedingIntervals = () => {
     if (feedings.length < 2) return [];
     return feedings.slice(1).map((f, i) => {
@@ -407,7 +385,6 @@ const AnalyticsScreenContent = ({ feedingsAll = [], sleepsAll = [], diapersAll =
   const intervals = feedingIntervals();
   const avgIntervalMin = intervals.length ? Math.round(intervals.reduce((a, x) => a + x.value, 0) / intervals.length) : 0;
 
-  // --- BAR CHART DATA (Feed Volumes) ---
   const getBarData = () => {
     if (feedings.length === 0) return [];
     const hourlyGroups: Record<number, number> = {};
@@ -429,7 +406,6 @@ const AnalyticsScreenContent = ({ feedingsAll = [], sleepsAll = [], diapersAll =
   const computedBarData = getBarData();
   const barData = computedBarData.length > 0 ? computedBarData : [{value: 0, label: '', frontColor: COLORS.feed}];
 
-  // --- PIE CHART DATA (Diapers) ---
   const getPieData = () => {
     let wet = 0, dirty = 0, both = 0;
     diapers.forEach(d => {
@@ -449,27 +425,27 @@ const AnalyticsScreenContent = ({ feedingsAll = [], sleepsAll = [], diapersAll =
 
   if (loading) {
      return (
-       <View style={{ flex: 1, backgroundColor: '#FAFBFC', paddingTop: Math.max(20, 60) }}>
-         <View style={{ paddingHorizontal: 20, paddingBottom: 8, flexDirection: 'row', justifyContent: 'space-between' }}>
+       <Wrapper flex={1} bg="#FAFBFC" pt={Math.max(20, 60)}>
+         <Wrapper px={20} pb={8} dir="row" justify="space-between">
            <Skeleton width={140} height={38} borderRadius={12} />
            <Skeleton width={80} height={36} borderRadius={12} />
-         </View>
-         <View style={{ paddingHorizontal: 20, paddingBottom: 20 }}>
+         </Wrapper>
+         <Wrapper px={20} pb={20}>
            <Skeleton width={110} height={20} borderRadius={8} />
-         </View>
-         <View style={{ marginHorizontal: 20, marginBottom: 20 }}>
+         </Wrapper>
+         <Wrapper mx={20} mb={20}>
            <Skeleton width="100%" height={48} borderRadius={24} />
-         </View>
-         <View style={{ marginHorizontal: 20, marginBottom: 16 }}>
+         </Wrapper>
+         <Wrapper mx={20} mb={16}>
            <Skeleton width="100%" height={160} borderRadius={24} />
-         </View>
-         <View style={{ paddingHorizontal: 20, flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+         </Wrapper>
+         <Wrapper px={20} dir="row" wrap="wrap" gap={12}>
            <Skeleton width="48%" height={110} borderRadius={20} />
            <Skeleton width="48%" height={110} borderRadius={20} />
            <Skeleton width="48%" height={110} borderRadius={20} />
            <Skeleton width="48%" height={110} borderRadius={20} />
-         </View>
-       </View>
+         </Wrapper>
+       </Wrapper>
      );
   }
 
@@ -478,21 +454,19 @@ const AnalyticsScreenContent = ({ feedingsAll = [], sleepsAll = [], diapersAll =
        style={{ flex: 1, backgroundColor: '#FAFBFC' }} 
        contentContainerStyle={{ paddingBottom: 100 }}
        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#6366F1']} />}
+       showsVerticalScrollIndicator={false}
     >
-       <View style={{ paddingHorizontal: 20, paddingTop: Math.max(20, 40), paddingBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 32, color: '#0F172A', letterSpacing: -0.5 }}>Аналитика</Text>
-          <TouchableOpacity 
-             onPress={handleExportExcel}
-             style={{ height: 36, paddingHorizontal: 12, borderRadius: 12, backgroundColor: 'rgba(37, 99, 235, 0.1)', flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}
-          >
+       <Wrapper px={20} pt={Math.max(20, 40)} pb={8} dir="row" align="center" justify="space-between">
+          <Typography variant="h1" weight="black" color="#0F172A" style={{ fontSize: 32, letterSpacing: -0.5 }}>Аналитика</Typography>
+          <Wrapper as={TouchableOpacity} onPress={handleExportExcel} height={36} px={12} radius="lg" bg="rgba(37, 99, 235, 0.1)" dir="row" align="center" justify="center">
              <Download size={16} color="#2563EB" style={{ marginRight: 4 }} />
-             <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 13, color: '#2563EB' }}>Excel</Text>
-          </TouchableOpacity>
-       </View>
-       <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 15, color: '#6B6B80', paddingHorizontal: 20, paddingBottom: 20 }}>Панель данных</Text>
+             <Typography variant="tiny" weight="extraBold" color="#2563EB" style={{ fontSize: 13 }}>Excel</Typography>
+          </Wrapper>
+       </Wrapper>
+       <Typography variant="tiny" weight="bold" color="#6B6B80" px={20} pb={20} style={{ fontSize: 15 }}>Панель данных</Typography>
 
        {/* Floating Pills for Period */}
-       <View style={{ marginHorizontal: 20, backgroundColor: '#E2E8F0', borderRadius: 24, padding: 4, flexDirection: 'row', marginBottom: 20 }}>
+       <Wrapper mx={20} bg="#E2E8F0" radius="xxl" p={4} dir="row" mb={20}>
           {[
             { id: 'day', label: 'Сегодня' },
             { id: 'week', label: '7 дней' },
@@ -501,44 +475,48 @@ const AnalyticsScreenContent = ({ feedingsAll = [], sleepsAll = [], diapersAll =
           ].map((p) => {
              const active = period === p.id;
              return (
-               <TouchableOpacity 
+               <Surface 
+                  as={TouchableOpacity}
                   key={p.id} 
                   onPress={() => setPeriod(p.id)}
-                  style={{ flex: 1, paddingVertical: 8, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: active ? 'white' : 'transparent', shadowColor: active ? '#000' : 'transparent', shadowOffset: { width: 0, height: 4 }, shadowOpacity: active ? 0.08 : 0, shadowRadius: 12, elevation: active ? 2 : 0 }}
+                  flex={1} py={8} radius="xl" align="center" justify="center"
+                  bg={active ? 'white' : 'transparent'}
+                  variant={active ? 'elevated' : 'flat'}
                >
-                 <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 13, color: active ? '#0F172A' : '#64748B' }}>{p.label}</Text>
-               </TouchableOpacity>
+                 <Typography variant="tiny" weight="extraBold" color={active ? '#0F172A' : '#64748B'} style={{ fontSize: 13 }}>{p.label}</Typography>
+               </Surface>
              );
           })}
-       </View>
+       </Wrapper>
 
-       {/* Date Selector (Only in 'day' mode) */}
+       {/* Date Selector */}
        {period === 'day' && (
-         <View style={{ marginHorizontal: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'white', borderRadius: 20, padding: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 10, elevation: 1, borderWidth: 1, borderColor: '#F0ECE8', marginBottom: 20 }}>
-            <TouchableOpacity onPress={() => { const d = new Date(selectedDate); d.setDate(d.getDate() - 1); setSelectedDate(d); }} style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F4F4F8', borderRadius: 12 }}>
+         <Surface dir="row" align="center" justify="space-between" bg="white" radius="xl" p={12} mx={20} mb={20} variant="elevated" borderWidth={1} borderColor="#F0ECE8">
+            <Wrapper as={TouchableOpacity} onPress={() => { const d = new Date(selectedDate); d.setDate(d.getDate() - 1); setSelectedDate(d); }} width={40} height={40} align="center" justify="center" bg="#F4F4F8" radius="lg">
                <ChevronLeft size={20} color="#8A8A9E" />
-            </TouchableOpacity>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            </Wrapper>
+            <Wrapper dir="row" align="center" gap={8}>
                <CalendarDays size={18} color="#2563EB" />
-               <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 15, color: '#1A1A2E', letterSpacing: -0.2 }}>
+               <Typography variant="body" weight="black" color="#1A1A2E" style={{ fontSize: 15, letterSpacing: -0.2 }}>
                   {selectedDate.toLocaleDateString() === new Date().toLocaleDateString() ? 'Сегодня' : selectedDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
-               </Text>
-            </View>
-            <TouchableOpacity 
+               </Typography>
+            </Wrapper>
+            <Wrapper 
+               as={TouchableOpacity}
                disabled={selectedDate.toLocaleDateString() === new Date().toLocaleDateString()}
                onPress={() => { const d = new Date(selectedDate); d.setDate(d.getDate() + 1); setSelectedDate(d); }} 
-               style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center', backgroundColor: selectedDate.toLocaleDateString() === new Date().toLocaleDateString() ? 'transparent' : '#F4F4F8', borderRadius: 12 }}
+               width={40} height={40} align="center" justify="center" bg={selectedDate.toLocaleDateString() === new Date().toLocaleDateString() ? 'transparent' : '#F4F4F8'} radius="lg"
             >
                <ChevronRight size={20} color={selectedDate.toLocaleDateString() === new Date().toLocaleDateString() ? '#D1D1DB' : '#8A8A9E'} />
-            </TouchableOpacity>
-         </View>
+            </Wrapper>
+         </Surface>
        )}
 
-       <View style={{ paddingHorizontal: 20 }}>
+       <Wrapper px={20}>
            <DayIndexCard score={score} rows={rows} periodLabel={periodLabel} />
 
            {/* Bento Stat Cards Grid */}
-           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 20 }}>
+           <Wrapper dir="row" wrap="wrap" gap={12} mb={20}>
              <StatCard icon={Milk} iconColor={COLORS.feed} value={feedings.length} label="Кормлений" bg={COLORS.feedBg} delta={period !== "all" ? deltaFeedings : undefined} deltaUnit=" раз" />
              <StatCard icon={Moon} iconColor={COLORS.sleep} value={totalSleepStr} label="Сон всего" bg={COLORS.sleepBg} delta={period !== "all" ? deltaSleepHr : undefined} deltaUnit="ч" />
              <StatCard icon={Baby} iconColor={COLORS.diaper} value={diapers.length} label="Подгузники" bg={COLORS.diaperBg} delta={period !== "all" ? deltaDiapers : undefined} deltaUnit=" шт" />
@@ -551,63 +529,65 @@ const AnalyticsScreenContent = ({ feedingsAll = [], sleepsAll = [], diapersAll =
              {totalFormulaVolumeML > 0 && <StatCard icon={Droplets} iconColor="#F97316" value={`${totalFormulaVolumeML}мл`} label="Смесь всего" bg="#FFEDD5" />}
              {walks.length > 0 && <StatCard icon={Footprints} iconColor="#EF4444" value={totalWalkStr} label="Прогулок всего" bg="#FFE4E4" />}
              {walks.length > 0 && avgWalkMin > 0 && <StatCard icon={Clock} iconColor={COLORS.feed} value={`${avgWalkMin}м`} label="Ср. прогулка" bg={COLORS.feedBg} />}
-           </View>
+           </Wrapper>
 
            {/* AI Insight Card */}
-           <View style={styles.card}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                    <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#8B5CF6', alignItems: 'center', justifyContent: 'center', shadowColor: '#8B5CF6', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 3 }}>
+           <Surface bg="white" p={20} radius="xxl" variant="elevated" mb={20} borderWidth={1} borderColor="#E2E8F0">
+              <Wrapper dir="row" align="center" justify="space-between" mb={16}>
+                 <Wrapper dir="row" align="center" gap={12}>
+                    <Wrapper width={40} height={40} radius="sm" bg="#8B5CF6" align="center" justify="center" style={{ shadowColor: '#8B5CF6', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 3 }}>
                        <Brain size={20} color="white" />
-                    </View>
-                    <View>
-                       <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 16, color: '#0F172A' }}>AI-Рекомендации</Text>
-                       <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 9, color: '#4DBFAA' }}>Персональный анализ</Text>
-                    </View>
-                 </View>
+                    </Wrapper>
+                    <Wrapper>
+                       <Typography variant="body" weight="black" color="#0F172A" style={{ fontSize: 16 }}>AI-Рекомендации</Typography>
+                       <Typography variant="tiny" weight="bold" color="#4DBFAA" style={{ fontSize: 9 }}>Персональный анализ</Typography>
+                    </Wrapper>
+                 </Wrapper>
                  {!aiLoading && (
-                   <TouchableOpacity onPress={fetchAiInsight} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, backgroundColor: '#F3E8FF' }}>
-                      <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 11, color: '#8B5CF6' }}>Обновить</Text>
-                   </TouchableOpacity>
+                   <Wrapper as={TouchableOpacity} onPress={fetchAiInsight} px={12} py={6} radius="sm" bg="#F3E8FF">
+                      <Typography variant="tiny" weight="extraBold" color="#8B5CF6" style={{ fontSize: 11 }}>Обновить</Typography>
+                   </Wrapper>
                  )}
-              </View>
+              </Wrapper>
               
               {aiLoading ? (
-                 <View style={{ paddingVertical: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                 <Wrapper py={16} dir="row" align="center" gap={12}>
                     <ActivityIndicator size="small" color="#8B5CF6" />
-                    <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 12, color: '#6B6B80' }}>AI анализирует данные...</Text>
-                 </View>
+                    <Typography variant="tiny" weight="bold" color="#6B6B80" style={{ fontSize: 12 }}>AI анализирует данные...</Typography>
+                 </Wrapper>
               ) : aiRecs.length > 0 ? (
-                 <View style={{ gap: 10 }}>
+                 <Wrapper gap={10}>
                     {aiRecs.map((rec, i) => (
-                       <View key={i} style={{ backgroundColor: '#F8FAFC', padding: 12, borderRadius: 12 }}>
-                          <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 13, color: '#0F172A', lineHeight: 20 }}>{rec}</Text>
-                       </View>
+                       <Wrapper key={i} bg="#F8FAFC" p={12} radius="sm">
+                          <Typography variant="tiny" weight="bold" color="#0F172A" style={{ fontSize: 13, lineHeight: 20 }}>{rec}</Typography>
+                       </Wrapper>
                     ))}
-                    <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 9, color: '#6B6B80', textAlign: 'center', marginTop: 4 }}>⚕️ Только в информационных целях. Консультируйтесь с педиатром.</Text>
-                 </View>
+                    <Typography variant="tiny" weight="bold" color="#6B6B80" align="center" mt={4} style={{ fontSize: 9 }}>⚕️ Только в информационных целях. Консультируйтесь с педиатром.</Typography>
+                 </Wrapper>
               ) : (
-                 <View style={{ paddingVertical: 16, alignItems: 'center' }}>
-                    <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 12, color: '#6B6B80', textAlign: 'center' }}>Нажмите "Обновить" для генерации новых рекомендаций на основе последних данных.</Text>
-                 </View>
+                 <Wrapper py={16} align="center">
+                    <Typography variant="tiny" weight="bold" color="#6B6B80" align="center" style={{ fontSize: 12 }}>Нажмите "Обновить" для генерации новых рекомендаций на основе последних данных.</Typography>
+                 </Wrapper>
               )}
-           </View>
+           </Surface>
            
            {/* Charts (BarChart) */}
-           <View style={styles.card}>
-              <View style={{ width: '100%', flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}>
-                 <View style={{ width: 40, height: 40, borderRadius: 14, backgroundColor: '#DBEAFE', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+           <Surface bg="white" p={20} radius="xxl" variant="elevated" mb={20} borderWidth={1} borderColor="#E2E8F0">
+              <Wrapper width="100%" dir="row" align="center" mb={20}>
+                 <Wrapper width={40} height={40} radius="sm" bg="#DBEAFE" align="center" justify="center" mr={12}>
                     <Milk size={20} color={COLORS.feed} />
-                 </View>
-                 <View>
-                    <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 18, color: '#0F172A' }}>Кормления по часам</Text>
-                    <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 12, color: '#6B6B80' }}>Объём по времени суток</Text>
-                 </View>
-              </View>
+                 </Wrapper>
+                 <Wrapper>
+                    <Typography variant="body" weight="black" color="#0F172A" style={{ fontSize: 18 }}>Кормления по часам</Typography>
+                    <Typography variant="tiny" weight="bold" color="#6B6B80" style={{ fontSize: 12 }}>Объём по времени суток</Typography>
+                 </Wrapper>
+              </Wrapper>
               {barData.length === 1 && barData[0].value === 0 ? (
-                 <View style={{ height: 150, justifyContent: 'center', alignItems: 'center' }}><Text style={{ color: '#8A8A9E', fontFamily: 'Nunito_700Bold' }}>Нет данных</Text></View>
+                 <Wrapper height={150} justify="center" align="center">
+                   <Typography variant="tiny" weight="bold" color="#8A8A9E">Нет данных</Typography>
+                 </Wrapper>
               ) : (
-                 <View style={{ marginLeft: -10 }}>
+                 <Wrapper style={{ marginLeft: -10 }}>
                    <BarChart
                       data={barData.map(d => ({ ...d, frontColor: '#2563EB', value: d.value }))}
                       barWidth={12}
@@ -625,44 +605,44 @@ const AnalyticsScreenContent = ({ feedingsAll = [], sleepsAll = [], diapersAll =
                       xAxisLabelTextStyle={{ color: '#6B6B80', fontSize: 10, fontFamily: 'Nunito_700Bold' }}
                       renderTooltip={(item: any) => {
                          return (
-                           <View style={{ backgroundColor: 'rgba(255, 255, 255, 0.95)', padding: 8, borderRadius: 12, borderColor: '#E2E8F0', borderWidth: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 4, transform: [{translateX: -20}, {translateY: -30}] }}>
-                             <Text style={{ fontFamily: 'Nunito_800ExtraBold', color: '#6B6B80', fontSize: 10, marginBottom: 4 }}>{item.label}</Text>
-                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                               <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#2563EB' }} />
-                               <Text style={{ fontFamily: 'Nunito_900Black', color: '#0F172A', fontSize: 14 }}>{item.value}</Text>
-                             </View>
-                           </View>
+                           <Wrapper bg="rgba(255, 255, 255, 0.95)" p={8} radius="lg" borderColor="#E2E8F0" borderWidth={1} style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 4, transform: [{translateX: -20}, {translateY: -30}] }}>
+                             <Typography variant="tiny" weight="extraBold" color="#6B6B80" mb={4} style={{ fontSize: 10 }}>{item.label}</Typography>
+                             <Wrapper dir="row" align="center" gap={6}>
+                               <Wrapper width={8} height={8} radius="xl" bg="#2563EB" />
+                               <Typography variant="body" weight="black" color="#0F172A" style={{ fontSize: 14 }}>{item.value}</Typography>
+                             </Wrapper>
+                           </Wrapper>
                          )
                       }}
                    />
-                 </View>
+                 </Wrapper>
               )}
-           </View>
+           </Surface>
 
            {intervals.length > 1 && (
-             <View style={styles.card}>
-                <View style={{ width: '100%', flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-                   <View style={{ width: 40, height: 40, borderRadius: 14, backgroundColor: '#D1FAE5', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+             <Surface bg="white" p={20} radius="xxl" variant="elevated" mb={20} borderWidth={1} borderColor="#E2E8F0">
+                <Wrapper width="100%" dir="row" align="center" mb={12}>
+                   <Wrapper width={40} height={40} radius="sm" bg="#D1FAE5" align="center" justify="center" mr={12}>
                       <Clock size={20} color={COLORS.diaper} />
-                   </View>
-                   <View>
-                      <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 18, color: '#0F172A' }}>Интервалы между кормлениями</Text>
-                      <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 12, color: '#6B6B80' }}>Минут между кормлениями</Text>
-                   </View>
-                </View>
+                   </Wrapper>
+                   <Wrapper>
+                      <Typography variant="body" weight="black" color="#0F172A" style={{ fontSize: 18 }}>Интервалы М/У Кормлениями</Typography>
+                      <Typography variant="tiny" weight="bold" color="#6B6B80" style={{ fontSize: 12 }}>Минут между кормлениями</Typography>
+                   </Wrapper>
+                </Wrapper>
                 {ageMo >= 4 && intervals.length >= 3 && intervals[intervals.length - 1].value > intervals[0].value && (
-                  <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 12, color: COLORS.diaper, marginBottom: 16 }}>
+                  <Typography variant="tiny" weight="bold" color={COLORS.diaper} mb={16} style={{ fontSize: 12 }}>
                      📈 Интервал растёт — это норма для 4+ мес
-                  </Text>
+                  </Typography>
                 )}
                 
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16, gap: 6 }}>
-                   <View style={{ paddingHorizontal: 8, paddingVertical: 4, backgroundColor: 'rgba(5, 150, 105, 0.1)', borderRadius: 8 }}>
-                       <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 11, color: '#059669' }}>Норма 2.5–3.5ч</Text>
-                   </View>
-                </View>
+                <Wrapper dir="row" align="center" mb={16} gap={6}>
+                   <Wrapper px={8} py={4} bg="rgba(5, 150, 105, 0.1)" radius="sm">
+                       <Typography variant="tiny" weight="extraBold" color="#059669" style={{ fontSize: 11 }}>Норма 2.5–3.5ч</Typography>
+                   </Wrapper>
+                </Wrapper>
                 
-                <View style={{ marginLeft: -10 }}>
+                <Wrapper style={{ marginLeft: -10 }}>
                    <LineChart
                       data={intervals.map(d => ({ ...d, dataPointText: d.value.toString() }))}
                       color="#2563EB"
@@ -692,53 +672,53 @@ const AnalyticsScreenContent = ({ feedingsAll = [], sleepsAll = [], diapersAll =
                       initialSpacing={20}
                       spacing={50}
                    />
-                </View>
-             </View>
+                </Wrapper>
+             </Surface>
            )}
 
            {/* Sleep blocks timeline */}
-           <View style={styles.card}>
-             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+           <Surface bg="white" p={20} radius="xxl" variant="elevated" mb={20} borderWidth={1} borderColor="#E2E8F0">
+             <Wrapper dir="row" align="center" gap={8} mb={16}>
                <Clock size={20} color={COLORS.sleep} />
-               <View>
-                  <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 18, color: '#1A1A2E' }}>Блоки сна</Text>
-                  <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 12, color: '#6B6B80' }}>Метрики и распределение по времени суток</Text>
-               </View>
-             </View>
+               <Wrapper>
+                  <Typography variant="body" weight="black" color="#1A1A2E" style={{ fontSize: 18 }}>Блоки сна</Typography>
+                  <Typography variant="tiny" weight="bold" color="#6B6B80" style={{ fontSize: 12 }}>Метрики и распределение по времени суток</Typography>
+               </Wrapper>
+             </Wrapper>
              
              {/* Sleep grid blocks */}
-             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
-               <View style={[styles.sleepBlock, { backgroundColor: '#F4F7FB' }]}>
-                 <Text style={styles.sleepBlockTitle}>Дневной сон</Text>
-                 <Text style={[styles.sleepBlockValue, { color: '#4E8FD4' }]}>{Math.floor(daySec / 3600)}ч {Math.floor((daySec % 3600) / 60)}м</Text>
-                 <Text style={styles.sleepBlockSub}>с 07:00 до 19:00</Text>
-               </View>
-               <View style={[styles.sleepBlock, { backgroundColor: '#EDE4F8' }]}>
-                 <Text style={styles.sleepBlockTitle}>Ночной сон</Text>
-                 <Text style={[styles.sleepBlockValue, { color: '#8B6FD4' }]}>{Math.floor(nightSec / 3600)}ч {Math.floor((nightSec % 3600) / 60)}м</Text>
-                 <Text style={styles.sleepBlockSub}>с 19:00 до 07:00</Text>
-               </View>
-               <View style={[styles.sleepBlock, { backgroundColor: '#D4F3EC' }]}>
-                 <Text style={styles.sleepBlockTitle}>Ср. бодрствование</Text>
-                 <Text style={[styles.sleepBlockValue, { color: '#2A9B7E' }]}>{avgWakeWin >= 60 ? `${Math.floor(avgWakeWin / 60)}ч ${avgWakeWin % 60}м` : `${avgWakeWin}м`}</Text>
-                 <Text style={styles.sleepBlockSub}>между снами</Text>
-               </View>
-               <View style={[styles.sleepBlock, { backgroundColor: '#F5F0E6' }]}>
-                 <Text style={styles.sleepBlockTitle}>Кол-во снов</Text>
-                 <Text style={[styles.sleepBlockValue, { color: '#E69600' }]}>{sleeps.length} шт.</Text>
-                 <Text style={styles.sleepBlockSub}>включая ночные пробуж.</Text>
-               </View>
-             </View>
+             <Wrapper dir="row" wrap="wrap" gap={8} mb={20}>
+               <Surface p={12} radius="lg" flex={1} bg="#F4F7FB" style={{ minWidth: 140 }}>
+                 <Typography variant="tiny" weight="extraBold" color="#8A8A9E" mb={4} uppercase style={{ fontSize: 11 }}>Дневной сон</Typography>
+                 <Typography variant="h3" weight="black" color="#4E8FD4" style={{ fontSize: 16 }}>{Math.floor(daySec / 3600)}ч {Math.floor((daySec % 3600) / 60)}м</Typography>
+                 <Typography variant="tiny" weight="bold" color="#6B6B80" mt={4} style={{ fontSize: 10 }}>с 07:00 до 19:00</Typography>
+               </Surface>
+               <Surface p={12} radius="lg" flex={1} bg="#EDE4F8" style={{ minWidth: 140 }}>
+                 <Typography variant="tiny" weight="extraBold" color="#8A8A9E" mb={4} uppercase style={{ fontSize: 11 }}>Ночной сон</Typography>
+                 <Typography variant="h3" weight="black" color="#8B6FD4" style={{ fontSize: 16 }}>{Math.floor(nightSec / 3600)}ч {Math.floor((nightSec % 3600) / 60)}м</Typography>
+                 <Typography variant="tiny" weight="bold" color="#6B6B80" mt={4} style={{ fontSize: 10 }}>с 19:00 до 07:00</Typography>
+               </Surface>
+               <Surface p={12} radius="lg" flex={1} bg="#D4F3EC" style={{ minWidth: 140 }}>
+                 <Typography variant="tiny" weight="extraBold" color="#8A8A9E" mb={4} uppercase style={{ fontSize: 11 }}>Ср. бодрствование</Typography>
+                 <Typography variant="h3" weight="black" color="#2A9B7E" style={{ fontSize: 16 }}>{avgWakeWin >= 60 ? `${Math.floor(avgWakeWin / 60)}ч ${avgWakeWin % 60}м` : `${avgWakeWin}м`}</Typography>
+                 <Typography variant="tiny" weight="bold" color="#6B6B80" mt={4} style={{ fontSize: 10 }}>между снами</Typography>
+               </Surface>
+               <Surface p={12} radius="lg" flex={1} bg="#F5F0E6" style={{ minWidth: 140 }}>
+                 <Typography variant="tiny" weight="extraBold" color="#8A8A9E" mb={4} uppercase style={{ fontSize: 11 }}>Кол-во снов</Typography>
+                 <Typography variant="h3" weight="black" color="#E69600" style={{ fontSize: 16 }}>{sleeps.length} шт.</Typography>
+                 <Typography variant="tiny" weight="bold" color="#6B6B80" mt={4} style={{ fontSize: 10 }}>включая ночные пробуж.</Typography>
+               </Surface>
+             </Wrapper>
 
-             <View style={{ padding: 16, backgroundColor: '#FFFFFF', borderRadius: 20, borderWidth: 1, borderColor: '#F0ECE8' }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                  <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 14, color: '#1A1A2E' }}>График снов</Text>
-                  <View style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, backgroundColor: '#F5F3FF' }}>
-                    <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 12, color: '#8B5CF6' }}>{totalSleepStr}</Text>
-                  </View>
-                </View>
+             <Wrapper p={16} bg="#FFFFFF" radius="xl" borderWidth={1} borderColor="#F0ECE8">
+                <Wrapper dir="row" align="center" justify="space-between" mb={16}>
+                  <Typography variant="body" weight="black" color="#1A1A2E" style={{ fontSize: 14 }}>График снов</Typography>
+                  <Wrapper px={10} py={6} radius="lg" bg="#F5F3FF">
+                    <Typography variant="tiny" weight="black" color="#8B5CF6" style={{ fontSize: 12 }}>{totalSleepStr}</Typography>
+                  </Wrapper>
+                </Wrapper>
                 
-                <View style={{ height: 24, borderRadius: 12, backgroundColor: '#F4F4F8', width: '100%' }}>
+                <Wrapper height={24} radius="lg" bg="#F4F4F8" width="100%">
                   {sleeps.map(s => {
                     const endD = new Date(s.end_time || s.created_at);
                     const start = new Date(endD.getTime() - s.duration_seconds * 1000);
@@ -755,91 +735,67 @@ const AnalyticsScreenContent = ({ feedingsAll = [], sleepsAll = [], diapersAll =
                       />
                     );
                   })}
-                </View>
+                </Wrapper>
                 
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 12, paddingHorizontal: 4 }}>
+                <Wrapper dir="row" justify="space-between" mt={12} px={4}>
                   {["00:00", "04:00", "08:00", "12:00", "16:00", "20:00", "23:59"].map(t => (
-                    <Text key={t} style={{ fontSize: 9, fontFamily: 'Nunito_800ExtraBold', color: '#6B6B80' }}>{t}</Text>
+                    <Typography key={t} variant="tiny" weight="extraBold" color="#6B6B80" style={{ fontSize: 9 }}>{t}</Typography>
                   ))}
-                </View>
-             </View>
-           </View>
+                </Wrapper>
+             </Wrapper>
+           </Surface>
 
-           <View style={styles.card}>
-              <View style={{ width: '100%', flexDirection: 'row', alignItems: 'center', marginBottom: 24, justifyContent: 'space-between' }}>
-                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <View style={{ width: 40, height: 40, borderRadius: 14, backgroundColor: '#ECFDF5', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+           <Surface bg="white" p={20} radius="xxl" variant="elevated" mb={20} borderWidth={1} borderColor="#E2E8F0">
+              <Wrapper width="100%" dir="row" align="center" mb={24} justify="space-between">
+                 <Wrapper dir="row" align="center">
+                    <Wrapper width={40} height={40} radius="sm" bg="#ECFDF5" align="center" justify="center" mr={12}>
                        <Baby size={20} color="#059669" />
-                    </View>
-                    <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 18, color: '#0F172A' }}>Подгузники</Text>
-                 </View>
+                    </Wrapper>
+                    <Typography variant="body" weight="black" color="#0F172A" style={{ fontSize: 18 }}>Подгузники</Typography>
+                 </Wrapper>
                  {diapers.length > 0 && (
-                   <View style={{ paddingHorizontal: 12, paddingVertical: 4, borderRadius: 100, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0' }}>
-                     <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 12, color: '#1A1A2E' }}>{diapers.length} шт.</Text>
-                   </View>
+                   <Wrapper px={12} py={4} radius="xxl" bg="#FFFFFF" borderWidth={1} borderColor="#E2E8F0">
+                     <Typography variant="tiny" weight="extraBold" color="#1A1A2E" style={{ fontSize: 12 }}>{diapers.length} шт.</Typography>
+                   </Wrapper>
                  )}
-              </View>
+              </Wrapper>
               {pieData.length === 1 && pieData[0].text === 'Пусто' ? (
-                 <View style={{ height: 180, justifyContent: 'center', alignItems: 'center' }}><Text style={{ color: '#8A8A9E', fontFamily: 'Nunito_700Bold' }}>Нет данных</Text></View>
+                 <Wrapper height={180} justify="center" align="center">
+                   <Typography variant="tiny" weight="bold" color="#8A8A9E">Нет данных</Typography>
+                 </Wrapper>
               ) : (
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <View style={{ flex: 1, alignItems: 'center' }}>
+                <Wrapper dir="row" align="center" justify="space-between">
+                  <Wrapper flex={1} align="center">
                     <PieChart
                        data={pieData}
                        donut
                        innerRadius={45}
                        radius={70}
                     />
-                  </View>
-                  <View style={{ flex: 1, paddingLeft: 10, gap: 16 }}>
+                  </Wrapper>
+                  <Wrapper flex={1} pl={10} gap={16}>
                      {pieData.sort((a,b) => b.value - a.value).map((p: any, i) => (
-                        <View key={i}>
-                           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                               <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: p.color }} />
-                               <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 14, color: '#0F172A' }}>{p.text} <Text style={{ color: '#64748B', fontFamily: 'Nunito_700Bold', fontSize: 13 }}>({p.count})</Text></Text>
-                             </View>
-                             <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 14, color: p.color }}>{p.value}%</Text>
-                           </View>
-                           <View style={{ height: 6, borderRadius: 3, backgroundColor: '#F0ECE8', width: '100%' }}>
-                             <View style={{ height: '100%', borderRadius: 3, backgroundColor: p.color, width: `${p.value}%` }} />
-                           </View>
-                        </View>
+                        <Wrapper key={i}>
+                           <Wrapper dir="row" align="center" justify="space-between" mb={8}>
+                             <Wrapper dir="row" align="center" gap={8}>
+                               <Wrapper width={10} height={10} radius="xl" bg={p.color} />
+                               <Typography variant="body" weight="extraBold" color="#0F172A" style={{ fontSize: 14 }}>{p.text} <Typography variant="tiny" weight="bold" color="#64748B" style={{ fontSize: 13 }}>({p.count})</Typography></Typography>
+                             </Wrapper>
+                             <Typography variant="body" weight="black" style={{ fontSize: 14, color: p.color }}>{p.value}%</Typography>
+                           </Wrapper>
+                           <Wrapper height={6} radius="sm" bg="#F0ECE8" width="100%">
+                             <Wrapper height="100%" radius="sm" bg={p.color} style={{ width: `${p.value}%` }} />
+                           </Wrapper>
+                        </Wrapper>
                      ))}
-                  </View>
-                </View>
+                  </Wrapper>
+                </Wrapper>
               )}
-           </View>
-
-           {/* Stat Cards Grid moved to the top */}
-       </View>
+           </Surface>
+       </Wrapper>
     </ScrollView>
   );
 };
-
-const styles = StyleSheet.create({
-  card: {
-    backgroundColor: 'white', padding: 20, borderRadius: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.04, shadowRadius: 16, elevation: 2, marginBottom: 20, borderColor: '#E2E8F0', borderWidth: 1
-  },
-  statCard: {
-    backgroundColor: 'white', padding: 16, borderRadius: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.04, shadowRadius: 16, elevation: 2, minWidth: 150, flex: 1, /* maxWidth: '48%', */ borderColor: '#E2E8F0', borderWidth: 1
-  },
-  statIconWrapper: {
-    width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginBottom: 8
-  },
-  sleepBlock: {
-    padding: 12, borderRadius: 14, flex: 1, minWidth: 140
-  },
-  sleepBlockTitle: {
-    fontSize: 11, fontFamily: 'Nunito_800ExtraBold', color: '#8A8A9E', marginBottom: 4, textTransform: 'uppercase'
-  },
-  sleepBlockValue: {
-    fontSize: 16, fontFamily: 'Nunito_900Black'
-  },
-  sleepBlockSub: {
-    fontSize: 10, fontFamily: 'Nunito_700Bold', color: '#6B6B80', marginTop: 4
-  }
-});
 
 const enhance = withObservables([], () => ({
   feedingsAll: database.collections.get('feedings').query().observe(),

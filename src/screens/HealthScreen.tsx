@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Platform, Alert, KeyboardAvoidingView, TextInput, RefreshControl } from 'react-native';
+import { ScrollView, Platform, Alert, KeyboardAvoidingView, TouchableOpacity, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import DateTimePickerModal from '../components/DateTimePickerModal';
@@ -12,11 +12,38 @@ import withObservables from '@nozbe/with-observables';
 import { Q } from '@nozbe/watermelondb';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Wrapper } from '../components/ui/Wrapper';
+import { Surface } from '../components/ui/Surface';
+import { Typography } from '../components/ui/Typography';
+import { Button } from '../components/ui/Button';
+import { ScreenHeader } from '../components/ScreenHeader';
+import { SegmentedControl } from '../components/SegmentedControl';
+import { ChipGroup } from '../components/ChipGroup';
+import { EmptyState } from '../components/EmptyState';
+import { IconCircle } from '../components/IconCircle';
+import { FormField } from '../components/FormField';
+import { StatusBadge } from '../components/StatusBadge';
+import { COLORS } from '../lib/theme';
+
 type HealthTab = 'vitals' | 'meds' | 'symptoms';
 
 const SYMPTOM_LIST = [
   'Температура (>38°C)', 'Насморк', 'Кашель', 'Сыпь', 'Рвота',
   'Диарея', 'Потеря аппетита', 'Раздражительность', 'Тянет за ухо', 'Выделения из глаз'
+];
+
+const TAB_ITEMS = [
+  { key: 'vitals', label: 'Показатели', icon: <Ionicons name="thermometer-outline" size={16} /> },
+  { key: 'meds', label: 'Лекарства', icon: <Ionicons name="medkit-outline" size={16} /> },
+  { key: 'symptoms', label: 'Симптомы', icon: <Ionicons name="pulse-outline" size={16} /> },
+];
+
+const UNIT_ITEMS = [
+  { key: 'капли', label: 'капли' },
+  { key: 'мл', label: 'мл' },
+  { key: 'таблетки', label: 'таблетки' },
+  { key: 'мг', label: 'мг' },
+  { key: 'МЕ', label: 'МЕ' },
 ];
 
 function HealthScreenContent({ medications, growthRecords }: { medications: MedicationModel[], growthRecords: GrowthRecord[] }) {
@@ -53,12 +80,6 @@ function HealthScreenContent({ medications, growthRecords }: { medications: Medi
       setRefreshing(false);
     }
   }, []);
-
-  const tabs: { id: HealthTab; label: string; icon: string }[] = [
-    { id: 'vitals', label: 'Показатели', icon: 'thermometer-outline' },
-    { id: 'meds', label: 'Лекарства', icon: 'medkit-outline' },
-    { id: 'symptoms', label: 'Симптомы', icon: 'pulse-outline' },
-  ];
 
   const todayMeds = medications.filter(m => {
     const d = new Date(m.created_at);
@@ -114,216 +135,222 @@ function HealthScreenContent({ medications, growthRecords }: { medications: Medi
   const latestHeight = growthRecords.find(r => r.height_cm);
   const latestHead = growthRecords.find(r => r.head_cm);
 
-  const formatUnitOptions = ["капли", "мл", "таблетки", "мг", "МЕ"];
+  const getTempTone = () => {
+    if (tempFloat >= 38) return { bg: 'rgba(239,68,68,0.1)', border: 'rgba(239,68,68,0.2)', color: '#EF4444', text: '⚠️ Высокая — вызовите врача' };
+    if (tempFloat >= 37) return { bg: 'rgba(249,115,22,0.1)', border: 'rgba(249,115,22,0.2)', color: '#F97316', text: '🟡 Немного повышена' };
+    return { bg: 'rgba(5,150,105,0.1)', border: 'rgba(5,150,105,0.2)', color: '#059669', text: '✓ Нормальная' };
+  };
+  const tempTone = getTempTone();
+
+  const vitalsData = [
+    { label: "Вес", icon: "scale", color: "#2563EB", bg: "#DBEAFE", value: latestWeight ? `${latestWeight.weight_kg} кг` : "—", date: latestWeight ? new Date(latestWeight.created_at).toLocaleDateString("ru-RU", { day: "numeric", month: "long" }) : "Нет данных" },
+    { label: "Рост", icon: "resize", color: "#8B5CF6", bg: "#F3E8FF", value: latestHeight ? `${latestHeight.height_cm} см` : "—", date: latestHeight ? new Date(latestHeight.created_at).toLocaleDateString("ru-RU", { day: "numeric", month: "long" }) : "Нет данных" },
+    { label: "Окр. головы", icon: "ellipse", color: "#059669", bg: "#D1FAE5", value: latestHead ? `${latestHead.head_cm} см` : "—", date: latestHead ? new Date(latestHead.created_at).toLocaleDateString("ru-RU", { day: "numeric", month: "long" }) : "Нет данных" },
+  ];
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#FAFBFC' }}>
+    <Wrapper flex={1} bg="background">
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
-        <View style={{ paddingTop: Math.max(insets.top, 16), paddingHorizontal: 16, paddingBottom: 16, backgroundColor: '#FAFBFC', flexDirection: 'row', alignItems: 'center' }}>
-           <TouchableOpacity onPress={() => navigation.goBack()} style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'white', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2, marginRight: 16, borderWidth: 1, borderColor: '#E2E8F0' }}>
-               <Ionicons name="arrow-back" size={24} color="#1A1A2E" />
-           </TouchableOpacity>
-           <View>
-               <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 24, color: '#1A1A2E' }}>Здоровье</Text>
-           </View>
-        </View>
+        <ScreenHeader title="Здоровье" />
 
         <ScrollView 
-          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: Math.max(insets.bottom, 40) }} 
+          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: Math.max(insets.bottom, 40) }} 
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#6366F1']} />}
         >
 
+        {/* Date Navigation (meds tab) */}
         {activeTab === 'meds' && (
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'white', borderRadius: 14, padding: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 12, elevation: 2, marginBottom: 20 }}>
-            <TouchableOpacity onPress={() => changeDate(-1)} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#F5F0E6', alignItems: 'center', justifyContent: 'center' }}>
-              <Ionicons name="chevron-back" size={20} color="#6B6B80" />
-            </TouchableOpacity>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Ionicons name="calendar-outline" size={16} color="#059669" style={{ marginRight: 8 }} />
-              <Text style={{ fontSize: 14, fontFamily: 'Nunito_800ExtraBold', color: '#1A1A2E' }}>
-                {selectedDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
-              </Text>
-            </View>
-            <TouchableOpacity onPress={() => changeDate(1)} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#F5F0E6', alignItems: 'center', justifyContent: 'center' }}>
-              <Ionicons name="chevron-forward" size={20} color="#6B6B80" />
-            </TouchableOpacity>
-          </View>
+          <Surface variant="elevated" radius="md" p={12} mb={20}>
+            <Wrapper dir="row" align="center" justify="space-between">
+              <Surface onPress={() => changeDate(-1)} tone="transparent" radius="sm" width={40} height={40} align="center" justify="center" bg="#F5F0E6">
+                <Ionicons name="chevron-back" size={20} color="#6B6B80" />
+              </Surface>
+              <Wrapper dir="row" align="center" gap={8}>
+                <Ionicons name="calendar-outline" size={16} color="#059669" />
+                <Typography variant="tiny" weight="extraBold">
+                  {selectedDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
+                </Typography>
+              </Wrapper>
+              <Surface onPress={() => changeDate(1)} tone="transparent" radius="sm" width={40} height={40} align="center" justify="center" bg="#F5F0E6">
+                <Ionicons name="chevron-forward" size={20} color="#6B6B80" />
+              </Surface>
+            </Wrapper>
+          </Surface>
         )}
 
         {/* Tab Switcher */}
-        <View style={{ flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.6)', borderRadius: 16, padding: 6, marginBottom: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.8)' }}>
-          {tabs.map(tab => {
-            const active = activeTab === tab.id;
-            return (
-              <TouchableOpacity key={tab.id} onPress={() => setActiveTab(tab.id)} style={{ flex: 1, height: 44, borderRadius: 12, backgroundColor: active ? 'white' : 'transparent', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', shadowColor: active ? '#000' : 'transparent', shadowOffset: { width: 0, height: 2 }, shadowOpacity: active ? 0.05 : 0, shadowRadius: 8, elevation: active ? 2 : 0 }}>
-                <Ionicons name={tab.icon as any} size={14} color={active ? '#1A1A2E' : '#8A8A9E'} style={{ opacity: active ? 1 : 0.6, marginRight: 6 }} />
-                <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 12, color: active ? '#1A1A2E' : '#8A8A9E' }}>{tab.label}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+        <Wrapper mb={20}>
+          <SegmentedControl items={TAB_ITEMS} selected={activeTab} onChange={(k) => setActiveTab(k as HealthTab)} />
+        </Wrapper>
 
         {/* ── Vitals ── */}
         {activeTab === 'vitals' && (
-          <View>
-            <View style={{ backgroundColor: 'white', borderRadius: 24, padding: 20, shadowColor: '#8A8A9E', shadowOpacity: 0.08, shadowRadius: 32, elevation: 4, borderWidth: 1, borderColor: '#F0ECE8', marginBottom: 16 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
-                <View style={{ width: 40, height: 40, borderRadius: 14, backgroundColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+          <Wrapper>
+            <Surface variant="elevated" radius="xl" p={20} mb={16}>
+              <Wrapper dir="row" align="center" mb={16} gap={12}>
+                <IconCircle bg="#FEE2E2">
                   <Ionicons name="thermometer" size={20} color="#EF4444" />
-                </View>
-                <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 18, color: '#1A1A2E', letterSpacing: -0.5 }}>Температура</Text>
-              </View>
+                </IconCircle>
+                <Typography variant="h4" weight="black" letterSpacing={-0.5}>Температура</Typography>
+              </Wrapper>
 
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: 'white', borderRadius: 20, padding: 8, marginBottom: 20, borderWidth: 2, borderColor: '#F5F0E6' }}>
-                <TextInput value={temp} onChangeText={setTemp} keyboardType="numeric" maxLength={5} style={{ flex: 1, fontFamily: 'Nunito_900Black', fontSize: 46, color: '#1A1A2E', textAlign: 'center', paddingLeft: 24 }} />
-                <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 24, color: '#8A8A9E', paddingRight: 24 }}>°C</Text>
-              </View>
+              <Surface variant="outlined" radius="xl" p={8} mb={20}>
+                <Wrapper dir="row" align="center" justify="center">
+                  <FormField value={temp} onChangeText={setTemp} keyboardType="numeric" placeholder="36.6" />
+                </Wrapper>
+              </Surface>
 
-              <View style={{ borderRadius: 16, padding: 14, alignItems: 'center', backgroundColor: tempFloat >= 38 ? 'rgba(239,68,68,0.1)' : tempFloat >= 37 ? 'rgba(249,115,22,0.1)' : 'rgba(5,150,105,0.1)', borderWidth: 1, borderColor: tempFloat >= 38 ? 'rgba(239,68,68,0.2)' : tempFloat >= 37 ? 'rgba(249,115,22,0.2)' : 'rgba(5,150,105,0.2)' }}>
-                <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 13, color: tempFloat >= 38 ? '#EF4444' : tempFloat >= 37 ? '#F97316' : '#059669' }}>
-                  {tempFloat >= 38 ? "⚠️ Высокая — вызовите врача" : tempFloat >= 37 ? "🟡 Немного повышена" : "✓ Нормальная"}
-                </Text>
-              </View>
-            </View>
+              <Surface tone="transparent" radius="md" p={14} align="center" bg={tempTone.bg} style={{ borderWidth: 1, borderColor: tempTone.border }}>
+                <Typography variant="tiny" weight="extraBold" color={tempTone.color}>{tempTone.text}</Typography>
+              </Surface>
+            </Surface>
 
-            <View style={{ backgroundColor: 'white', borderRadius: 24, padding: 20, shadowColor: '#8A8A9E', shadowOpacity: 0.08, shadowRadius: 32, elevation: 4, borderWidth: 1, borderColor: '#F0ECE8' }}>
-              <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 18, color: '#1A1A2E', letterSpacing: -0.5, marginBottom: 16 }}>Быстрые измерения</Text>
-              <View>
-                {[
-                  { label: "Вес", icon: "scale", color: "#2563EB", bg: "#DBEAFE", value: latestWeight ? `${latestWeight.weight_kg} кг` : "—", date: latestWeight ? new Date(latestWeight.created_at).toLocaleDateString("ru-RU", { day: "numeric", month: "long" }) : "Нет данных" },
-                  { label: "Рост", icon: "resize", color: "#8B5CF6", bg: "#F3E8FF", value: latestHeight ? `${latestHeight.height_cm} см` : "—", date: latestHeight ? new Date(latestHeight.created_at).toLocaleDateString("ru-RU", { day: "numeric", month: "long" }) : "Нет данных" },
-                  { label: "Окр. головы", icon: "ellipse", color: "#059669", bg: "#D1FAE5", value: latestHead ? `${latestHead.head_cm} см` : "—", date: latestHead ? new Date(latestHead.created_at).toLocaleDateString("ru-RU", { day: "numeric", month: "long" }) : "Нет данных" }
-                ].map((m, i) => (
-                  <View key={m.label} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: i < 2 ? 1 : 0, borderBottomColor: 'rgba(224, 221, 216, 0.5)' }}>
-                    <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: m.bg, alignItems: 'center', justifyContent: 'center', marginRight: 16, shadowColor: m.color, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 1 }}>
+            <Surface variant="elevated" radius="xl" p={20}>
+              <Typography variant="h4" weight="black" letterSpacing={-0.5} mb={16}>Быстрые измерения</Typography>
+              {vitalsData.map((m, i) => (
+                <Wrapper key={m.label} dir="row" align="center" py={12} style={i < 2 ? { borderBottomWidth: 1, borderBottomColor: 'rgba(224, 221, 216, 0.5)' } : {}}>
+                  <Wrapper mr={16}>
+                    <IconCircle bg={m.bg}>
                       <Ionicons name={m.icon as any} size={18} color={m.color} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 15, color: '#1A1A2E' }}>{m.label}</Text>
-                      <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 11, color: '#8A8A9E', marginTop: 2 }}>{m.date}</Text>
-                    </View>
-                    <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 18, color: '#1A1A2E', letterSpacing: -0.3 }}>{m.value}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          </View>
+                    </IconCircle>
+                  </Wrapper>
+                  <Wrapper flex={1}>
+                    <Typography variant="body" weight="extraBold">{m.label}</Typography>
+                    <Typography variant="caption" weight="bold" color="textMuted" mt={2}>{m.date}</Typography>
+                  </Wrapper>
+                  <Typography variant="h4" weight="black" letterSpacing={-0.3}>{m.value}</Typography>
+                </Wrapper>
+              ))}
+            </Surface>
+          </Wrapper>
         )}
 
         {/* ── Meds ── */}
         {activeTab === 'meds' && (
-          <View>
-            <View style={{ backgroundColor: 'white', borderRadius: 24, padding: 20, shadowColor: '#8A8A9E', shadowOpacity: 0.08, shadowRadius: 32, elevation: 4, borderWidth: 1, borderColor: '#F0ECE8', marginBottom: 16 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-                <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 18, color: '#1A1A2E', letterSpacing: -0.5 }}>Лекарства сегодня</Text>
-                <TouchableOpacity onPress={() => setShowAddMed(!showAddMed)} style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#2563EB', alignItems: 'center', justifyContent: 'center', shadowColor: '#2563EB', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 4 }}>
+          <Wrapper>
+            <Surface variant="elevated" radius="xl" p={20} mb={16}>
+              <Wrapper dir="row" align="center" justify="space-between" mb={20}>
+                <Typography variant="h4" weight="black" letterSpacing={-0.5}>Лекарства сегодня</Typography>
+                <Surface onPress={() => setShowAddMed(!showAddMed)} tone="primary" radius="xl" width={44} height={44} align="center" justify="center" style={{ shadowColor: '#2563EB', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 4 }}>
                   <Ionicons name={showAddMed ? "close" : "add"} size={20} color="white" />
-                </TouchableOpacity>
-              </View>
+                </Surface>
+              </Wrapper>
 
               {todayMeds.length === 0 ? (
-                <View style={{ paddingVertical: 32, alignItems: 'center', opacity: 0.6 }}>
-                  <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: '#F5F0E6', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
-                    <Ionicons name="medkit" size={24} color="#8A8A9E" />
-                  </View>
-                  <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 13, color: '#8A8A9E' }}>Нет лекарств на выбранный день</Text>
-                </View>
+                <EmptyState icon={<Ionicons name="medkit" size={24} color="#8A8A9E" />} title="Нет лекарств на выбранный день" />
               ) : (
-                <View>
+                <Wrapper>
                   {todayMeds.map((m, i) => (
-                    <View key={m.id} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: i < todayMeds.length - 1 ? 1 : 0, borderBottomColor: 'rgba(224, 221, 216, 0.5)' }}>
-                      <View style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: '#DBEAFE', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                        <Ionicons name="medkit" size={20} color="#2563EB" />
-                      </View>
-                      <View style={{ flex: 1, marginRight: 8 }}>
-                        <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 16, color: '#1A1A2E' }}>{m.name}</Text>
-                        <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 12, color: '#8A8A9E', marginTop: 2 }}>Доза: {m.dose} · {m.time_str}</Text>
-                      </View>
-                      <TouchableOpacity onPress={() => toggleMedication(m.id, !m.taken)} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: m.taken ? '#10B981' : '#E0DDD8', alignItems: 'center', justifyContent: 'center', shadowColor: m.taken ? '#059669' : 'transparent', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: m.taken ? 4 : 0 }}>
+                    <Wrapper key={m.id} dir="row" align="center" py={12} style={i < todayMeds.length - 1 ? { borderBottomWidth: 1, borderBottomColor: 'rgba(224, 221, 216, 0.5)' } : {}}>
+                      <Wrapper mr={12}>
+                        <IconCircle size="lg" bg="#DBEAFE">
+                          <Ionicons name="medkit" size={20} color="#2563EB" />
+                        </IconCircle>
+                      </Wrapper>
+                      <Wrapper flex={1} mr={8}>
+                        <Typography variant="body" weight="extraBold">{m.name}</Typography>
+                        <Typography variant="tiny" weight="bold" color="textMuted" mt={2}>Доза: {m.dose} · {m.time_str}</Typography>
+                      </Wrapper>
+                      <Surface onPress={() => toggleMedication(m.id, !m.taken)} tone={m.taken ? 'success' : 'transparent'} radius="xl" width={40} height={40} align="center" justify="center" bg={m.taken ? '#10B981' : '#E0DDD8'} style={m.taken ? { shadowColor: '#059669', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 4 } : {}}>
                         <Ionicons name="checkmark" size={18} color="white" />
-                      </TouchableOpacity>
-                    </View>
+                      </Surface>
+                    </Wrapper>
                   ))}
-                </View>
+                </Wrapper>
               )}
-            </View>
+            </Surface>
 
             {showAddMed && (
-              <View style={{ backgroundColor: 'white', borderRadius: 24, padding: 20, shadowColor: '#8A8A9E', shadowOpacity: 0.08, shadowRadius: 32, elevation: 4, borderWidth: 1, borderColor: '#F0ECE8' }}>
-                <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 18, color: '#1A1A2E', letterSpacing: -0.5, marginBottom: 16 }}>Добавить лекарство</Text>
+              <Surface variant="elevated" radius="xl" p={20}>
+                <Typography variant="h4" weight="black" letterSpacing={-0.5} mb={16}>Добавить лекарство</Typography>
                 
-                <TextInput value={medName} onChangeText={setMedName} placeholder="Название лекарства" placeholderTextColor="#A0A0B0" style={{ backgroundColor: '#F9F8F6', borderRadius: 16, padding: 16, fontFamily: 'Nunito_800ExtraBold', fontSize: 16, color: '#1A1A2E', marginBottom: 12 }} />
+                <Wrapper mb={12}>
+                  <FormField value={medName} onChangeText={setMedName} placeholder="Название лекарства" />
+                </Wrapper>
                 
-                <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
-                  <TextInput value={medDose} onChangeText={setMedDose} placeholder="Доза" placeholderTextColor="#A0A0B0" keyboardType="numeric" style={{ flex: 1, backgroundColor: '#F9F8F6', borderRadius: 16, padding: 16, fontFamily: 'Nunito_800ExtraBold', fontSize: 16, color: '#1A1A2E' }} />
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ width: 140, backgroundColor: '#F9F8F6', borderRadius: 16, padding: 4 }}>
-                     {formatUnitOptions.map(u => (
-                       <TouchableOpacity key={u} onPress={() => setMedUnit(u)} style={{ backgroundColor: medUnit === u ? 'white' : 'transparent', paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginRight: 4 }}>
-                         <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 13, color: medUnit === u ? '#1A1A2E' : '#8A8A9E' }}>{u}</Text>
-                       </TouchableOpacity>
-                     ))}
-                  </ScrollView>
-                </View>
+                <Wrapper dir="row" gap={12} mb={12}>
+                  <Wrapper flex={1}>
+                    <FormField value={medDose} onChangeText={setMedDose} placeholder="Доза" keyboardType="numeric" />
+                  </Wrapper>
+                  <Wrapper width={140}>
+                    <ChipGroup items={UNIT_ITEMS} selected={medUnit} onChange={setMedUnit} tone="primary" />
+                  </Wrapper>
+                </Wrapper>
 
-                <TouchableOpacity onPress={() => setShowTimePicker(true)} style={{ backgroundColor: '#F9F8F6', borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-                  <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 16, color: '#1A1A2E' }}>Время: {medTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</Text>
-                  <Ionicons name="time-outline" size={20} color="#8A8A9E" />
-                </TouchableOpacity>
+                <Surface onPress={() => setShowTimePicker(true)} tone="transparent" variant="flat" radius="md" p={16} mb={20} bg="#F9F8F6">
+                  <Wrapper dir="row" align="center" justify="space-between">
+                    <Typography variant="body" weight="extraBold">Время: {medTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</Typography>
+                    <Ionicons name="time-outline" size={20} color="#8A8A9E" />
+                  </Wrapper>
+                </Surface>
 
-                <TouchableOpacity onPress={handleAddMed} style={{ backgroundColor: '#2563EB', paddingVertical: 16, borderRadius: 16, alignItems: 'center', shadowColor: '#2563EB', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 24, elevation: 5 }}>
-                  <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 16, color: 'white' }}>Сохранить лекарство</Text>
-                </TouchableOpacity>
-              </View>
+                <Button variant="solid" tone="primary" size="lg" fullWidth onPress={handleAddMed}>Сохранить лекарство</Button>
+              </Surface>
             )}
-          </View>
+          </Wrapper>
         )}
 
         {/* ── Symptoms ── */}
         {activeTab === 'symptoms' && (
-          <View>
-            <View style={{ backgroundColor: 'white', borderRadius: 24, padding: 20, shadowColor: '#8A8A9E', shadowOpacity: 0.08, shadowRadius: 32, elevation: 4, borderWidth: 1, borderColor: '#F0ECE8', marginBottom: 16 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-                <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 18, color: '#1A1A2E', letterSpacing: -0.5 }}>Выберите симптомы</Text>
+          <Wrapper>
+            <Surface variant="elevated" radius="xl" p={20} mb={16}>
+              <Wrapper dir="row" align="center" justify="space-between" mb={20}>
+                <Typography variant="h4" weight="black" letterSpacing={-0.5}>Выберите симптомы</Typography>
                 {symptoms.length > 0 && (
-                  <View style={{ backgroundColor: '#EF4444', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20 }}>
-                    <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 12, color: 'white' }}>{symptoms.length} выбрано</Text>
-                  </View>
+                  <StatusBadge label={`${symptoms.length} выбрано`} tone="danger" />
                 )}
-              </View>
+              </Wrapper>
 
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+              <Wrapper dir="row" wrap="wrap" gap={12}>
                 {SYMPTOM_LIST.map(s => {
                   const isActive = symptoms.includes(s);
                   return (
-                    <TouchableOpacity key={s} onPress={() => toggleSymptom(s)} style={{ width: '48%', flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 16, backgroundColor: isActive ? 'rgba(224,90,90,0.1)' : '#F9F8F6', borderWidth: 1, borderColor: isActive ? 'rgba(224,90,90,0.3)' : 'transparent', minHeight: 52 }}>
-                      <View style={{ width: 20, height: 20, borderRadius: 6, backgroundColor: isActive ? '#EF4444' : 'white', borderWidth: isActive ? 0 : 2, borderColor: '#E0DDD8', alignItems: 'center', justifyContent: 'center', marginRight: 12, shadowColor: isActive ? '#EF4444' : 'transparent', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: isActive ? 2 : 0 }}>
-                        {isActive && <Ionicons name="checkmark" size={14} color="white" />}
-                      </View>
-                      <Text style={{ flex: 1, fontFamily: 'Nunito_800ExtraBold', fontSize: 12, color: isActive ? '#D94F4F' : '#1A1A2E', lineHeight: 16 }}>{s}</Text>
-                    </TouchableOpacity>
+                    <Surface
+                      key={s}
+                      onPress={() => toggleSymptom(s)}
+                      tone="transparent"
+                      radius="md"
+                      p={12}
+                      width="48%"
+                      bg={isActive ? 'rgba(224,90,90,0.1)' : '#F9F8F6'}
+                      style={{ borderWidth: 1, borderColor: isActive ? 'rgba(224,90,90,0.3)' : 'transparent', minHeight: 52 }}
+                    >
+                      <Wrapper dir="row" align="center">
+                        <Wrapper mr={12}>
+                          <IconCircle size="xs" bg={isActive ? '#EF4444' : 'white'} radius={6}>
+                            {isActive && <Ionicons name="checkmark" size={14} color="white" />}
+                          </IconCircle>
+                        </Wrapper>
+                        <Wrapper flex={1}>
+                          <Typography variant="tiny" weight="extraBold" color={isActive ? '#D94F4F' : 'textPrimary'}>{s}</Typography>
+                        </Wrapper>
+                      </Wrapper>
+                    </Surface>
                   );
                 })}
-              </View>
-            </View>
+              </Wrapper>
+            </Surface>
 
             {symptoms.length > 0 && (
-              <View style={{ backgroundColor: 'white', borderRadius: 24, padding: 20, shadowColor: '#8A8A9E', shadowOpacity: 0.08, shadowRadius: 32, elevation: 4, borderWidth: 1, borderColor: '#F0ECE8' }}>
-                <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
-                  <View style={{ width: 40, height: 40, borderRadius: 14, backgroundColor: '#FFEDD5', alignItems: 'center', justifyContent: 'center' }}>
+              <Surface variant="elevated" radius="xl" p={20}>
+                <Wrapper dir="row" gap={12} mb={16}>
+                  <IconCircle bg="#FFEDD5">
                     <Ionicons name="warning" size={20} color="#F97316" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 16, color: '#1A1A2E' }}>Заметка для врача</Text>
-                    <TextInput value={symptomNote} onChangeText={setSymptomNote} placeholder="Подробности для педиатра..." placeholderTextColor="#A0A0B0" multiline numberOfLines={4} style={{ backgroundColor: '#F9F8F6', borderRadius: 16, padding: 16, marginTop: 12, fontFamily: 'Nunito_700Bold', fontSize: 15, color: '#1A1A2E', minHeight: 100, textAlignVertical: 'top' }} />
-                  </View>
-                </View>
-                <TouchableOpacity onPress={() => { Alert.alert('✓', "Симптомы сохранены"); setSymptoms([]); setSymptomNote(""); }} style={{ backgroundColor: '#EF4444', paddingVertical: 16, borderRadius: 16, alignItems: 'center', shadowColor: '#EF4444', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 24, elevation: 5 }}>
-                  <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 16, color: 'white' }}>Сохранить и уведомить</Text>
-                </TouchableOpacity>
-              </View>
+                  </IconCircle>
+                  <Wrapper flex={1}>
+                    <Typography variant="body" weight="black">Заметка для врача</Typography>
+                    <Wrapper mt={12}>
+                      <FormField value={symptomNote} onChangeText={setSymptomNote} placeholder="Подробности для педиатра..." multiline />
+                    </Wrapper>
+                  </Wrapper>
+                </Wrapper>
+                <Button variant="solid" tone="danger" size="lg" fullWidth onPress={() => { Alert.alert('✓', "Симптомы сохранены"); setSymptoms([]); setSymptomNote(""); }}>
+                  Сохранить и уведомить
+                </Button>
+              </Surface>
             )}
-          </View>
+          </Wrapper>
         )}
       </ScrollView>
 
@@ -336,7 +363,7 @@ function HealthScreenContent({ medications, growthRecords }: { medications: Medi
         onClose={() => setShowTimePicker(false)}
       />
       </KeyboardAvoidingView>
-    </View>
+    </Wrapper>
   );
 }
 
@@ -346,4 +373,3 @@ const enhance = withObservables([], () => ({
 }));
 
 export default enhance(HealthScreenContent);
-

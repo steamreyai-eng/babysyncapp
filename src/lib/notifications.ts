@@ -8,6 +8,7 @@ import { Alert, AppState } from 'react-native';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import notifee, { AndroidImportance, AndroidVisibility } from '@notifee/react-native';
+import { getPersonalizedSleepInterval, type SleepLike } from './wakeWindowEngine';
 
 // ── Settings ──
 export interface NotifSettings {
@@ -42,20 +43,21 @@ export function getRecommendedIntervals(ageMo: number) {
 const REMINDER_CHANNEL_ID = 'babysync-reminders';
 
 export async function initReminderNotifications() {
-  if (Platform.OS !== 'android') return;
-
   try {
+    // Request permission on BOTH platforms (iOS needs this for notification shade)
     await notifee.requestPermission();
 
-    await notifee.createChannel({
-      id: REMINDER_CHANNEL_ID,
-      name: 'Напоминания',
-      description: 'Напоминания о кормлении, сне и смене подгузников',
-      importance: AndroidImportance.HIGH,
-      vibration: true,
-      visibility: AndroidVisibility.PRIVATE,
-      sound: 'default',
-    });
+    if (Platform.OS === 'android') {
+      await notifee.createChannel({
+        id: REMINDER_CHANNEL_ID,
+        name: 'Напоминания',
+        description: 'Напоминания о кормлении, сне и смене подгузников',
+        importance: AndroidImportance.HIGH,
+        vibration: true,
+        visibility: AndroidVisibility.PRIVATE,
+        sound: 'default',
+      });
+    }
   } catch (e) {
     if (__DEV__) console.warn('[Notifications] Error creating reminder channel:', e);
   }
@@ -77,26 +79,34 @@ async function showNotif(title: string, body: string) {
         android: {
           channelId: REMINDER_CHANNEL_ID,
           importance: AndroidImportance.HIGH,
-          smallIcon: 'ic_notification', // uses default app icon if missing
+          // Don't specify smallIcon — notifee uses the app launcher icon by default.
+          // Specifying a non-existent drawable crashes and falls back to Alert.alert().
           pressAction: { id: 'default' },
           autoCancel: true,
           visibility: AndroidVisibility.PRIVATE,
         },
       });
     } else {
-      // iOS — notifee also works, just no channelId needed
+      // iOS — show in notification shade even when app is in foreground
       await notifee.displayNotification({
         id: `reminder-${notifCounter}`,
         title,
         body,
         ios: {
           sound: 'default',
+          // These ensure the notification appears in the shade/banner
+          // even when the app is in the foreground
+          foregroundPresentationOptions: {
+            alert: true,
+            badge: true,
+            sound: true,
+          },
         },
       });
     }
   } catch (e) {
     if (__DEV__) console.warn('[Notifications] Notifee display error:', e);
-    // Fallback: show Alert only if app is in foreground
+    // Fallback: show Alert only if app is in foreground and notifee completely fails
     if (AppState.currentState === 'active') {
       Alert.alert(title, body);
     }
@@ -136,6 +146,8 @@ interface PollState {
   lastDiaperMs: number | null;
   lastSleepEndMs: number | null;
   ageMo: number;
+  /** Recent sleep records for personalized wake window (optional, falls back to age-based) */
+  recentSleeps?: SleepLike[];
 }
 
 async function pollerTick() {
@@ -149,13 +161,18 @@ async function pollerTick() {
   const s = await loadNotifSettings();
   if (!s.feeding && !s.diaper && !s.sleep) return;
 
-  const { lastFeedingMs, lastDiaperMs, lastSleepEndMs, ageMo } = getLastEventsFn();
+  const { lastFeedingMs, lastDiaperMs, lastSleepEndMs, ageMo, recentSleeps } = getLastEventsFn();
   const now = Date.now();
 
   const recs = getRecommendedIntervals(ageMo);
   const feedInt = s.autoMode ? recs.feed : s.feedingIntervalMin;
   const diapInt = s.autoMode ? recs.diap : s.diaperIntervalMin;
-  const sleepInt = s.autoMode ? recs.sleep : s.sleepWindowMin;
+  // Use personalized wake window when autoMode + sleep data available
+  const sleepInt = s.autoMode
+    ? (recentSleeps && recentSleeps.length > 0
+        ? getPersonalizedSleepInterval(ageMo, recentSleeps)
+        : recs.sleep)
+    : s.sleepWindowMin;
 
   // Feeding
   if (s.feeding && lastFeedingMs != null) {

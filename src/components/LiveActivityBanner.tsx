@@ -10,7 +10,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  View, Text, TouchableOpacity, Animated, Dimensions, Platform,
+  View, TouchableOpacity, Animated, Dimensions, Platform, ViewStyle,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTimerStore } from '../store/timerStore';
@@ -22,7 +22,10 @@ import { Walk } from '../db/models/Walk';
 import { useAuthStore } from '../store/authStore';
 import { cancelSleepTimerNotification, cancelWalkTimerNotification } from '../lib/timerNotifications';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+import { Wrapper } from './ui/Wrapper';
+import { Typography } from './ui/Typography';
+import { IconCircle } from './IconCircle';
+import { COLORS, SHADOWS } from '../lib/theme';
 
 interface BannerConfig {
   type: 'sleep' | 'walk';
@@ -30,8 +33,6 @@ interface BannerConfig {
   sublabel: string;
   icon: string;
   iconBg: string;
-  gradientStart: string;
-  gradientEnd: string;
   accentColor: string;
   stopBg: string;
   startTime: number;
@@ -44,8 +45,6 @@ const SLEEP_CONFIG: Omit<BannerConfig, 'startTime'> = {
   sublabel: '– Сейчас',
   icon: 'moon',
   iconBg: 'rgba(139, 111, 212, 0.25)',
-  gradientStart: '#8B6FD4',
-  gradientEnd: '#7C5CBF',
   accentColor: '#8B6FD4',
   stopBg: 'rgba(139, 111, 212, 0.2)',
   route: 'Sleep',
@@ -57,8 +56,6 @@ const WALK_CONFIG: Omit<BannerConfig, 'startTime'> = {
   sublabel: '– Сейчас',
   icon: 'walk',
   iconBg: 'rgba(5, 150, 105, 0.25)',
-  gradientStart: '#059669',
-  gradientEnd: '#047857',
   accentColor: '#059669',
   stopBg: 'rgba(5, 150, 105, 0.2)',
   route: 'Walk',
@@ -95,7 +92,6 @@ const BannerItem = ({
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    // Slide in
     Animated.spring(slideAnim, {
       toValue: 0,
       useNativeDriver: true,
@@ -103,7 +99,6 @@ const BannerItem = ({
       friction: 12,
     }).start();
 
-    // Pulse animation for the dot
     const pulse = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, { toValue: 0.4, duration: 1000, useNativeDriver: true }),
@@ -112,7 +107,6 @@ const BannerItem = ({
     );
     pulse.start();
 
-    // Update elapsed time every second
     const interval = setInterval(() => {
       setElapsed(formatElapsed(config.startTime));
     }, 1000);
@@ -125,118 +119,70 @@ const BannerItem = ({
 
   const startTimeStr = formatTime(config.startTime);
 
+  const bannerStyle: ViewStyle = {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.card,
+    borderRadius: 22,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    shadowColor: config.accentColor,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: `${config.accentColor}20`,
+  };
+
+  const stopBtnStyle: ViewStyle = {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: config.stopBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  };
+
+  const stopIndicatorStyle: ViewStyle = {
+    width: 12,
+    height: 12,
+    borderRadius: 2,
+    backgroundColor: config.accentColor,
+  };
+
   return (
-    <Animated.View
-      style={{
-        transform: [{ translateY: slideAnim }],
-        marginBottom: 6,
-      }}
-    >
-      <TouchableOpacity
-        activeOpacity={0.85}
-        onPress={onPress}
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          backgroundColor: '#FFFFFF',
-          borderRadius: 22,
-          paddingVertical: 10,
-          paddingLeft: 10,
-          paddingRight: 10,
-          shadowColor: config.accentColor,
-          shadowOffset: { width: 0, height: 8 },
-          shadowOpacity: 0.25,
-          shadowRadius: 20,
-          elevation: 8,
-          borderWidth: 1,
-          borderColor: `${config.accentColor}20`,
-        }}
-      >
+    <Animated.View style={{ transform: [{ translateY: slideAnim }], marginBottom: 6 }}>
+      <TouchableOpacity activeOpacity={0.85} onPress={onPress} style={bannerStyle}>
         {/* Icon */}
-        <View
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: 14,
-            backgroundColor: config.iconBg,
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginRight: 12,
-          }}
-        >
-          <Ionicons name={config.icon as any} size={22} color={config.accentColor} />
-        </View>
+        <Wrapper mr={12}>
+          <IconCircle bg={config.iconBg}>
+            <Ionicons name={config.icon as any} size={22} color={config.accentColor} />
+          </IconCircle>
+        </Wrapper>
 
         {/* Info */}
-        <View style={{ flex: 1 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Text
-              style={{
-                fontFamily: 'Nunito_900Black',
-                fontSize: 15,
-                color: '#1A1A2E',
-              }}
-            >
-              {config.label}
-            </Text>
-            {/* Pulsing dot */}
-            <Animated.View
-              style={{
-                width: 6,
-                height: 6,
-                borderRadius: 3,
-                backgroundColor: config.accentColor,
-                opacity: pulseAnim,
-              }}
-            />
-          </View>
-          <Text
-            style={{
-              fontFamily: 'Nunito_700Bold',
-              fontSize: 12,
-              color: '#8A8A9E',
-              marginTop: 1,
-            }}
-          >
+        <Wrapper flex={1}>
+          <Wrapper dir="row" align="center" gap={6}>
+            <Typography variant="body" weight="black">{config.label}</Typography>
+            <Animated.View style={{
+              width: 6, height: 6, borderRadius: 3,
+              backgroundColor: config.accentColor, opacity: pulseAnim,
+            }} />
+          </Wrapper>
+          <Typography variant="tiny" weight="bold" color="textMuted" mt={1}>
             {startTimeStr} {config.sublabel}
-          </Text>
-        </View>
+          </Typography>
+        </Wrapper>
 
         {/* Timer Display */}
-        <Text
-          style={{
-            fontFamily: 'Nunito_900Black',
-            fontSize: 18,
-            color: config.accentColor,
-            marginRight: 10,
-            minWidth: 52,
-            textAlign: 'right',
-          }}
-        >
+        <Typography variant="h4" weight="black" color={config.accentColor} style={{ marginRight: 10, minWidth: 52, textAlign: 'right' }}>
           {elapsed}
-        </Text>
+        </Typography>
 
         {/* Stop Button */}
-        <TouchableOpacity
-          onPress={onStop}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          style={{
-            width: 38,
-            height: 38,
-            borderRadius: 12,
-            backgroundColor: config.stopBg,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <View
-            style={{
-              width: 12,
-              height: 12,
-              borderRadius: 2,
-              backgroundColor: config.accentColor,
-            }}
-          />
+        <TouchableOpacity onPress={onStop} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} style={stopBtnStyle}>
+          <View style={stopIndicatorStyle} />
         </TouchableOpacity>
       </TouchableOpacity>
     </Animated.View>
@@ -306,33 +252,23 @@ export default function LiveActivityBanner() {
   };
 
   const handleSleepPress = () => {
-    try {
-      navigation.navigate('Tracker', { screen: 'Sleep' });
-    } catch (e) {
-      // Navigation may not be ready
-    }
+    try { navigation.navigate('Tracker', { screen: 'Sleep' }); } catch (e) {}
   };
 
   const handleWalkPress = () => {
-    try {
-      navigation.navigate('Tracker', { screen: 'Walk' });
-    } catch (e) {
-      // Navigation may not be ready
-    }
+    try { navigation.navigate('Tracker', { screen: 'Walk' }); } catch (e) {}
   };
 
   return (
-    <View
+    <Wrapper
       pointerEvents="box-none"
-      style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        zIndex: 9999,
-        paddingTop: Math.max(insets.top, 16) + 4,
-        paddingHorizontal: 12,
-      }}
+      position="absolute"
+      top={0}
+      left={0}
+      right={0}
+      zIndex={9999}
+      pt={Math.max(insets.top, 16) + 4}
+      px={12}
     >
       {sleepRunning && (
         <BannerItem
@@ -348,6 +284,6 @@ export default function LiveActivityBanner() {
           onPress={handleWalkPress}
         />
       )}
-    </View>
+    </Wrapper>
   );
 }

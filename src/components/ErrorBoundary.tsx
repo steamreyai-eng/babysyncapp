@@ -4,8 +4,14 @@
  */
 
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, ViewStyle, TextStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+
+import { Wrapper } from './ui/Wrapper';
+import { Typography } from './ui/Typography';
+import { Button } from './ui/Button';
+import { IconCircle } from './IconCircle';
+import { COLORS } from '../lib/theme';
 
 interface Props {
   children: React.ReactNode;
@@ -15,6 +21,13 @@ interface State {
   hasError: boolean;
   error: Error | null;
 }
+
+const errorBoxStyle: ViewStyle = {
+  backgroundColor: '#FEF2F2',
+  borderRadius: 12,
+  padding: 12,
+  width: '100%',
+};
 
 export class ErrorBoundary extends React.Component<Props, State> {
   constructor(props: Props) {
@@ -37,40 +50,40 @@ export class ErrorBoundary extends React.Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        <View style={styles.container}>
-          <View style={styles.iconWrap}>
-            <Ionicons name="warning-outline" size={48} color="#EF4444" />
-          </View>
-          <Text style={styles.title}>Упс! Что-то пошло не так</Text>
-          <Text style={styles.subtitle}>
+        <Wrapper flex={1} bg="#FAFBFC" align="center" justify="center" p={32}>
+          <Wrapper mb={20}>
+            <IconCircle size="lg" bg="#FEE2E2" radius={40}>
+              <Ionicons name="warning-outline" size={48} color="#EF4444" />
+            </IconCircle>
+          </Wrapper>
+          <Typography variant="h2" weight="black" align="center" mb={8}>
+            Упс! Что-то пошло не так
+          </Typography>
+          <Typography variant="tiny" weight="semiBold" color="textMuted" align="center" mb={20} style={{ lineHeight: 22 }}>
             Произошла непредвиденная ошибка. Попробуйте перезапустить экран.
-          </Text>
+          </Typography>
           {__DEV__ && this.state.error && (
-            <View style={styles.errorBox}>
-              <Text style={styles.errorText}>{this.state.error.message}</Text>
-            </View>
+            <Wrapper mb={20} style={errorBoxStyle}>
+              <Typography variant="caption" weight="semiBold" color="#EF4444" style={{ fontFamily: 'monospace' }}>
+                {this.state.error.message}
+              </Typography>
+            </Wrapper>
           )}
-          <TouchableOpacity style={styles.button} onPress={this.handleReset}>
-            <Ionicons name="refresh" size={18} color="white" />
-            <Text style={styles.buttonText}>Попробовать снова</Text>
-          </TouchableOpacity>
-        </View>
+          <Button
+            variant="solid"
+            tone="primary"
+            size="lg"
+            onPress={this.handleReset}
+            leftIcon={<Ionicons name="refresh" size={18} color="white" />}
+          >
+            Попробовать снова
+          </Button>
+        </Wrapper>
       );
     }
 
     return this.props.children;
   }
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FAFBFC', alignItems: 'center', justifyContent: 'center', padding: 32 },
-  iconWrap: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
-  title: { fontSize: 22, fontWeight: '900', color: '#1A1A2E', textAlign: 'center', marginBottom: 8 },
-  subtitle: { fontSize: 14, fontWeight: '600', color: '#6B6B80', textAlign: 'center', lineHeight: 22, marginBottom: 20 },
-  errorBox: { backgroundColor: '#FEF2F2', borderRadius: 12, padding: 12, marginBottom: 20, width: '100%' },
-  errorText: { fontSize: 11, fontWeight: '600', color: '#EF4444', fontFamily: 'monospace' },
-  button: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#2563EB', borderRadius: 16, paddingHorizontal: 24, paddingVertical: 14 },
-  buttonText: { color: 'white', fontSize: 16, fontWeight: '800' },
-});
 
 export default ErrorBoundary;

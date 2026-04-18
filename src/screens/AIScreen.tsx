@@ -8,7 +8,10 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { callAI } from '../lib/ai';
+import { Wrapper } from '../components/ui/Wrapper';
+import { Surface } from '../components/ui/Surface';
+import { Typography } from '../components/ui/Typography';
+import { callAIWithDetails } from '../lib/ai';
 import { database } from '../db';
 import { useAuthStore } from '../store/authStore';
 import NetInfo from '@react-native-community/netinfo';
@@ -130,51 +133,61 @@ const AIScreenContent = () => {
 
   if (!consentGiven) {
     return (
-      <View style={styles.consentContainer}>
-        <View style={styles.consentCard}>
-          <View style={styles.consentIconWrap}>
+      <Wrapper flex={1} bg="#FAFBFC" justify="center" px={24}>
+        <Surface bg="white" radius="xl" p={28} borderWidth={1.5} borderColor="#F0ECE8" variant="elevated" align="center">
+          <Wrapper width={72} height={72} radius="card" bg="#EEF2FF" align="center" justify="center" mb={16}>
             <Ionicons name="shield-checkmark" size={40} color="#6366F1" />
-          </View>
-          <Text style={styles.consentTitle}>AI-ассистент</Text>
-          <Text style={styles.consentSubtitle}>Согласие на обработку данных</Text>
+          </Wrapper>
+          <Wrapper mb={4}><Typography variant="h2" weight="black" color="textPrimary">AI-ассистент</Typography></Wrapper>
+          <Wrapper mb={20}><Typography variant="body" weight="bold" color="textMuted">Согласие на обработку данных</Typography></Wrapper>
 
-          <View style={styles.consentBody}>
-            <Text style={styles.consentText}>
+          <Surface width="100%" bg="#F8FAFC" radius="lg" p={16} mb={24} variant="flat">
+            <Typography variant="body" weight="bold" color="#334155" style={{ lineHeight: 20 }}>
               AI-ассистент BabySync использует OpenAI для анализа данных вашего ребёнка и предоставления персонализированных рекомендаций.
-            </Text>
-            <Text style={[styles.consentText, { marginTop: 12 }]}>
-              <Text style={{ fontFamily: 'Nunito_900Black' }}>Что передаётся:</Text>
+            </Typography>
+            <Typography variant="body" weight="bold" color="#334155" style={{ lineHeight: 20 }} mt={12}>
+              <Typography variant="body" weight="black">Что передаётся:</Typography>
               {'\n'}• Возраст ребёнка (в месяцах) и пол
               {'\n'}• Статистика кормлений, сна, подгузников
               {'\n'}• Данные роста и веса
-            </Text>
-            <Text style={[styles.consentText, { marginTop: 12 }]}>
-              <Text style={{ fontFamily: 'Nunito_900Black', color: '#059669' }}>Что НЕ передаётся:</Text>
+            </Typography>
+            <Typography variant="body" weight="bold" color="#334155" style={{ lineHeight: 20 }} mt={12}>
+              <Typography variant="body" weight="black" color="#059669">Что НЕ передаётся:</Typography>
               {'\n'}• Имя ребёнка и родителей
               {'\n'}• Дата рождения и город
               {'\n'}• Email и другие личные данные
-            </Text>
-            <Text style={[styles.consentText, { marginTop: 12, color: '#64748B', fontSize: 11 }]}>
+            </Typography>
+            <Typography variant="tiny" weight="bold" color="textMuted" mt={12}>
               Данные обрабатываются через серверную функцию Supabase и не сохраняются на серверах OpenAI.
               Советы AI не являются медицинским диагнозом.
-            </Text>
-          </View>
+            </Typography>
+          </Surface>
 
-          <TouchableOpacity style={styles.consentAcceptBtn} onPress={handleAcceptConsent}>
+          <Surface as={TouchableOpacity} width="100%" dir="row" align="center" justify="center" gap={8} bg="#6366F1" radius="lg" py={16} mb={12} variant="elevated" onPress={handleAcceptConsent}>
             <Ionicons name="checkmark-circle" size={20} color="white" />
-            <Text style={styles.consentAcceptText}>Согласен, начать</Text>
-          </TouchableOpacity>
+            <Typography variant="body" weight="black" color="white">Согласен, начать</Typography>
+          </Surface>
 
-          <TouchableOpacity style={styles.consentDeclineBtn} onPress={handleDeclineConsent}>
-            <Text style={styles.consentDeclineText}>Не сейчас</Text>
+          <TouchableOpacity onPress={handleDeclineConsent} style={{ paddingVertical: 12 }}>
+            <Typography variant="body" weight="bold" color="textMuted">Не сейчас</Typography>
           </TouchableOpacity>
-        </View>
-      </View>
+        </Surface>
+      </Wrapper>
     );
   }
 
   const sendMessage = async (text: string) => {
     if (!text.trim() || loading) return;
+
+    // Check connectivity before sending
+    if (!isOnline) {
+      setMessages(prev => [...prev, 
+        { role: 'user', text: text.trim() },
+        { role: 'assistant', text: '📡 Нет подключения к интернету. AI-ассистент работает только онлайн.' }
+      ]);
+      return;
+    }
+
     const userMsg: Message = { role: 'user', text: text.trim() };
     const newChat = [...messages, userMsg];
     setMessages(newChat);
@@ -185,13 +198,19 @@ const AIScreenContent = () => {
       const contextData = buildContext();
       // Убираем первое сообщение-приветствие из истории для API, чтобы экономить токены и не путать системный промпт
       const apiMessages = newChat.slice(1).map(m => ({ role: m.role, content: m.text })); 
-      const result = await callAI(apiMessages, contextData);
+      const result = await callAIWithDetails(apiMessages, contextData);
       
-      const aiMsg: Message = {
-        role: 'assistant',
-        text: result ? result.replace(/\[CHART:[A-Z_]+\]/g, '') : 'Не удалось получить ответ. Попробуйте позже.',
-      };
-      setMessages(prev => [...prev, aiMsg]);
+      if (result.content) {
+        const aiMsg: Message = {
+          role: 'assistant',
+          text: result.content.replace(/\[CHART:[A-Z_]+\]/g, ''),
+        };
+        setMessages(prev => [...prev, aiMsg]);
+      } else {
+        // Show specific error message from the AI service
+        const errorText = result.errorMessage || 'Не удалось получить ответ. Попробуйте позже.';
+        setMessages(prev => [...prev, { role: 'assistant', text: `⚠️ ${errorText}` }]);
+      }
     } catch (e) {
       setMessages(prev => [...prev, { role: 'assistant', text: '⚠️ Ошибка связи с AI. Проверьте подключение к интернету.' }]);
     } finally {
@@ -203,46 +222,46 @@ const AIScreenContent = () => {
   const renderContent = () => (
     <>
       {/* Header */}
-      <View style={styles.header}>
+      <Wrapper dir="row" align="center" gap={12} px={16} pt={16} pb={12} bg="rgba(255,255,255,0.75)">
           <LinearGradient
               colors={['#F0E8FF', '#DBCDF0']}
               start={{x:0,y:0}} end={{x:1,y:1}}
-              style={styles.aiIcon}
+              style={{ width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.8)' }}
           >
               <Ionicons name="sparkles" size={22} color="#8B6FD4" />
           </LinearGradient>
-          <View>
-              <Text style={styles.title}>AI-Ассистент</Text>
-              <View style={styles.statusRow}>
-                  <View style={styles.statusDot} />
-                  <Text style={styles.statusText}>Онлайн · знает малыша</Text>
-              </View>
-          </View>
-      </View>
+          <Wrapper>
+              <Typography variant="h2" weight="black" color="textPrimary" letterSpacing={-0.5}>AI-Ассистент</Typography>
+              <Wrapper dir="row" align="center" gap={6} mt={2}>
+                  <Wrapper width={8} height={8} radius="xs" bg="#3DBFAA" />
+                  <Typography variant="tiny" weight="bold" color="#3DBFAA">Онлайн · знает малыша</Typography>
+              </Wrapper>
+          </Wrapper>
+      </Wrapper>
 
       {/* Offline Banner */}
       {!isOnline && (
-          <View style={styles.offlineBanner}>
+          <Wrapper mx={16} mb={8} px={16} py={12} bg="#FFF0F0" radius="lg" borderWidth={1} borderColor="rgba(217, 79, 79, 0.2)" dir="row" align="center" gap={8}>
               <Ionicons name="wifi" size={18} color="#D94F4F" />
-              <Text style={styles.offlineText}>Интернета нет. AI-функции недоступны.</Text>
-          </View>
+              <Typography variant="body" weight="bold" color="#D94F4F">Интернета нет. AI-функции недоступны.</Typography>
+          </Wrapper>
       )}
 
       {/* Messages */}
       <ScrollView
         ref={scrollRef}
-        style={styles.messages}
+        style={{ flex: 1 }}
         contentContainerStyle={{ paddingBottom: 20, paddingHorizontal: 16 }}
         showsVerticalScrollIndicator={false}
         onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
         keyboardShouldPersistTaps="handled"
       >
         {messages.map((msg, i) => (
-            <View key={i} style={[styles.bubbleWrap, msg.role === 'user' ? styles.userWrap : styles.aiWrap]}>
+            <View key={i} style={[{ flexDirection: 'row', marginBottom: 16, maxWidth: '90%', alignItems: 'flex-end' }, msg.role === 'user' ? { alignSelf: 'flex-end', justifyContent: 'flex-end' } : { alignSelf: 'flex-start' }] }>
                 {msg.role === 'assistant' && (
                     <LinearGradient
                         colors={['#F0E8FF', '#DBCDF0']}
-                        style={styles.aiAvatar}
+                        style={{ width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginRight: 8, zIndex: 2, borderWidth: 1.5, borderColor: 'white', shadowColor: '#8B6FD4', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 8 }}
                     >
                         <Ionicons name="sparkles" size={14} color="#8B6FD4" />
                     </LinearGradient>
@@ -251,24 +270,24 @@ const AIScreenContent = () => {
                     <LinearGradient
                         colors={['#764BA2', '#667EEA']}
                         start={{x:0, y:0}} end={{x:1, y:1}}
-                        style={[styles.bubble, styles.userBubble]}
+                        style={{ paddingHorizontal: 16, paddingVertical: 12, zIndex: 1, borderRadius: 20, borderBottomRightRadius: 4, shadowColor: '#764BA2', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.25, shadowRadius: 16, elevation: 4 }}
                     >
-                        <Text style={[styles.bubbleText, styles.userBubbleText]}>{msg.text}</Text>
+                        <Typography variant="body" weight="extraBold" color="white" style={{ lineHeight: 20 }}>{msg.text}</Typography>
                     </LinearGradient>
                 ) : (
-                    <View style={[styles.bubble, styles.aiBubble]}>
-                        <Text style={[styles.bubbleText, styles.aiBubbleText]}>{msg.text}</Text>
+                    <View style={{ paddingHorizontal: 16, paddingVertical: 12, zIndex: 1, borderRadius: 20, borderBottomLeftRadius: 4, backgroundColor: 'rgba(255,255,255,0.9)', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 20, elevation: 2, borderWidth: 1, borderColor: '#F0ECE8' }}>
+                        <Typography variant="body" weight="bold" color="textPrimary" style={{ lineHeight: 20 }}>{msg.text}</Typography>
                     </View>
                 )}
             </View>
         ))}
 
         {loading && (
-           <View style={[styles.bubbleWrap, styles.aiWrap]}>
-               <LinearGradient colors={['#F0E8FF', '#DBCDF0']} style={styles.aiAvatar}>
+           <View style={{ flexDirection: 'row', marginBottom: 16, maxWidth: '90%', alignItems: 'flex-end', alignSelf: 'flex-start' }}>
+               <LinearGradient colors={['#F0E8FF', '#DBCDF0']} style={{ width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginRight: 8, zIndex: 2, borderWidth: 1.5, borderColor: 'white', shadowColor: '#8B6FD4', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 8 }}>
                    <Ionicons name="sparkles" size={14} color="#8B6FD4" />
                </LinearGradient>
-               <View style={[styles.bubble, styles.aiBubble, { flexDirection: 'row', alignItems: 'center' }]}>
+               <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, zIndex: 1, borderRadius: 20, borderBottomLeftRadius: 4, backgroundColor: 'rgba(255,255,255,0.9)', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 20, elevation: 2, borderWidth: 1, borderColor: '#F0ECE8' }}>
                    <ActivityIndicator size="small" color="#8B6FD4" style={{ marginRight: 8 }} />
                </View>
            </View>
@@ -276,24 +295,20 @@ const AIScreenContent = () => {
       </ScrollView>
 
       {/* Quick actions */}
-      <View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickActionsContainer}>
+      <Wrapper>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 10, gap: 8 }}>
               {quickPrompts.map((qp, i) => (
-                  <TouchableOpacity
-                      key={i}
-                      style={styles.quickBtn}
-                      onPress={() => sendMessage(qp)}
-                  >
-                      <Text style={styles.quickBtnText}>{qp}</Text>
-                  </TouchableOpacity>
+                  <Surface as={TouchableOpacity} key={i} bg="rgba(255,255,255,0.7)" radius="card" px={16} py={10} borderWidth={1} borderColor="#F0ECE8" variant="elevated" onPress={() => sendMessage(qp)}>
+                      <Typography variant="tiny" weight="extraBold" color="#8B6FD4">{qp}</Typography>
+                  </Surface>
               ))}
           </ScrollView>
-      </View>
+      </Wrapper>
 
       {/* Input */}
-      <View style={styles.inputBar}>
+      <Wrapper dir="row" align="flex-end" gap={8} px={16} pb={8} pt={4}>
         <TextInput
-          style={styles.input}
+          style={{ flex: 1, backgroundColor: 'white', borderRadius: 24, paddingLeft: 20, paddingRight: 48, paddingTop: 14, paddingBottom: 14, fontSize: 14, fontFamily: 'Nunito_700Bold', color: '#1A1A2E', maxHeight: 100, shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.06, shadowRadius: 24, elevation: 2, borderWidth: 1, borderColor: '#F5F0E6' }}
           value={input}
           onChangeText={setInput}
           placeholder="Ваш вопрос..."
@@ -303,17 +318,20 @@ const AIScreenContent = () => {
           onSubmitEditing={() => sendMessage(input)}
           blurOnSubmit
         />
-        <TouchableOpacity
-          style={[styles.sendBtn, (!input.trim() || loading) && { opacity: 0.5, backgroundColor: '#A8A8B6' }]}
+        <Surface as={TouchableOpacity} width={38} height={38} radius="card" align="center" justify="center" variant="elevated"
+          bg={(!input.trim() || loading) ? '#A8A8B6' : '#8B6FD4'}
+          style={{ position: 'absolute', right: 24, bottom: 14, zIndex: 10, opacity: (!input.trim() || loading) ? 0.5 : 1 }}
           onPress={() => sendMessage(input)}
           disabled={!input.trim() || loading}
         >
           <Ionicons name="send" size={16} color="white" />
-        </TouchableOpacity>
-      </View>
-      <Text style={styles.disclaimerText}>
+        </Surface>
+      </Wrapper>
+      <Wrapper pb={12} align="center">
+      <Typography variant="tiny" weight="extraBold" color="textMuted" align="center">
           <Ionicons name="sparkles" size={10} color="#6B6B80" /> Не заменяет консультацию врача
-      </Text>
+      </Typography>
+   </Wrapper>
     </>
   );
 
@@ -321,9 +339,9 @@ const AIScreenContent = () => {
   // Android: use manual keyboard padding (KeyboardAvoidingView broken inside Modal on Android)
   if (Platform.OS === 'ios') {
     return (
-      <View style={styles.container}>
+      <View style={{ flex: 1, backgroundColor: "#FAFBFC" }}>
         <KeyboardAvoidingView
-          style={styles.keyboardView}
+          style={{ flex: 1 }}
           behavior="padding"
           keyboardVerticalOffset={10}
         >
@@ -334,64 +352,15 @@ const AIScreenContent = () => {
   }
 
   return (
-    <View style={styles.container}>
-      <RNAnimated.View style={[styles.keyboardView, { paddingBottom: keyboardPadding }]}>
+    <View style={{ flex: 1, backgroundColor: "#FAFBFC" }}>
+      <RNAnimated.View style={[{}, { paddingBottom: keyboardPadding }]}>
         {renderContent()}
       </RNAnimated.View>
     </View>
   );
 };
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FAFBFC' },
-  keyboardView: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12, backgroundColor: 'rgba(255,255,255,0.75)' },
-  aiIcon: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.8)' },
-  title: { fontSize: 20, fontFamily: 'Nunito_900Black', color: '#1A1A2E', letterSpacing: -0.5 },
-  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
-  statusDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#3DBFAA' },
-  statusText: { fontSize: 11, fontFamily: 'Nunito_700Bold', color: '#3DBFAA' },
 
-  offlineBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 16, marginBottom: 8, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#FFF0F0', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(217, 79, 79, 0.2)' },
-  offlineText: { fontSize: 13, fontFamily: 'Nunito_700Bold', color: '#D94F4F' },
-
-  messages: { flex: 1 },
-  
-  bubbleWrap: { flexDirection: 'row', marginBottom: 16, maxWidth: '90%', alignItems: 'flex-end' },
-  userWrap: { alignSelf: 'flex-end', justifyContent: 'flex-end' },
-  aiWrap: { alignSelf: 'flex-start' },
-  aiAvatar: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginRight: 8, zIndex: 2, borderWidth: 1.5, borderColor: 'white', shadowColor: '#8B6FD4', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 8 },
-  
-  bubble: { paddingHorizontal: 16, paddingVertical: 12, zIndex: 1 },
-  userBubble: { borderRadius: 20, borderBottomRightRadius: 4, shadowColor: '#764BA2', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.25, shadowRadius: 16, elevation: 4 },
-  aiBubble: { borderRadius: 20, borderBottomLeftRadius: 4, backgroundColor: 'rgba(255,255,255,0.9)', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 20, elevation: 2, borderWidth: 1, borderColor: '#F0ECE8' },
-  
-  bubbleText: { fontSize: 14, fontFamily: 'Nunito_700Bold', lineHeight: 20 },
-  userBubbleText: { color: 'white', fontFamily: 'Nunito_800ExtraBold' },
-  aiBubbleText: { color: '#1A1A2E' },
-
-  quickActionsContainer: { paddingHorizontal: 16, paddingBottom: 10, gap: 8 },
-  quickBtn: { backgroundColor: 'rgba(255,255,255,0.7)', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, borderWidth: 1, borderColor: '#F0ECE8', shadowColor: '#8B6FD4', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 12, elevation: 1 },
-  quickBtnText: { fontSize: 13, fontFamily: 'Nunito_800ExtraBold', color: '#8B6FD4' },
-
-  inputBar: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, paddingHorizontal: 16, paddingBottom: 8, paddingTop: 4 },
-  input: { flex: 1, backgroundColor: 'white', borderRadius: 24, paddingLeft: 20, paddingRight: 48, paddingTop: 14, paddingBottom: 14, fontSize: 14, fontFamily: 'Nunito_700Bold', color: '#1A1A2E', maxHeight: 100, shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.06, shadowRadius: 24, elevation: 2, borderWidth: 1, borderColor: '#F5F0E6' },
-  sendBtn: { position: 'absolute', right: 24, bottom: 14, width: 38, height: 38, borderRadius: 19, backgroundColor: '#8B6FD4', alignItems: 'center', justifyContent: 'center', shadowColor: '#8B6FD4', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 4, zIndex: 10 },
-  disclaimerText: { textAlign: 'center', fontSize: 10, fontFamily: 'Nunito_800ExtraBold', color: '#6B6B80', paddingBottom: 12 },
-
-  // Consent screen styles
-  consentContainer: { flex: 1, backgroundColor: '#FAFBFC', justifyContent: 'center', paddingHorizontal: 24 },
-  consentCard: { backgroundColor: 'white', borderRadius: 24, padding: 28, borderWidth: 1.5, borderColor: '#F0ECE8', shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.08, shadowRadius: 24, elevation: 4, alignItems: 'center' },
-  consentIconWrap: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#EEF2FF', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
-  consentTitle: { fontSize: 22, fontFamily: 'Nunito_900Black', color: '#1A1A2E', marginBottom: 4 },
-  consentSubtitle: { fontSize: 13, fontFamily: 'Nunito_700Bold', color: '#64748B', marginBottom: 20 },
-  consentBody: { width: '100%', backgroundColor: '#F8FAFC', borderRadius: 16, padding: 16, marginBottom: 24 },
-  consentText: { fontSize: 13, fontFamily: 'Nunito_700Bold', color: '#334155', lineHeight: 20 },
-  consentAcceptBtn: { width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#6366F1', borderRadius: 16, paddingVertical: 16, shadowColor: '#6366F1', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 16, elevation: 4, marginBottom: 12 },
-  consentAcceptText: { fontSize: 15, fontFamily: 'Nunito_900Black', color: 'white' },
-  consentDeclineBtn: { paddingVertical: 12 },
-  consentDeclineText: { fontSize: 13, fontFamily: 'Nunito_700Bold', color: '#94A3B8' },
-});
 
 export default function AIScreen() {
   return <AIScreenContent />;

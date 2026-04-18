@@ -1,7 +1,6 @@
 
 /**
  * FAB — Floating Action Button with expandable quick-action menu.
- * Port from web: FAB.tsx (399 lines)
  * 
  * Shows a floating button that expands into 3 quick-add options:
  * Feeding, Diaper, Sleep — each opens a bottom sheet for input.
@@ -9,15 +8,14 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
-  View, Text, TouchableOpacity, Animated, StyleSheet,
-  Modal, TextInput, Alert, Platform, ScrollView, KeyboardAvoidingView,
+  View, TouchableOpacity, Animated, ViewStyle,
+  Modal, Alert, Platform, ScrollView, KeyboardAvoidingView,
   Keyboard, Animated as RNAnimated,
 } from 'react-native';
 import { Plus, X, Check, Moon, Milk, Droplets, Droplet, CloudRain, Cloud, Play, Square, Utensils } from 'lucide-react-native';
 import DateTimePickerModal from './DateTimePickerModal';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { database } from '../db';
 import { Feeding } from '../db/models/Feeding';
@@ -28,7 +26,84 @@ import { useTimerStore } from '../store/timerStore';
 import { startFeedingTimerNotification, cancelFeedingTimerNotification } from '../lib/timerNotifications';
 import { triggerHaptic } from '../utils/haptics';
 
+import { Wrapper } from './ui/Wrapper';
+import { Typography } from './ui/Typography';
+import { Surface } from './ui/Surface';
+import { Button } from './ui/Button';
+import { IconCircle } from './IconCircle';
+import { FormField } from './FormField';
+import { SegmentedControl } from './SegmentedControl';
+import { COLORS, SHADOWS, RADIUS, FONTS } from '../lib/theme';
+
 type ActiveSheet = 'feeding' | 'diaper' | 'sleep' | null;
+
+/* ── Internal ViewStyle constants (animation/position) ── */
+const backdropStyle: ViewStyle = {
+  position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+  backgroundColor: 'rgba(250,251,252,0.85)', zIndex: 50,
+};
+
+const fabItemBtnStyle: ViewStyle = {
+  flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+  width: 66, height: 66, borderRadius: 33, borderWidth: 2,
+  shadowColor: '#000', shadowOffset: { width: 0, height: 6 },
+  shadowOpacity: 0.15, shadowRadius: 16, elevation: 6,
+};
+
+const fabStyle: ViewStyle = {
+  position: 'absolute', right: 16, width: 64, height: 64, borderRadius: 32,
+  backgroundColor: '#3DBFAA', borderWidth: 4, borderColor: '#FFFFFF',
+  alignItems: 'center', justifyContent: 'center', zIndex: 52,
+  shadowColor: 'rgba(61,191,170,0.45)', shadowOffset: { width: 0, height: 8 },
+  shadowOpacity: 0.4, shadowRadius: 20, elevation: 10,
+};
+
+const fabActiveStyle: ViewStyle = { backgroundColor: '#2DA08E', borderColor: '#FFFFFF' };
+
+const sheetOverlayStyle: ViewStyle = {
+  flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(30,27,75,0.4)',
+};
+
+const sheetStyle: ViewStyle = {
+  backgroundColor: COLORS.card, borderTopLeftRadius: 40, borderTopRightRadius: 40,
+  padding: 24, paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+  borderWidth: 2, borderColor: '#E2E8F0', borderBottomWidth: 0,
+};
+
+const handleStyle: ViewStyle = {
+  width: 48, height: 6, borderRadius: 4, backgroundColor: '#CBD5E1',
+  alignSelf: 'center', marginBottom: 24,
+};
+
+const sheetIconStyle: ViewStyle = {
+  width: 52, height: 52, borderRadius: 20, alignItems: 'center', justifyContent: 'center',
+  borderWidth: 2, borderColor: 'rgba(255,255,255,0.5)',
+};
+
+const diaperOptionStyle: ViewStyle = {
+  flex: 1, alignItems: 'center', gap: 8, padding: 14, borderRadius: 20, borderWidth: 3,
+};
+
+const saveBtnStyle: ViewStyle = {
+  flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+  gap: 8, paddingVertical: 18, borderRadius: 24, borderWidth: 2,
+  borderColor: 'rgba(255,255,255,0.3)', shadowColor: '#000',
+  shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.15,
+  shadowRadius: 16, elevation: 6,
+};
+
+const stepperBtnStyle: ViewStyle = {
+  width: 56, height: 56, borderRadius: 28, backgroundColor: '#DBEAFE',
+  borderWidth: 1, borderColor: '#BFDBFE', alignItems: 'center', justifyContent: 'center',
+  shadowColor: '#2563EB', shadowOffset: { width: 0, height: 4 },
+  shadowOpacity: 0.1, shadowRadius: 8, elevation: 2,
+};
+
+const FEEDING_TABS = [
+  { key: 'breast', label: 'Грудное' },
+  { key: 'formula', label: 'Смесь' },
+  { key: 'solid', label: 'Прикорм' },
+];
 
 const FAB = () => {
   const session = useAuthStore(state => state.session);
@@ -41,7 +116,7 @@ const FAB = () => {
   const [activeSheet, setActiveSheet] = useState<ActiveSheet>(null);
   const scaleAnim = useRef(new Animated.Value(0)).current;
 
-  // Manual keyboard tracking for Android (KeyboardAvoidingView broken inside Modal on Android)
+  // Manual keyboard tracking for Android
   const fabKeyboardPadding = useRef(new RNAnimated.Value(0)).current;
 
   useEffect(() => {
@@ -155,7 +230,6 @@ const FAB = () => {
 
   const fmt = (s: number) => `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
 
-  // Date formatting helper
   const formatDate = (date: Date) => {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' ' + date.toLocaleDateString();
   };
@@ -223,7 +297,7 @@ const FAB = () => {
             if (secondsR > 0) parts.push(`прав. ${fmt(secondsR)}`);
             f.duration_seconds = totalSecs > 0 ? totalSecs : 1;
             f.description = parts.length > 0 ? `Грудь (${parts.join(", ")})` : `Грудь`;
-            f.breast_side = 'Л'; // or calculate most used side
+            f.breast_side = 'Л';
           } else if (feedingType === 'formula') {
             const vol = parseInt(formulaVolume) || 120;
             f.formula_brand = formulaBrand;
@@ -304,219 +378,258 @@ const FAB = () => {
   const renderInlineIOSPicker = (colorHex: string, bgColorHex: string) => {
     if (Platform.OS !== 'ios' || !showDatePicker) return null;
     return (
-      <View style={{ marginTop: 8 }}>
+      <Wrapper mt={8}>
         <DateTimePicker
           value={logDate}
           mode="time"
           is24Hour={true}
           display="spinner"
-          textColor="#1A1A2E"
+          textColor={COLORS.foreground}
           onChange={(e, d) => { if (d) setLogDate(d); }}
           style={{ height: 150 }}
         />
-        <TouchableOpacity onPress={() => setShowDatePicker(false)} style={{ alignSelf: 'center', backgroundColor: bgColorHex, paddingHorizontal: 20, paddingVertical: 8, borderRadius: 12, marginTop: 4 }}>
-          <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 14, color: colorHex }}>Готово</Text>
-        </TouchableOpacity>
-      </View>
+        <Surface onPress={() => setShowDatePicker(false)} tone="transparent" radius="sm" px={20} py={8} bg={bgColorHex} style={{ alignSelf: 'center', marginTop: 4 }}>
+          <Typography variant="tiny" weight="extraBold" color={colorHex}>Готово</Typography>
+        </Surface>
+      </Wrapper>
     );
   };
 
-  // ── Sheet content (shared between iOS and Android wrappers) ──
+  // ── Sheet content ──
   const renderSheetContent = () => (
     <>
       {activeSheet === 'feeding' && (
-        <View>
-          <View style={styles.sheetHeader}>
-            <View style={[styles.sheetIcon, { backgroundColor: '#EDE4F8' }]}>
+        <Wrapper>
+          <Wrapper dir="row" align="center" gap={14} mb={24}>
+            <View style={[sheetIconStyle, { backgroundColor: '#EDE4F8' }]}>
               <Milk size={22} color="#8B6FD4" strokeWidth={1.5} />
             </View>
-            <Text style={styles.sheetTitle}>Новое кормление</Text>
-          </View>
-          <View style={styles.typeTabs}>
-            {([
-              { id: 'breast' as const, label: 'Грудное' },
-              { id: 'formula' as const, label: 'Смесь' },
-              { id: 'solid' as const, label: 'Прикорм' },
-            ]).map(t => (
-              <TouchableOpacity key={t.id} style={[styles.typeTab, feedingType === t.id && styles.typeTabActive]} onPress={() => setFeedingType(t.id)}>
-                <Text style={[styles.typeTabText, feedingType === t.id && { color: '#4E8FD4' }]}>{t.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Время</Text>
-            <TouchableOpacity style={styles.input} onPress={() => setShowDatePicker(true)}>
-              <Text style={{ fontSize: 16, fontWeight: '700', color: '#1A1A2E', fontFamily: 'Nunito_700Bold' }}>{formatDate(logDate)}</Text>
-            </TouchableOpacity>
+            <Typography variant="h2" weight="black">Новое кормление</Typography>
+          </Wrapper>
+
+          <Wrapper mb={20}>
+            <SegmentedControl
+              items={FEEDING_TABS}
+              selected={feedingType}
+              onChange={(k) => setFeedingType(k as any)}
+            />
+          </Wrapper>
+
+          <Wrapper mb={20}>
+            <Typography variant="caption" weight="extraBold" color="textMuted" uppercase letterSpacing={0.8} mb={8}>Время</Typography>
+            <Surface onPress={() => setShowDatePicker(true)} tone="transparent" radius="xl" p={16} bg="#F1F5F9" style={{ borderWidth: 1, borderColor: '#E2E8F0' }}>
+              <Typography variant="body" weight="bold">{formatDate(logDate)}</Typography>
+            </Surface>
             {renderInlineIOSPicker('#2563EB', '#EFF6FF')}
-          </View>
+          </Wrapper>
+
           {feedingType === 'breast' && (
-            <View style={{ flexDirection: 'row', gap: 12, marginBottom: 20 }}>
+            <Wrapper dir="row" gap={12} mb={20}>
               {[
                 { side: 'Л', label: 'Левая грудь', seconds: secondsL, running: feedingConfig.leftRunning, toggle: toggleLeftBreastTimer },
                 { side: 'П', label: 'Правая грудь', seconds: secondsR, running: feedingConfig.rightRunning, toggle: toggleRightBreastTimer }
               ].map(({ side, label, seconds, running, toggle }) => (
-                <View key={side} style={{ flex: 1, padding: 16, backgroundColor: 'white', borderRadius: 16, borderWidth: 1, borderColor: running ? '#5B9BD5' : '#E0DDD8', alignItems: 'center' }}>
-                  <Text style={[styles.fieldLabel, { color: '#5B9BD5', marginBottom: 8 }]}>{label}</Text>
-                  <Text style={{ fontSize: 32, fontWeight: '900', color: running ? '#5B9BD5' : '#1A1A2E', marginBottom: 16, fontFamily: 'Nunito_900Black' }}>{fmt(seconds)}</Text>
-                  <TouchableOpacity style={{ width: '100%', paddingVertical: 10, borderRadius: 12, backgroundColor: running ? '#E05A5A' : '#E8DEFF', alignItems: 'center' }} onPress={toggle}>
-                    <Text style={{ color: running ? 'white' : '#1A1A2E', fontSize: 14, fontWeight: '800', fontFamily: 'Nunito_800ExtraBold' }}>{running ? 'Стоп' : 'Старт'}</Text>
-                  </TouchableOpacity>
-                </View>
+                <Surface key={side} variant="outlined" radius="md" p={16} flex={1} align="center" style={{ borderColor: running ? '#5B9BD5' : '#E0DDD8' }}>
+                  <Typography variant="caption" weight="extraBold" color="#5B9BD5" uppercase mb={8}>{label}</Typography>
+                  <Typography variant="h1" weight="black" color={running ? '#5B9BD5' : COLORS.foreground} mb={16} style={{ fontSize: 32 }}>
+                    {fmt(seconds)}
+                  </Typography>
+                  <Surface onPress={toggle} tone="transparent" radius="sm" py={10} bg={running ? '#E05A5A' : '#E8DEFF'} style={{ width: '100%', alignItems: 'center' }}>
+                    <Typography variant="tiny" weight="extraBold" color={running ? 'white' : COLORS.foreground}>
+                      {running ? 'Стоп' : 'Старт'}
+                    </Typography>
+                  </Surface>
+                </Surface>
               ))}
-            </View>
+            </Wrapper>
           )}
+
           {feedingType === 'formula' && (
-            <>
-              <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Бренд смеси</Text>
-                <TextInput style={styles.input} value={formulaBrand} onChangeText={setFormulaBrand} placeholder="Nan Optipro..." placeholderTextColor="#94A3B8" />
-              </View>
-              <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Объём (мл)</Text>
-                <TextInput style={styles.input} value={formulaVolume} onChangeText={setFormulaVolume} keyboardType="number-pad" placeholder="120" placeholderTextColor="#94A3B8" />
-              </View>
-            </>
+            <Wrapper>
+              <Wrapper mb={20}>
+                <FormField label="Бренд смеси" value={formulaBrand} onChangeText={setFormulaBrand} placeholder="Nan Optipro..." />
+              </Wrapper>
+              <Wrapper mb={20}>
+                <FormField label="Объём (мл)" value={formulaVolume} onChangeText={setFormulaVolume} keyboardType="number-pad" placeholder="120" />
+              </Wrapper>
+            </Wrapper>
           )}
+
           {feedingType === 'solid' && (
-            <>
-              <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Продукт</Text>
-                <TextInput style={styles.input} value={solidProduct} onChangeText={setSolidProduct} placeholder="Каша овсяная" placeholderTextColor="#94A3B8" />
-              </View>
-              <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Количество (г)</Text>
-                <TextInput style={styles.input} value={solidVolume} onChangeText={setSolidVolume} keyboardType="number-pad" placeholder="80" placeholderTextColor="#94A3B8" />
-              </View>
-            </>
+            <Wrapper>
+              <Wrapper mb={20}>
+                <FormField label="Продукт" value={solidProduct} onChangeText={setSolidProduct} placeholder="Каша овсяная" />
+              </Wrapper>
+              <Wrapper mb={20}>
+                <FormField label="Количество (г)" value={solidVolume} onChangeText={setSolidVolume} keyboardType="number-pad" placeholder="80" />
+              </Wrapper>
+            </Wrapper>
           )}
-          <TouchableOpacity style={[styles.saveBtn, { backgroundColor: '#5B9BD5' }]} onPress={handleSaveFeeding}>
+
+          <TouchableOpacity style={[saveBtnStyle, { backgroundColor: '#5B9BD5' }]} onPress={handleSaveFeeding}>
             <Check size={20} color="white" strokeWidth={2.5} />
-            <Text style={styles.saveBtnText}>Сохранить</Text>
+            <Typography variant="body" weight="black" color="white">Сохранить</Typography>
           </TouchableOpacity>
-        </View>
+        </Wrapper>
       )}
 
       {activeSheet === 'diaper' && (
-        <View>
-          <View style={styles.sheetHeader}>
-            <View style={[styles.sheetIcon, { backgroundColor: '#D4F3EC' }]}>
+        <Wrapper>
+          <Wrapper dir="row" align="center" gap={14} mb={24}>
+            <View style={[sheetIconStyle, { backgroundColor: '#D4F3EC' }]}>
               <Droplets size={22} color="#3DBFAA" strokeWidth={1.5} />
             </View>
-            <Text style={styles.sheetTitle}>Подгузник</Text>
-          </View>
-          <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
+            <Typography variant="h2" weight="black">Подгузник</Typography>
+          </Wrapper>
+
+          <Wrapper dir="row" gap={10} mb={16}>
             {([
               { id: 'wet' as const, label: 'Мокрый', IconComp: Droplet, color: '#4E8FD4', bg: '#DEEAF8' },
               { id: 'both' as const, label: 'Смешан.', IconComp: CloudRain, color: '#8B6FD4', bg: '#EDE4F8' },
               { id: 'dirty' as const, label: 'Грязный', IconComp: Cloud, color: '#E69600', bg: '#FFF0CC' },
             ]).map(t => (
-              <TouchableOpacity key={t.id} style={[styles.diaperOption, { backgroundColor: diaperType === t.id ? t.bg : 'white', borderColor: diaperType === t.id ? t.color : '#E2E8F0' }]} onPress={() => setDiaperType(t.id)}>
-                <View style={[styles.diaperIcon, { backgroundColor: t.bg }]}>
+              <TouchableOpacity
+                key={t.id}
+                style={[diaperOptionStyle, {
+                  backgroundColor: diaperType === t.id ? t.bg : 'white',
+                  borderColor: diaperType === t.id ? t.color : '#E2E8F0',
+                }]}
+                onPress={() => setDiaperType(t.id)}
+              >
+                <IconCircle bg={t.bg} radius={22}>
                   <t.IconComp size={18} color={t.color} strokeWidth={1.5} />
-                </View>
-                <Text style={[styles.diaperLabel, { color: diaperType === t.id ? t.color : '#1A1A2E' }]}>{t.label}</Text>
+                </IconCircle>
+                <Typography variant="tiny" weight="extraBold" color={diaperType === t.id ? t.color : COLORS.foreground}>
+                  {t.label}
+                </Typography>
               </TouchableOpacity>
             ))}
-          </View>
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Время</Text>
-            <TouchableOpacity style={styles.input} onPress={() => setShowDatePicker(true)}>
-              <Text style={{ fontSize: 16, fontWeight: '700', color: '#1A1A2E', fontFamily: 'Nunito_700Bold' }}>{formatDate(logDate)}</Text>
-            </TouchableOpacity>
+          </Wrapper>
+
+          <Wrapper mb={20}>
+            <Typography variant="caption" weight="extraBold" color="textMuted" uppercase letterSpacing={0.8} mb={8}>Время</Typography>
+            <Surface onPress={() => setShowDatePicker(true)} tone="transparent" radius="xl" p={16} bg="#F1F5F9" style={{ borderWidth: 1, borderColor: '#E2E8F0' }}>
+              <Typography variant="body" weight="bold">{formatDate(logDate)}</Typography>
+            </Surface>
             {renderInlineIOSPicker('#059669', '#ECFDF5')}
-          </View>
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Цвет / консистенция</Text>
-            <TextInput style={styles.input} value={diaperColor} onChangeText={setDiaperColor} placeholder="Жёлтый – жидкий (норма)..." placeholderTextColor="#94A3B8" />
-          </View>
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Заметка</Text>
-            <TextInput style={[styles.input, { minHeight: 60, textAlignVertical: 'top' }]} value={diaperNote} onChangeText={setDiaperNote} placeholder="Раздражение кожи..." placeholderTextColor="#94A3B8" multiline />
-          </View>
-          <TouchableOpacity style={[styles.saveBtn, { backgroundColor: '#4DBFAA' }]} onPress={handleSaveDiaper}>
+          </Wrapper>
+
+          <Wrapper mb={20}>
+            <FormField label="Цвет / консистенция" value={diaperColor} onChangeText={setDiaperColor} placeholder="Жёлтый – жидкий (норма)..." />
+          </Wrapper>
+          <Wrapper mb={20}>
+            <FormField label="Заметка" value={diaperNote} onChangeText={setDiaperNote} placeholder="Раздражение кожи..." multiline />
+          </Wrapper>
+
+          <TouchableOpacity style={[saveBtnStyle, { backgroundColor: '#4DBFAA' }]} onPress={handleSaveDiaper}>
             <Check size={20} color="white" strokeWidth={2.5} />
-            <Text style={styles.saveBtnText}>Сохранить</Text>
+            <Typography variant="body" weight="black" color="white">Сохранить</Typography>
           </TouchableOpacity>
-        </View>
+        </Wrapper>
       )}
 
       {activeSheet === 'sleep' && (
-        <View>
-          <View style={styles.sheetHeader}>
-            <View style={[styles.sheetIcon, { backgroundColor: '#DEEAF8' }]}>
+        <Wrapper>
+          <Wrapper dir="row" align="center" gap={14} mb={24}>
+            <View style={[sheetIconStyle, { backgroundColor: '#DEEAF8' }]}>
               <Moon size={22} color="#4E8FD4" strokeWidth={1.5} />
             </View>
-            <Text style={styles.sheetTitle}>Новый сон</Text>
-          </View>
+            <Typography variant="h2" weight="black">Новый сон</Typography>
+          </Wrapper>
+
           {!showManualSleep ? (
             <>
-              <View style={{ alignItems: 'center', marginBottom: 20 }}>
-                <Text style={[styles.sleepBigNum, { fontSize: 64, color: '#8B6FD4' }]}>{fmt(sleepSeconds)}</Text>
-                <Text style={{ fontSize: 14, color: '#6B6B80', marginTop: 4 }}>{sleepTimerRunning ? 'Сон идёт...' : 'Готов к запуску'}</Text>
-              </View>
+              <Wrapper align="center" mb={20}>
+                <Typography variant="h1" weight="black" color="#8B6FD4" style={{ fontSize: 64 }}>{fmt(sleepSeconds)}</Typography>
+                <Typography variant="tiny" weight="semiBold" color="textMuted" mt={4}>
+                  {sleepTimerRunning ? 'Сон идёт...' : 'Готов к запуску'}
+                </Typography>
+              </Wrapper>
               <TouchableOpacity
-                style={[styles.saveBtn, { backgroundColor: sleepTimerRunning ? '#D94F4F' : '#8B6FD4' }]}
+                style={[saveBtnStyle, { backgroundColor: sleepTimerRunning ? '#D94F4F' : '#8B6FD4' }]}
                 onPress={() => { if (sleepTimerRunning) { setSleepTimerRunning(false); handleSaveSleep(); } else { setSleepSeconds(0); setSleepTimerRunning(true); } }}
               >
                 {sleepTimerRunning ? <Square size={20} color="white" strokeWidth={2.5} /> : <Play size={20} color="white" strokeWidth={2.5} />}
-                <Text style={styles.saveBtnText}>{sleepTimerRunning ? 'Остановить и сохранить' : 'Начать сон'}</Text>
+                <Typography variant="body" weight="black" color="white">
+                  {sleepTimerRunning ? 'Остановить и сохранить' : 'Начать сон'}
+                </Typography>
               </TouchableOpacity>
               {!sleepTimerRunning && (
-                <TouchableOpacity style={[styles.saveBtn, { backgroundColor: '#FFFFFF', borderColor: '#E2E8F0', marginTop: 12 }]} onPress={() => setShowManualSleep(true)}>
-                  <Text style={[styles.saveBtnText, { color: '#64748B' }]}>Ввести время вручную</Text>
+                <TouchableOpacity
+                  style={[saveBtnStyle, { backgroundColor: '#FFFFFF', borderColor: '#E2E8F0', marginTop: 12 }]}
+                  onPress={() => setShowManualSleep(true)}
+                >
+                  <Typography variant="body" weight="black" color="textMuted">Ввести время вручную</Typography>
                 </TouchableOpacity>
               )}
             </>
           ) : (
             <>
-              <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Время начала</Text>
-                <TouchableOpacity style={styles.input} onPress={() => setShowDatePicker(true)}>
-                  <Text style={{ fontSize: 16, fontWeight: '700', color: '#1A1A2E', fontFamily: 'Nunito_700Bold' }}>{formatDate(logDate)}</Text>
-                </TouchableOpacity>
+              <Wrapper mb={20}>
+                <Typography variant="caption" weight="extraBold" color="textMuted" uppercase letterSpacing={0.8} mb={8}>Время начала</Typography>
+                <Surface onPress={() => setShowDatePicker(true)} tone="transparent" radius="xl" p={16} bg="#F1F5F9" style={{ borderWidth: 1, borderColor: '#E2E8F0' }}>
+                  <Typography variant="body" weight="bold">{formatDate(logDate)}</Typography>
+                </Surface>
                 {renderInlineIOSPicker('#8B5CF6', '#F3E8FF')}
-              </View>
-              <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Длительность (мин)</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 16, marginBottom: 16 }}>
-                  <TouchableOpacity style={styles.stepperBtn} onPress={() => setSleepMinutes(String(Math.max(5, (parseInt(sleepMinutes) || 60) - 5)))}>
-                    <Text style={styles.stepperText}>−</Text>
+              </Wrapper>
+              <Wrapper mb={20}>
+                <Typography variant="caption" weight="extraBold" color="textMuted" uppercase letterSpacing={0.8} mb={8}>Длительность (мин)</Typography>
+                <Wrapper dir="row" align="center" justify="center" gap={16} mb={16}>
+                  <TouchableOpacity style={stepperBtnStyle} onPress={() => setSleepMinutes(String(Math.max(5, (parseInt(sleepMinutes) || 60) - 5)))}>
+                    <Typography variant="h2" weight="black" color="#2563EB">−</Typography>
                   </TouchableOpacity>
-                  <Text style={styles.sleepBigNum}>{sleepMinutes}</Text>
-                  <TouchableOpacity style={styles.stepperBtn} onPress={() => setSleepMinutes(String((parseInt(sleepMinutes) || 60) + 5))}>
-                    <Text style={styles.stepperText}>+</Text>
+                  <Typography variant="h1" weight="black" style={{ fontSize: 56 }}>{sleepMinutes}</Typography>
+                  <TouchableOpacity style={stepperBtnStyle} onPress={() => setSleepMinutes(String((parseInt(sleepMinutes) || 60) + 5))}>
+                    <Typography variant="h2" weight="black" color="#2563EB">+</Typography>
                   </TouchableOpacity>
-                </View>
-                <Text style={{ textAlign: 'center', fontSize: 12, color: '#6B6B80', marginBottom: 12 }}>
+                </Wrapper>
+                <Typography variant="tiny" weight="semiBold" color="textMuted" align="center" mb={12}>
                   {parseInt(sleepMinutes) || 0} минут = {Math.floor((parseInt(sleepMinutes) || 0) / 60)}ч {(parseInt(sleepMinutes) || 0) % 60}м
-                </Text>
-              </View>
-              <TouchableOpacity style={[styles.saveBtn, { backgroundColor: '#8B6FD4' }]} onPress={handleSaveSleep}>
+                </Typography>
+              </Wrapper>
+              <TouchableOpacity style={[saveBtnStyle, { backgroundColor: '#8B6FD4' }]} onPress={handleSaveSleep}>
                 <Check size={20} color="white" strokeWidth={2.5} />
-                <Text style={styles.saveBtnText}>Сохранить</Text>
+                <Typography variant="body" weight="black" color="white">Сохранить</Typography>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.saveBtn, { backgroundColor: '#FFFFFF', borderColor: '#E2E8F0', marginTop: 12 }]} onPress={() => setShowManualSleep(false)}>
-                <Text style={[styles.saveBtnText, { color: '#64748B' }]}>Назад к таймеру</Text>
+              <TouchableOpacity
+                style={[saveBtnStyle, { backgroundColor: '#FFFFFF', borderColor: '#E2E8F0', marginTop: 12 }]}
+                onPress={() => setShowManualSleep(false)}
+              >
+                <Typography variant="body" weight="black" color="textMuted">Назад к таймеру</Typography>
               </TouchableOpacity>
             </>
           )}
-        </View>
+        </Wrapper>
       )}
     </>
   );
 
-  // ── Sheet shell (handle + close + scrollview) ──
+  // ── Sheet shell ──
   const renderSheetShell = () => (
-    <TouchableOpacity style={styles.sheetOverlay} activeOpacity={1} onPress={closeSheet}>
-      <View style={styles.sheet} onStartShouldSetResponder={() => true}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-          <View style={styles.handle} />
-          <TouchableOpacity onPress={closeSheet} style={{ position: 'absolute', right: 0, top: 0, width: 36, height: 36, borderRadius: 18, backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center' }}>
+    <TouchableOpacity style={sheetOverlayStyle} activeOpacity={1} onPress={closeSheet}>
+      <View style={sheetStyle} onStartShouldSetResponder={() => true}>
+        <Wrapper dir="row" align="center" justify="center" position="relative">
+          <View style={handleStyle} />
+          <Surface
+            onPress={closeSheet}
+            tone="transparent"
+            radius="xl"
+            width={36}
+            height={36}
+            align="center"
+            justify="center"
+            bg="#F1F5F9"
+            style={{ position: 'absolute', right: 0, top: 0 }}
+          >
             <X size={18} color="#64748B" strokeWidth={2} />
-          </TouchableOpacity>
-        </View>
-        <ScrollView showsVerticalScrollIndicator={false} bounces={false} style={Platform.OS === 'ios' ? { maxHeight: 520 } : undefined} keyboardShouldPersistTaps="handled">
+          </Surface>
+        </Wrapper>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+          style={Platform.OS === 'ios' ? { maxHeight: 520 } : undefined}
+          keyboardShouldPersistTaps="handled"
+        >
           {renderSheetContent()}
         </ScrollView>
       </View>
@@ -527,7 +640,7 @@ const FAB = () => {
     <>
       {/* Expanded items */}
       {expanded && (
-        <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={toggleExpand}>
+        <TouchableOpacity style={backdropStyle} activeOpacity={1} onPress={toggleExpand}>
           {fabItems.map((item, i) => {
             const getOffsets = (index: number) => {
               if (index === 0) return { tx: -65, ty: -160 };
@@ -541,10 +654,17 @@ const FAB = () => {
             const opacity = scaleAnim.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0, 0, 1] });
 
             return (
-              <Animated.View key={item.type} style={[styles.fabItem, { bottom: fabBottom, transform: [{ translateX }, { translateY }, { scale: scaleAnim }], opacity }]}>
-                <TouchableOpacity testID={`fab-item-${item.type}`} style={[styles.fabItemBtn, { backgroundColor: item.bg, borderColor: item.color + '40' }]} onPress={() => openSheet(item.type)} activeOpacity={0.8}>
+              <Animated.View key={item.type} style={[{ position: 'absolute', bottom: fabBottom, right: 16, zIndex: 51 }, { transform: [{ translateX }, { translateY }, { scale: scaleAnim }], opacity }]}>
+                <TouchableOpacity
+                  testID={`fab-item-${item.type}`}
+                  style={[fabItemBtnStyle, { backgroundColor: item.bg, borderColor: item.color + '40' }]}
+                  onPress={() => openSheet(item.type)}
+                  activeOpacity={0.8}
+                >
                   <item.icon size={24} color={item.color} strokeWidth={1.5} />
-                  <Text style={[styles.fabItemLabel, { color: item.color }]}>{item.label}</Text>
+                  <Typography variant="caption" weight="black" color={item.color} style={{ fontSize: 9.5, marginTop: 2, letterSpacing: -0.2 }}>
+                    {item.label}
+                  </Typography>
                 </TouchableOpacity>
               </Animated.View>
             );
@@ -553,7 +673,12 @@ const FAB = () => {
       )}
 
       {/* Main FAB button */}
-      <TouchableOpacity testID="fab-main-button" style={[styles.fab, { bottom: fabBottom }, expanded && styles.fabActive]} onPress={toggleExpand} activeOpacity={0.9}>
+      <TouchableOpacity
+        testID="fab-main-button"
+        style={[fabStyle, { bottom: fabBottom }, expanded && fabActiveStyle]}
+        onPress={toggleExpand}
+        activeOpacity={0.9}
+      >
         <Animated.View style={{ transform: [{ rotate: scaleAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '45deg'] }) }] }}>
           <Plus size={32} color="white" strokeWidth={2.5} />
         </Animated.View>
@@ -586,37 +711,5 @@ const FAB = () => {
     </>
   );
 };
-
-const styles = StyleSheet.create({
-  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(250,251,252,0.85)', zIndex: 50 },
-  fabItem: { position: 'absolute', bottom: 0, right: 16, zIndex: 51 },
-  fabItemBtn: { flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: 66, height: 66, borderRadius: 33, borderWidth: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.15, shadowRadius: 16, elevation: 6 },
-  fabItemLabel: { fontSize: 9.5, fontWeight: '900', fontFamily: 'Nunito_900Black', marginTop: 2, letterSpacing: -0.2 },
-  fab: { position: 'absolute', right: 16, width: 64, height: 64, borderRadius: 32, backgroundColor: '#3DBFAA', borderWidth: 4, borderColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', zIndex: 52, shadowColor: 'rgba(61,191,170,0.45)', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.4, shadowRadius: 20, elevation: 10 },
-  fabActive: { backgroundColor: '#2DA08E', borderColor: '#FFFFFF' },
-  aiFab: { position: 'absolute', right: 16, height: 50, paddingHorizontal: 18, borderRadius: 25, borderWidth: 3, borderColor: '#E2E8F0', backgroundColor: '#FFFFFF', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, zIndex: 50, shadowColor: '#6366F1', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.25, shadowRadius: 16, elevation: 8, overflow: 'hidden' },
-  aiFabText: { color: 'white', fontSize: 14, fontFamily: 'Nunito_900Black', marginLeft: 2 },
-  sheetOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(30,27,75,0.4)' },
-  sheet: { backgroundColor: '#FFFFFF', borderTopLeftRadius: 40, borderTopRightRadius: 40, padding: 24, paddingBottom: Platform.OS === 'ios' ? 40 : 24, borderWidth: 2, borderColor: '#E2E8F0', borderBottomWidth: 0 },
-  handle: { width: 48, height: 6, borderRadius: 4, backgroundColor: '#CBD5E1', alignSelf: 'center', marginBottom: 24 },
-  sheetHeader: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 24 },
-  sheetIcon: { width: 52, height: 52, borderRadius: 20, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'rgba(255,255,255,0.5)' },
-  sheetTitle: { fontSize: 24, fontWeight: '900', color: '#0F172A', fontFamily: 'Nunito_900Black' },
-  typeTabs: { flexDirection: 'row', backgroundColor: '#F1F5F9', borderRadius: 20, padding: 6, marginBottom: 20, borderWidth: 1, borderColor: '#E2E8F0' },
-  typeTab: { flex: 1, paddingVertical: 12, borderRadius: 16, alignItems: 'center' },
-  typeTabActive: { backgroundColor: '#FFFFFF', shadowColor: '#2563EB', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 4, borderWidth: 1, borderColor: '#E2E8F0' },
-  typeTabText: { fontSize: 13, fontWeight: '800', color: '#64748B', fontFamily: 'Nunito_800ExtraBold' },
-  fieldGroup: { marginBottom: 20 },
-  fieldLabel: { fontSize: 11, fontWeight: '800', color: '#64748B', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 8, fontFamily: 'Nunito_800ExtraBold' },
-  input: { backgroundColor: '#F1F5F9', borderRadius: 20, borderWidth: 1, borderColor: '#E2E8F0', paddingHorizontal: 16, paddingVertical: 16, fontSize: 16, fontWeight: '700', color: '#0F172A', fontFamily: 'Nunito_700Bold' },
-  saveBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 18, borderRadius: 24, borderWidth: 2, borderColor: 'rgba(255,255,255,0.3)', shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.15, shadowRadius: 16, elevation: 6 },
-  saveBtnText: { color: 'white', fontSize: 16, fontWeight: '900', fontFamily: 'Nunito_900Black' },
-  diaperOption: { flex: 1, alignItems: 'center', gap: 8, padding: 14, borderRadius: 20, borderWidth: 3 },
-  diaperIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
-  diaperLabel: { fontSize: 12, fontWeight: '800', fontFamily: 'Nunito_800ExtraBold' },
-  stepperBtn: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#DBEAFE', borderWidth: 1, borderColor: '#BFDBFE', alignItems: 'center', justifyContent: 'center', shadowColor: '#2563EB', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 2 },
-  stepperText: { fontSize: 26, fontWeight: '900', color: '#2563EB', fontFamily: 'Nunito_900Black' },
-  sleepBigNum: { fontSize: 56, fontWeight: '900', color: '#0F172A', textAlign: 'center', fontFamily: 'Nunito_900Black' },
-});
 
 export default FAB;

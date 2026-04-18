@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Platform, Alert, KeyboardAvoidingView } from 'react-native';
+import { ScrollView, TouchableOpacity, Platform, Alert, KeyboardAvoidingView } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -14,12 +13,37 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import EditRecordModal from '../components/EditRecordModal';
 import { useTimerStore } from '../store/timerStore';
 import { startSleepTimerNotification, cancelSleepTimerNotification } from '../lib/timerNotifications';
+import { formatWakeWindow, type SleepLike } from '../lib/wakeWindowEngine';
+import {
+  getLocalPrediction,
+  fetchServerPrediction,
+  invalidatePredictionCache,
+  formatConfidence,
+  formatLevel,
+  type MLPrediction,
+} from '../lib/sleepPredictor';
+
+import { Wrapper } from '../components/ui/Wrapper';
+import { Surface } from '../components/ui/Surface';
+import { Typography } from '../components/ui/Typography';
+import { ScreenHeader } from '../components/ScreenHeader';
+import { DateSelector } from '../components/DateSelector';
+import { SegmentedControl } from '../components/SegmentedControl';
+import { IconCircle } from '../components/IconCircle';
+import { StatusBadge } from '../components/StatusBadge';
+import { EmptyState } from '../components/EmptyState';
+import { COLORS, RADIUS, SHADOWS } from '../lib/theme';
 
 const LOCATIONS = [
-  { id: 'crib', label: 'Кроватка', icon: 'bed', color: '#8B5CF6' },
-  { id: 'stroller', label: 'Коляска', icon: 'walk', color: '#059669' },
-  { id: 'arms', label: 'На руках', icon: 'heart', color: '#F97316' },
-  { id: 'car', label: 'Авто', icon: 'car', color: '#2563EB' },
+  { id: 'crib', label: 'Кроватка', icon: 'bed' as const, color: '#8B5CF6' },
+  { id: 'stroller', label: 'Коляска', icon: 'walk' as const, color: '#059669' },
+  { id: 'arms', label: 'На руках', icon: 'heart' as const, color: '#F97316' },
+  { id: 'car', label: 'Авто', icon: 'car' as const, color: '#2563EB' },
+];
+
+const MODE_ITEMS = [
+  { key: 'timer', label: 'Таймер', icon: <Ionicons name="time" size={16} /> },
+  { key: 'manual', label: 'Вручную', icon: <Ionicons name="calendar" size={16} /> },
 ];
 
 function SleepScreenContent({ sleeps }: { sleeps: Sleep[] }) {
@@ -89,6 +113,8 @@ function SleepScreenContent({ sleeps }: { sleeps: Sleep[] }) {
     cancelSleepTimerNotification();
     clearSleepTimer();
     setSeconds(0);
+    invalidatePredictionCache();
+    setMlPrediction(getLocalPrediction(ageMo, sortedSleeps as unknown as SleepLike[]));
   };
 
   const handleManualSave = async () => {
@@ -111,6 +137,8 @@ function SleepScreenContent({ sleeps }: { sleeps: Sleep[] }) {
       setQuality(0);
       setManualStart(new Date());
       setManualEnd(new Date());
+      invalidatePredictionCache();
+      setMlPrediction(getLocalPrediction(ageMo, sortedSleeps as unknown as SleepLike[]));
     } catch (error) {
       Alert.alert("Ошибка", "Не удалось сохранить сон.");
     }
@@ -164,7 +192,6 @@ function SleepScreenContent({ sleeps }: { sleeps: Sleep[] }) {
     return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
   };
 
-  // Stats Logic
   const todaysSleeps = sleeps.filter(s => {
     const d = new Date(s.created_at);
     return d.getDate() === selectedDate.getDate() && 
@@ -175,292 +202,309 @@ function SleepScreenContent({ sleeps }: { sleeps: Sleep[] }) {
   const totalSecs = todaysSleeps.reduce((a, s) => a + s.duration_seconds, 0);
   const maxSecs = todaysSleeps.reduce((max, s) => Math.max(max, s.duration_seconds), 0);
 
-  // AI Logic
-  let wakeWindowH = 1; let wakeWindowM = 30;
-  if (babyBirthdate) {
-    const ageMo = (Date.now() - new Date(babyBirthdate).getTime()) / (1000 * 3600 * 24 * 30.44);
-    if (ageMo < 1) { wakeWindowH = 1; wakeWindowM = 0; }
-    else if (ageMo < 3) { wakeWindowH = 1; wakeWindowM = 30; }
-    else if (ageMo < 6) { wakeWindowH = 2; wakeWindowM = 0; }
-    else if (ageMo < 9) { wakeWindowH = 2; wakeWindowM = 30; }
-    else if (ageMo < 12) { wakeWindowH = 3; wakeWindowM = 0; }
-    else { wakeWindowH = 4; wakeWindowM = 0; }
-  }
-
-  let nextSleepMsg = "—";
-  let showAIPrediction = false;
-
   const sortedSleeps = [...sleeps].sort((a,b) => b.created_at - a.created_at);
+  const ageMo = babyBirthdate
+    ? (Date.now() - new Date(babyBirthdate).getTime()) / (1000 * 3600 * 24 * 30.44)
+    : 4;
 
-  if (sortedSleeps.length >= 3 && selectedDate.toDateString() === new Date().toDateString()) {
-    showAIPrediction = true;
-    const recentSleeps = sortedSleeps.slice(0, 10);
-    const wakeIntervals = [];
+  const localPred = React.useMemo(
+    () => getLocalPrediction(ageMo, sortedSleeps as unknown as SleepLike[]),
+    [ageMo, sortedSleeps.length]
+  );
 
-    for (let i = 0; i < recentSleeps.length - 1; i++) {
-        const currentSleep = recentSleeps[i];
-        const prevSleep = recentSleeps[i + 1];
+  const [mlPrediction, setMlPrediction] = React.useState<MLPrediction>(localPred);
 
-        const currentStartMs = safeTime(currentSleep.start_time) || safeTime(currentSleep.created_at);
-        const prevEndMs = safeTime(prevSleep.end_time) || (safeTime(prevSleep.created_at) + (prevSleep.duration_seconds || 0) * 1000);
+  React.useEffect(() => {
+    setMlPrediction(prev => prev.source === 'server' ? prev : localPred);
+  }, [localPred]);
 
-        const intervalMs = currentStartMs - prevEndMs;
-        if (intervalMs > 0 && intervalMs < 8 * 3600000) {
-            wakeIntervals.push(intervalMs);
-        }
-    }
+  React.useEffect(() => {
+    if (sortedSleeps.length < 3) return;
+    if (selectedDate.toDateString() !== new Date().toDateString()) return;
 
-    let avgWakeMs = (wakeWindowH * 3600000) + (wakeWindowM * 60000);
-    if (wakeIntervals.length > 0) {
-        avgWakeMs = wakeIntervals.reduce((a, b) => a + b, 0) / wakeIntervals.length;
-    }
+    let cancelled = false;
+    (async () => {
+      const serverPred = await fetchServerPrediction(ageMo, babyBirthdate);
+      if (serverPred && !cancelled) {
+        setMlPrediction(serverPred);
+      }
+    })();
 
-    const lastSleepItem = sortedSleeps[0];
-    const endMs = safeTime(lastSleepItem.end_time) || (safeTime(lastSleepItem.created_at) + (lastSleepItem.duration_seconds || 0) * 1000);
+    return () => { cancelled = true; };
+  }, [ageMo, sortedSleeps.length]);
 
-    const timeSinceWakeMs = Date.now() - endMs;
-    const diffMs = avgWakeMs - timeSinceWakeMs;
+  const showAIPrediction = sortedSleeps.length >= 1 && selectedDate.toDateString() === new Date().toDateString();
+  const nextSleepMsg = mlPrediction.message;
+  const wakeWindowMin = mlPrediction.wakeWindowMin;
+  const wakeWindowLabel = `${Math.floor(wakeWindowMin / 60) > 0 ? `${Math.floor(wakeWindowMin / 60)}ч ` : ''}${wakeWindowMin % 60}м`;
+  const confidenceLabel = formatConfidence(mlPrediction.confidence);
+  const levelLabel = formatLevel(mlPrediction.level);
 
-    if (diffMs < 0) {
-        const overMs = Math.abs(diffMs);
-        const oh = Math.floor(overMs / 3600000);
-        const om = Math.floor((overMs % 3600000) / 60000);
-        nextSleepMsg = `Пора спать (прошло лишних ${oh > 0 ? `${oh}ч ` : ""}${om}м)`;
-    } else {
-        const dh = Math.floor(diffMs / 3600000);
-        const dm = Math.floor((diffMs % 3600000) / 60000);
-        nextSleepMsg = `Примерно через ${dh > 0 ? `${dh}ч ` : ""}${dm}м`;
-    }
-  }
-
-  const changeDate = (days: number) => {
-    const d = new Date(selectedDate);
-    d.setDate(d.getDate() + days);
-    setSelectedDate(d);
-  };
+  const isL2 = mlPrediction.level === 'L2';
+  const predColor = isL2 ? '#7C3AED' : '#E69600';
+  const predBg = isL2 ? '#EDE9FE' : '#FDF7E7';
+  const predBorder = isL2 ? '#C4B5FD' : '#F0DDB3';
+  const predLabel = isL2 ? 'ML-ПРОГНОЗ' : mlPrediction.source === 'local' && mlPrediction.level === 'L1' ? 'ПЕРСОНАЛЬНЫЙ ПРОГНОЗ' : 'СМАРТ-ПОДСКАЗКА';
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#FAFBFC' }}>
+    <Wrapper flex={1} bg="#FAFBFC">
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
-        <View style={{ paddingTop: Math.max(insets.top, 16), paddingHorizontal: 16, paddingBottom: 16, backgroundColor: '#FAFBFC', flexDirection: 'row', alignItems: 'center' }}>
-           <TouchableOpacity onPress={() => navigation.goBack()} style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'white', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2, marginRight: 16, borderWidth: 1, borderColor: '#E2E8F0' }}>
-               <Ionicons name="arrow-back" size={24} color="#1A1A2E" />
-           </TouchableOpacity>
-           <View>
-               <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 24, color: '#1A1A2E' }}>Сон</Text>
-           </View>
-        </View>
+        <ScreenHeader title="Сон" />
 
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: Math.max(insets.bottom, 40) }}>
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: Math.max(insets.bottom, 40) }} showsVerticalScrollIndicator={false}>
         
         {/* Date Selector */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'white', borderRadius: 20, padding: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 16, elevation: 2, marginBottom: 20 }}>
-          <TouchableOpacity onPress={() => changeDate(-1)} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#F4F4F8', alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name="chevron-back" size={20} color="#8A8A9E" />
-          </TouchableOpacity>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Ionicons name="calendar" size={18} color="#8B5CF6" style={{ marginRight: 8 }} />
-            <Text style={{ fontSize: 15, fontFamily: 'Nunito_800ExtraBold', color: '#1A1A2E' }}>
-              {selectedDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
-            </Text>
-          </View>
-          <TouchableOpacity onPress={() => changeDate(1)} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#F4F4F8', alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name="chevron-forward" size={20} color="#8A8A9E" />
-          </TouchableOpacity>
-        </View>
+        <Wrapper mb={20}>
+          <DateSelector value={selectedDate} onChange={setSelectedDate} tone="sleep" />
+        </Wrapper>
 
-          <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 15, color: '#8A8A9E', marginBottom: 16 }}>Сон и режим</Text>
+        <Typography variant="tiny" weight="bold" color="#8A8A9E" mb={16}>Сон и режим</Typography>
 
         {/* AI Prediction */}
         {showAIPrediction && (
-          <View style={{ backgroundColor: '#FDF7E7', borderRadius: 24, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: '#F0DDB3', flexDirection: 'row', alignItems: 'center' }}>
-            <View style={{ width: 48, height: 48, borderRadius: 16, backgroundColor: 'white', alignItems: 'center', justifyContent: 'center', marginRight: 16 }}>
-              <Ionicons name="sparkles" size={24} color="#E69600" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 11, fontFamily: 'Nunito_800ExtraBold', color: '#E69600', textTransform: 'uppercase', marginBottom: 4 }}>AI-Прогноз режима</Text>
-              <Text style={{ fontSize: 15, fontFamily: 'Nunito_900Black', color: '#1A1A2E' }}>Следующий сон: {nextSleepMsg}</Text>
-              <Text style={{ fontSize: 12, fontFamily: 'Nunito_800ExtraBold', color: '#8A8A9E', marginTop: 4 }}>Окно бодрствования ~{wakeWindowH > 0 ? `${wakeWindowH}ч ` : ""}{wakeWindowM > 0 ? `${wakeWindowM}м` : ""}</Text>
-            </View>
-          </View>
+          <Wrapper mb={20} p={20} style={{ backgroundColor: predBg, borderRadius: RADIUS.xxl, borderWidth: 1, borderColor: predBorder }}>
+            <Wrapper dir="row" align="center">
+              <Wrapper mr={16}>
+                <IconCircle bg="white">
+                  <Ionicons name={isL2 ? 'analytics' : 'bulb'} size={24} color={predColor} />
+                </IconCircle>
+              </Wrapper>
+              <Wrapper flex={1}>
+                <Wrapper dir="row" align="center" mb={4}>
+                  <Typography variant="tiny" weight="extraBold" color={predColor} uppercase>{predLabel}</Typography>
+                  {mlPrediction.level !== 'L0' && (
+                    <Wrapper ml={8}>
+                      <StatusBadge label={levelLabel} tone={isL2 ? 'purple' : 'warning'} />
+                    </Wrapper>
+                  )}
+                </Wrapper>
+                <Typography variant="body" weight="black">Следующий сон: {nextSleepMsg}</Typography>
+                <Wrapper mt={4}>
+                  <Typography variant="tiny" weight="extraBold" color="#8A8A9E">Окно бодрствования ~{wakeWindowLabel} · точность {confidenceLabel} ({Math.round(mlPrediction.confidence * 100)}%)</Typography>
+                </Wrapper>
+                {mlPrediction.modelInfo && isL2 && (
+                  <Wrapper mt={4}>
+                    <Typography variant="tiny" weight="bold" color="#A78BFA">
+                      {mlPrediction.modelInfo.algorithm} · R²={mlPrediction.modelInfo.r2?.toFixed(2)} · RMSE={mlPrediction.modelInfo.rmseMin?.toFixed(0)}мин · {mlPrediction.modelInfo.nSamples} обр.
+                    </Typography>
+                  </Wrapper>
+                )}
+              </Wrapper>
+            </Wrapper>
+          </Wrapper>
         )}
 
         {/* Input Card */}
-        <View style={{ backgroundColor: 'white', borderRadius: 24, padding: 20, shadowColor: '#8B5CF6', shadowOpacity: 0.08, shadowRadius: 20, elevation: 4, borderWidth: 1, borderColor: '#F0ECE8', marginBottom: 20 }}>
+        <Surface variant="elevated" radius="xxl" p={20} mb={20}>
           
+          {/* Active Timer Banner */}
           {isRunning && (
-            <View style={{ backgroundColor: '#8B6FD4', borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#4ADE80', borderWidth: 2, borderColor: 'white', marginRight: 10 }} />
-                <Text style={{ color: 'white', fontFamily: 'Nunito_800ExtraBold', fontSize: 14 }}>Сон идёт</Text>
-              </View>
-              <Text style={{ color: 'white', fontFamily: 'Nunito_900Black', fontSize: 18 }}>{fmt(seconds)}</Text>
-            </View>
+            <Wrapper mb={20} p={16} dir="row" align="center" justify="space-between" style={{ backgroundColor: '#8B6FD4', borderRadius: RADIUS.xl }}>
+              <Wrapper dir="row" align="center">
+                <Wrapper width={10} height={10} mr={10} style={{ borderRadius: 5, backgroundColor: '#4ADE80', borderWidth: 2, borderColor: 'white' }} />
+                <Typography variant="body" weight="extraBold" color="white">Сон идёт</Typography>
+              </Wrapper>
+              <Typography variant="h3" weight="black" color="white">{fmt(seconds)}</Typography>
+            </Wrapper>
           )}
 
-          <View style={{ flexDirection: 'row', backgroundColor: '#F4F4F8', borderRadius: 16, padding: 4, marginBottom: 24 }}>
-            <TouchableOpacity onPress={() => setMode('timer')} style={{ flex: 1, paddingVertical: 10, borderRadius: 12, backgroundColor: mode === 'timer' ? 'white' : 'transparent', alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}>
-              <Ionicons name="time" size={16} color={mode === 'timer' ? '#8B6FD4' : '#8A8A9E'} />
-              <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 13, color: mode === 'timer' ? '#8B6FD4' : '#8A8A9E', marginLeft: 8 }}>Таймер</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setMode('manual')} style={{ flex: 1, paddingVertical: 10, borderRadius: 12, backgroundColor: mode === 'manual' ? 'white' : 'transparent', alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}>
-              <Ionicons name="calendar" size={16} color={mode === 'manual' ? '#8B6FD4' : '#8A8A9E'} />
-              <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 13, color: mode === 'manual' ? '#8B6FD4' : '#8A8A9E', marginLeft: 8 }}>Вручную</Text>
-            </TouchableOpacity>
-          </View>
+          {/* Mode Switch */}
+          <Wrapper mb={24}>
+            <SegmentedControl items={MODE_ITEMS} selected={mode} onChange={(k) => setMode(k as any)} tone="neutral" />
+          </Wrapper>
 
           {mode === 'timer' ? (
-            <View style={{ alignItems: 'center', marginBottom: 24 }}>
-              <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 11, color: '#8B6FD4', textTransform: 'uppercase', marginBottom: 8 }}>Таймер сна</Text>
-              <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 64, color: '#1A1A2E', letterSpacing: -2 }}>{fmt(seconds)}</Text>
-              <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 12, color: '#8A8A9E', marginTop: 12 }}>{isRunning ? "⏺ Запись активна..." : "Нажмите начать, когда малыш уснет"}</Text>
+            <Wrapper align="center" mb={24}>
+              <Typography variant="tiny" weight="extraBold" color="#8B6FD4" uppercase mb={8}>Таймер сна</Typography>
+              <Typography variant="h1" weight="black" size={64} letterSpacing={-2}>{fmt(seconds)}</Typography>
+              <Wrapper mt={12}>
+                <Typography variant="tiny" weight="bold" color="#8A8A9E">{isRunning ? "⏺ Запись активна..." : "Нажмите начать, когда малыш уснет"}</Typography>
+              </Wrapper>
               {!isRunning && (
-                <View style={{ marginTop: 16, alignItems: 'center', width: '100%' }}>
-                  <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 11, color: '#8A8A9E', textTransform: 'uppercase', marginBottom: 6 }}>Начать с времени:</Text>
-                  <TouchableOpacity onPress={() => setShowTimerStartPicker(true)} style={{ backgroundColor: '#F4F4F8', paddingVertical: 10, paddingHorizontal: 20, borderRadius: 12 }}>
-                    <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 16, color: '#1A1A2E' }}>{timerStartInput.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</Text>
+                <Wrapper mt={16} align="center" width="100%">
+                  <Typography variant="tiny" weight="extraBold" color="#8A8A9E" uppercase mb={6}>Начать с времени:</Typography>
+                  <TouchableOpacity onPress={() => setShowTimerStartPicker(true)} style={{ backgroundColor: '#F4F4F8', paddingVertical: 10, paddingHorizontal: 20, borderRadius: RADIUS.lg }}>
+                    <Typography variant="body" weight="extraBold">{timerStartInput.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</Typography>
                   </TouchableOpacity>
-                    <DateTimePickerModal visible={showTimerStartPicker} value={timerStartInput} mode="time" is24Hour onChange={(d) => { if(d) setTimerStartInput(d); }} onClose={() => setShowTimerStartPicker(false)} />
-                </View>
+                  <DateTimePickerModal visible={showTimerStartPicker} value={timerStartInput} mode="time" is24Hour onChange={(d) => { if(d) setTimerStartInput(d); }} onClose={() => setShowTimerStartPicker(false)} />
+                </Wrapper>
               )}
-            </View>
+            </Wrapper>
           ) : (
-            <View style={{ flexDirection: 'row', gap: 12, marginBottom: 24 }}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 11, color: '#8B6FD4', textTransform: 'uppercase', marginBottom: 8 }}>Уснул(а)</Text>
-                <TouchableOpacity onPress={() => setShowStartPicker(true)} style={{ backgroundColor: '#F4F4F8', padding: 16, borderRadius: 16 }}>
-                  <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 16, color: '#1A1A2E' }}>{manualStart.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</Text>
+            <Wrapper dir="row" gap={12} mb={24}>
+              <Wrapper flex={1}>
+                <Typography variant="tiny" weight="extraBold" color="#8B6FD4" uppercase mb={8}>Уснул(а)</Typography>
+                <TouchableOpacity onPress={() => setShowStartPicker(true)} style={{ backgroundColor: '#F4F4F8', padding: 16, borderRadius: RADIUS.xl }}>
+                  <Typography variant="body" weight="extraBold">{manualStart.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</Typography>
                 </TouchableOpacity>
                 <DateTimePickerModal visible={showStartPicker} value={manualStart} mode="time" is24Hour onChange={(d) => { if(d) setManualStart(d); }} onClose={() => setShowStartPicker(false)} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 11, color: '#8B6FD4', textTransform: 'uppercase', marginBottom: 8 }}>Проснулся(ась)</Text>
-                <TouchableOpacity onPress={() => setShowEndPicker(true)} style={{ backgroundColor: '#F4F4F8', padding: 16, borderRadius: 16 }}>
-                  <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 16, color: '#1A1A2E' }}>{manualEnd.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</Text>
+              </Wrapper>
+              <Wrapper flex={1}>
+                <Typography variant="tiny" weight="extraBold" color="#8B6FD4" uppercase mb={8}>Проснулся(ась)</Typography>
+                <TouchableOpacity onPress={() => setShowEndPicker(true)} style={{ backgroundColor: '#F4F4F8', padding: 16, borderRadius: RADIUS.xl }}>
+                  <Typography variant="body" weight="extraBold">{manualEnd.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</Typography>
                 </TouchableOpacity>
                 <DateTimePickerModal visible={showEndPicker} value={manualEnd} mode="time" is24Hour onChange={(d) => { if(d) setManualEnd(d); }} onClose={() => setShowEndPicker(false)} />
-              </View>
-            </View>
+              </Wrapper>
+            </Wrapper>
           )}
 
-          <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 11, color: '#8A8A9E', textTransform: 'uppercase', marginBottom: 8 }}>Место сна</Text>
-          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 24 }}>
+          {/* Location Picker */}
+          <Typography variant="tiny" weight="extraBold" color="#8A8A9E" uppercase mb={8}>Место сна</Typography>
+          <Wrapper dir="row" gap={8} mb={24}>
             {LOCATIONS.map(loc => (
-              <TouchableOpacity key={loc.id} onPress={() => setLocation(loc.id)} style={{ flex: 1, aspectRatio: 0.9, backgroundColor: location === loc.id ? loc.color : '#F4F4F8', borderRadius: 16, alignItems: 'center', justifyContent: 'center' }}>
-                <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: 'white', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
-                  <Ionicons name={loc.icon as any} size={18} color={location === loc.id ? loc.color : '#8A8A9E'} />
-                </View>
-                <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 10, color: location === loc.id ? 'white' : '#8A8A9E' }}>{loc.label}</Text>
+              <TouchableOpacity
+                key={loc.id}
+                onPress={() => setLocation(loc.id)}
+                style={{
+                  flex: 1,
+                  aspectRatio: 0.9,
+                  backgroundColor: location === loc.id ? loc.color : '#F4F4F8',
+                  borderRadius: RADIUS.xl,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                activeOpacity={0.8}
+              >
+                <IconCircle size="sm" bg="white">
+                  <Ionicons name={loc.icon} size={18} color={location === loc.id ? loc.color : '#8A8A9E'} />
+                </IconCircle>
+                <Wrapper mt={8}>
+                  <Typography variant="tiny" weight="extraBold" color={location === loc.id ? 'white' : '#8A8A9E'}>{loc.label}</Typography>
+                </Wrapper>
               </TouchableOpacity>
             ))}
-          </View>
+          </Wrapper>
 
-          <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 11, color: '#8A8A9E', textTransform: 'uppercase', marginBottom: 8 }}>Качество сна</Text>
-          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 24 }}>
+          {/* Quality Stars */}
+          <Typography variant="tiny" weight="extraBold" color="#8A8A9E" uppercase mb={8}>Качество сна</Typography>
+          <Wrapper dir="row" gap={8} mb={24}>
             {[1,2,3,4,5].map(s => (
-              <TouchableOpacity key={s} onPress={() => setQuality(s)}>
+              <TouchableOpacity key={s} onPress={() => setQuality(s)} activeOpacity={0.8}>
                 <Ionicons name={s <= quality ? "star" : "star-outline"} size={36} color={s <= quality ? '#F0A500' : '#E0DDD8'} />
               </TouchableOpacity>
             ))}
-          </View>
+          </Wrapper>
 
-          <View style={{ flexDirection: 'row', gap: 12 }}>
-            <TouchableOpacity onPress={() => { cancelSleepTimerNotification(); clearSleepTimer(); setSeconds(0); }} style={{ flex: 0.8, backgroundColor: '#F4F4F8', height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 14, color: '#8A8A9E' }}>Сброс</Text>
+          {/* Action Buttons */}
+          <Wrapper dir="row" gap={12}>
+            <TouchableOpacity
+              onPress={() => { cancelSleepTimerNotification(); clearSleepTimer(); setSeconds(0); }}
+              style={{ flex: 0.8, height: 56, backgroundColor: '#F4F4F8', borderRadius: RADIUS.xl, alignItems: 'center', justifyContent: 'center' }}
+              activeOpacity={0.8}
+            >
+              <Typography variant="body" weight="extraBold" color="#8A8A9E">Сброс</Typography>
             </TouchableOpacity>
 
             {mode === 'timer' ? (
               isRunning ? (
-                <TouchableOpacity onPress={handleStopSave} style={{ flex: 2, backgroundColor: '#D94F4F', height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center', flexDirection: 'row' }}>
-                  <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 14, color: 'white' }}>Остановить</Text>
+                <TouchableOpacity
+                  onPress={handleStopSave}
+                  style={{ flex: 2, height: 56, backgroundColor: '#D94F4F', borderRadius: RADIUS.xl, alignItems: 'center', justifyContent: 'center' }}
+                  activeOpacity={0.8}
+                >
+                  <Typography variant="body" weight="black" color="white">Остановить</Typography>
                 </TouchableOpacity>
               ) : (
-                <TouchableOpacity onPress={handleStartTimer} style={{ flex: 2, backgroundColor: '#8B6FD4', height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center', flexDirection: 'row' }}>
-                  <Ionicons name="play" size={16} color="white" style={{ marginRight: 8 }} />
-                  <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 14, color: 'white' }}>Начать сон</Text>
+                <TouchableOpacity
+                  onPress={handleStartTimer}
+                  style={{ flex: 2, height: 56, backgroundColor: '#8B6FD4', borderRadius: RADIUS.xl, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="play" size={16} color="white" />
+                  <Typography variant="body" weight="black" color="white">Начать сон</Typography>
                 </TouchableOpacity>
               )
             ) : (
-              <TouchableOpacity onPress={handleManualSave} style={{ flex: 2, backgroundColor: manualEnd.getTime() <= manualStart.getTime() ? '#D1D1DB' : '#8B6FD4', height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 14, color: 'white' }}>Сохранить</Text>
+              <TouchableOpacity
+                onPress={handleManualSave}
+                style={{ flex: 2, height: 56, backgroundColor: manualEnd.getTime() <= manualStart.getTime() ? '#D1D1DB' : '#8B6FD4', borderRadius: RADIUS.xl, alignItems: 'center', justifyContent: 'center' }}
+                activeOpacity={0.8}
+              >
+                <Typography variant="body" weight="black" color="white">Сохранить</Typography>
               </TouchableOpacity>
             )}
-          </View>
-        </View>
+          </Wrapper>
+        </Surface>
 
         {/* Stats */}
-        <View style={{ backgroundColor: 'white', borderRadius: 24, padding: 20, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 16, elevation: 2, borderWidth: 1, borderColor: '#F0ECE8', marginBottom: 20 }}>
-          <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 16, color: '#1A1A2E', marginBottom: 16 }}>Сон за {selectedDate.toLocaleDateString() === new Date().toLocaleDateString() ? "сегодня" : selectedDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}</Text>
+        <Surface variant="elevated" radius="xxl" p={20} mb={20}>
+          <Typography variant="body" weight="black" mb={16}>Сон за {selectedDate.toLocaleDateString() === new Date().toLocaleDateString() ? "сегодня" : selectedDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}</Typography>
           
-          <View style={{ flexDirection: 'row', gap: 12, marginBottom: 20 }}>
-            <View style={{ flex: 1, backgroundColor: '#8B6FD410', borderRadius: 16, padding: 12, alignItems: 'center' }}>
-              <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 11, color: '#8B6FD4', textTransform: 'uppercase', marginBottom: 4 }}>Всего</Text>
-              <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 16, color: '#8B6FD4' }}>{totalSecs > 0 ? fmtDur(totalSecs) : '—'}</Text>
-            </View>
-            <View style={{ flex: 1, backgroundColor: '#F4F4F8', borderRadius: 16, padding: 12, alignItems: 'center' }}>
-              <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 11, color: '#8A8A9E', textTransform: 'uppercase', marginBottom: 4 }}>Сеансов</Text>
-              <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 16, color: '#1A1A2E' }}>{todaysSleeps.length}</Text>
-            </View>
-            <View style={{ flex: 1, backgroundColor: '#F4F4F8', borderRadius: 16, padding: 12, alignItems: 'center' }}>
-              <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 11, color: '#8A8A9E', textTransform: 'uppercase', marginBottom: 4 }}>Макс.</Text>
-              <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 16, color: '#1A1A2E' }}>{maxSecs > 0 ? fmtDur(maxSecs) : '—'}</Text>
-            </View>
-          </View>
+          <Wrapper dir="row" gap={12} mb={20}>
+            <Wrapper flex={1} p={12} align="center" style={{ backgroundColor: '#8B6FD410', borderRadius: RADIUS.xl }}>
+              <Typography variant="tiny" weight="extraBold" color="#8B6FD4" uppercase mb={4}>Всего</Typography>
+              <Typography variant="body" weight="black" color="#8B6FD4">{totalSecs > 0 ? fmtDur(totalSecs) : '—'}</Typography>
+            </Wrapper>
+            <Wrapper flex={1} p={12} align="center" style={{ backgroundColor: '#F4F4F8', borderRadius: RADIUS.xl }}>
+              <Typography variant="tiny" weight="extraBold" color="#8A8A9E" uppercase mb={4}>Сеансов</Typography>
+              <Typography variant="body" weight="black">{todaysSleeps.length}</Typography>
+            </Wrapper>
+            <Wrapper flex={1} p={12} align="center" style={{ backgroundColor: '#F4F4F8', borderRadius: RADIUS.xl }}>
+              <Typography variant="tiny" weight="extraBold" color="#8A8A9E" uppercase mb={4}>Макс.</Typography>
+              <Typography variant="body" weight="black">{maxSecs > 0 ? fmtDur(maxSecs) : '—'}</Typography>
+            </Wrapper>
+          </Wrapper>
 
           {todaysSleeps.length > 0 && (
-            <View style={{ gap: 12 }}>
+            <Wrapper gap={12}>
               {todaysSleeps.slice(0, 5).map(s => {
                 const renderRightActions = () => (
-                  <View style={{ flexDirection: 'row', width: 140 }}>
+                  <Wrapper dir="row" width={140}>
                     <TouchableOpacity onPress={() => setEditTarget({ kind: 'sleep', record: s })} style={{ flex: 1, backgroundColor: '#8B6FD4', justifyContent: 'center', alignItems: 'center' }}>
                       <Ionicons name="pencil" size={20} color="white" />
-                      <Text style={{ color: 'white', fontSize: 10, fontFamily: 'Nunito_800ExtraBold', marginTop: 4 }}>Изменить</Text>
+                      <Typography variant="tiny" weight="extraBold" color="white" mt={4}>Изменить</Typography>
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={() => handleDeleteRecord(s as Sleep)} style={{ flex: 1, backgroundColor: '#D94F4F', borderTopRightRadius: 16, borderBottomRightRadius: 16, justifyContent: 'center', alignItems: 'center' }}>
+                    <TouchableOpacity onPress={() => handleDeleteRecord(s as Sleep)} style={{ flex: 1, backgroundColor: '#D94F4F', justifyContent: 'center', alignItems: 'center', borderTopRightRadius: 16, borderBottomRightRadius: 16 }}>
                       <Ionicons name="trash" size={20} color="white" />
-                      <Text style={{ color: 'white', fontSize: 10, fontFamily: 'Nunito_800ExtraBold', marginTop: 4 }}>Удалить</Text>
+                      <Typography variant="tiny" weight="extraBold" color="white" mt={4}>Удалить</Typography>
                     </TouchableOpacity>
-                  </View>
+                  </Wrapper>
                 );
 
                 return (
-                 <View key={s.id} style={{ marginBottom: 12, backgroundColor: '#F4F4F8', borderRadius: 16, overflow: 'hidden' }}>
+                 <Wrapper key={s.id} mb={12} style={{ backgroundColor: '#F4F4F8', borderRadius: RADIUS.xl, overflow: 'hidden' }}>
                   <Swipeable renderRightActions={renderRightActions} friction={2} rightThreshold={40}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F4F4F8', padding: 12, borderRadius: 16 }}>
-                      <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: 'white', alignItems: 'center', justifyContent: 'center', marginRight: 16 }}>
-                        <Ionicons name="moon" size={20} color="#8B6FD4" />
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 15, color: '#1A1A2E' }}>{fmtDur(s.duration_seconds)}</Text>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-                          <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 12, color: '#8A8A9E', marginRight: 8 }}>{LOCATIONS.find(l => l.id === s.location)?.label}</Text>
+                    <Wrapper dir="row" align="center" p={12} style={{ backgroundColor: '#F4F4F8', borderRadius: RADIUS.xl }}>
+                      <Wrapper mr={16}>
+                        <IconCircle bg="white">
+                          <Ionicons name="moon" size={20} color="#8B5CF6" />
+                        </IconCircle>
+                      </Wrapper>
+                      <Wrapper flex={1}>
+                        <Typography variant="body" weight="black">{fmtDur(s.duration_seconds)}</Typography>
+                        <Wrapper dir="row" align="center" mt={4}>
+                          <Typography variant="tiny" weight="extraBold" color="#8A8A9E" mr={8}>{LOCATIONS.find(l => l.id === s.location)?.label}</Typography>
                           {s.quality > 0 && (
-                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <Wrapper dir="row" align="center">
                               <Ionicons name="star" size={10} color="#F0A500" style={{ marginRight: 2 }} />
-                              <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 11, color: '#F0A500' }}>{s.quality}</Text>
-                            </View>
+                              <Typography variant="tiny" weight="extraBold" color="#F0A500">{s.quality}</Typography>
+                            </Wrapper>
                           )}
-                        </View>
-                      </View>
-                      <View style={{ alignItems: 'flex-end', justifyContent: 'center' }}>
-                        <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 12, color: '#1A1A2E' }}>{fmtTime(s.start_time || s.created_at)}</Text>
-                        <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 12, color: '#1A1A2E', marginTop: 2 }}>{fmtTime(s.end_time || (safeTime(s.created_at) + (s.duration_seconds * 1000)))}</Text>
-                      </View>
-                    </View>
+                        </Wrapper>
+                      </Wrapper>
+                      <Wrapper align="flex-end" justify="center">
+                        <Typography variant="tiny" weight="extraBold">{fmtTime(s.start_time || s.created_at)}</Typography>
+                        <Wrapper mt={2}>
+                          <Typography variant="tiny" weight="extraBold">{fmtTime(s.end_time || (safeTime(s.created_at) + (s.duration_seconds * 1000)))}</Typography>
+                        </Wrapper>
+                      </Wrapper>
+                    </Wrapper>
                   </Swipeable>
-                 </View>
+                 </Wrapper>
                 );
               })}
-            </View>
+            </Wrapper>
           )}
-        </View>
+        </Surface>
+
         <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 16, alignItems: 'center' }}>
-          <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 16, color: '#8A8A9E' }}>К трекеру</Text>
+          <Typography variant="body" weight="extraBold" color="#8A8A9E">К трекеру</Typography>
         </TouchableOpacity>
       </ScrollView>
       <EditRecordModal target={editTarget} onClose={() => setEditTarget(null)} />
       </KeyboardAvoidingView>
-    </View>
+    </Wrapper>
   );
 }
 
@@ -469,4 +513,3 @@ const enhance = withObservables([], () => ({
 }));
 
 export default enhance(SleepScreenContent);
-

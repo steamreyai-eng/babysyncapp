@@ -1,14 +1,93 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Modal, TouchableOpacity, ScrollView } from 'react-native';
+import { Modal, ScrollView } from 'react-native';
 import { X, BellRing, Settings2, Wand2, Milk, Droplets, Moon } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '../store/authStore';
 import { NotifSettings, DEFAULT_NOTIF, getRecommendedIntervals, restartNotifPoller, clearFiredNotifications } from '../lib/notifications';
 
+import { Wrapper } from './ui/Wrapper';
+import { Surface } from './ui/Surface';
+import { Typography } from './ui/Typography';
+import { SegmentedControl } from './SegmentedControl';
+import { ChipGroup } from './ChipGroup';
+import { ToggleSwitch } from './ToggleSwitch';
+import { IconCircle } from './IconCircle';
+import { COLORS } from '../lib/theme';
+
 interface Props {
   isOpen: boolean;
   onClose: () => void;
 }
+
+const MODE_ITEMS = [
+  { key: 'auto', label: 'Авто-режим', icon: <Wand2 size={16} /> },
+  { key: 'manual', label: 'Вручную', icon: <Settings2 size={16} /> },
+];
+
+const FEED_INTERVALS = [
+  { key: '120', label: '120 мин' },
+  { key: '150', label: '150 мин' },
+  { key: '180', label: '180 мин' },
+  { key: '210', label: '210 мин' },
+  { key: '240', label: '240 мин' },
+];
+
+const DIAPER_INTERVALS = [
+  { key: '180', label: '180 мин' },
+  { key: '240', label: '240 мин' },
+  { key: '300', label: '300 мин' },
+  { key: '360', label: '360 мин' },
+];
+
+const SLEEP_INTERVALS = [
+  { key: '60', label: '60 мин' },
+  { key: '90', label: '90 мин' },
+  { key: '120', label: '120 мин' },
+  { key: '150', label: '150 мин' },
+  { key: '180', label: '180 мин' },
+];
+
+interface NotifRowProps {
+  icon: React.ReactNode;
+  iconBg: string;
+  title: string;
+  subtitle: string;
+  enabled: boolean;
+  onToggle: () => void;
+  showIntervals: boolean;
+  intervals: { key: string; label: string }[];
+  selectedInterval: number;
+  onIntervalChange: (val: number) => void;
+  tone: 'primary' | 'green' | 'purple';
+}
+
+const NotifRow: React.FC<NotifRowProps> = ({
+  icon, iconBg, title, subtitle, enabled, onToggle,
+  showIntervals, intervals, selectedInterval, onIntervalChange, tone,
+}) => (
+  <Surface variant="outlined" radius="xl" p={16} mb={24}>
+    <Wrapper dir="row" align="center" justify="space-between" mb={showIntervals ? 12 : 0}>
+      <Wrapper dir="row" align="center" gap={12}>
+        <IconCircle bg={iconBg} radius={20}>
+          {icon}
+        </IconCircle>
+        <Wrapper>
+          <Typography variant="body" weight="black">{title}</Typography>
+          <Typography variant="tiny" weight="bold" color="textMuted">{subtitle}</Typography>
+        </Wrapper>
+      </Wrapper>
+      <ToggleSwitch value={enabled} onToggle={onToggle} />
+    </Wrapper>
+    {showIntervals && (
+      <ChipGroup
+        items={intervals}
+        selected={String(selectedInterval)}
+        onChange={(k) => onIntervalChange(Number(k))}
+        tone={tone}
+      />
+    )}
+  </Surface>
+);
 
 export function NotificationSettingsModal({ isOpen, onClose }: Props) {
   const { baby } = useAuthStore();
@@ -60,130 +139,93 @@ export function NotificationSettingsModal({ isOpen, onClose }: Props) {
 
   return (
     <Modal visible={isOpen} animationType="fade" transparent={true} onRequestClose={onClose}>
-      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}>
-        <View style={{ backgroundColor: 'white', borderTopLeftRadius: 36, borderTopRightRadius: 36, height: '90%' }}>
+      <Wrapper flex={1} bg="rgba(0,0,0,0.4)" justify="flex-end">
+        <Surface tone="surface" radius="none" style={{ borderTopLeftRadius: 36, borderTopRightRadius: 36, height: '90%' }}>
           {/* Header */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 24, borderBottomWidth: 1, borderColor: '#F0ECE8' }}>
-             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                 <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(77,191,170,0.1)', alignItems: 'center', justifyContent: 'center' }}>
-                    <BellRing size={22} color="#4DBFAA" />
-                 </View>
-                 <Text style={{ fontSize: 22, fontFamily: 'Nunito_900Black', color: '#1A1A2E' }}>Уведомления</Text>
-             </View>
-             <TouchableOpacity onPress={onClose} style={{ padding: 8, borderRadius: 20, backgroundColor: '#F4F4F8' }}>
+          <Wrapper dir="row" align="center" justify="space-between" p={24} style={{ borderBottomWidth: 1, borderColor: '#F0ECE8' }}>
+             <Wrapper dir="row" align="center" gap={12}>
+                <IconCircle bg="rgba(77,191,170,0.1)">
+                   <BellRing size={22} color="#4DBFAA" />
+                </IconCircle>
+                <Typography variant="h2" weight="black">Уведомления</Typography>
+             </Wrapper>
+             <Surface onPress={onClose} tone="transparent" radius="xl" p={8} bg="#F4F4F8">
                 <X size={20} color="#6B6B80" />
-             </TouchableOpacity>
-          </View>
-          <Text style={{ fontSize: 14, fontFamily: 'Nunito_700Bold', color: '#8A8A9E', paddingHorizontal: 24, marginTop: -12, marginBottom: 12 }}>
-            Настройте напоминания для кормления, смены подгузников и сна.
-          </Text>
+             </Surface>
+          </Wrapper>
+          <Wrapper px={24} mt={-12} mb={12}>
+            <Typography variant="tiny" weight="bold" color="textMuted">
+              Настройте напоминания для кормления, смены подгузников и сна.
+            </Typography>
+          </Wrapper>
 
           {/* Content */}
           <ScrollView contentContainerStyle={{ padding: 24, paddingBottom: 60 }} showsVerticalScrollIndicator={false}>
             {/* Mode switch */}
-            <View style={{ flexDirection: 'row', backgroundColor: '#F4F4F8', borderRadius: 18, padding: 4, marginBottom: 24 }}>
-               <TouchableOpacity onPress={() => setModeAuto(true)} style={[{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, borderRadius: 14 }, modeAuto && { backgroundColor: 'white', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 10, elevation: 2 }]}>
-                  <Wand2 size={16} color={modeAuto ? '#4E8FD4' : '#8A8A9E'} />
-                  <Text style={{ fontSize: 14, fontFamily: 'Nunito_800ExtraBold', color: modeAuto ? '#4E8FD4' : '#8A8A9E' }}>Авто-режим</Text>
-               </TouchableOpacity>
-               <TouchableOpacity onPress={() => setModeAuto(false)} style={[{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, borderRadius: 14 }, !modeAuto && { backgroundColor: 'white', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 10, elevation: 2 }]}>
-                  <Settings2 size={16} color={!modeAuto ? '#1A1A2E' : '#8A8A9E'} />
-                  <Text style={{ fontSize: 14, fontFamily: 'Nunito_800ExtraBold', color: !modeAuto ? '#1A1A2E' : '#8A8A9E' }}>Вручную</Text>
-               </TouchableOpacity>
-            </View>
+            <Wrapper mb={24}>
+              <SegmentedControl
+                items={MODE_ITEMS}
+                selected={modeAuto ? 'auto' : 'manual'}
+                onChange={(k) => setModeAuto(k === 'auto')}
+              />
+            </Wrapper>
 
             {modeAuto && (
-               <View style={{ padding: 16, backgroundColor: '#F4F8FD', borderRadius: 16, borderWidth: 1, borderColor: '#DEEAF8', marginBottom: 24 }}>
-                  <Text style={{ fontSize: 13, fontFamily: 'Nunito_700Bold', color: '#4E8FD4', lineHeight: 20 }}>
+               <Surface tone="transparent" radius="md" p={16} mb={24} bg="#F4F8FD" style={{ borderWidth: 1, borderColor: '#DEEAF8' }}>
+                  <Typography variant="tiny" weight="bold" color="#4E8FD4" style={{ lineHeight: 20 }}>
                      Режим Авто использует AI-интервалы по нормам для возраста малыша. Отсчет ведется от последнего добавленного события.
-                  </Text>
-               </View>
+                  </Typography>
+               </Surface>
             )}
 
             {/* Feeding */}
-            <View style={{ marginBottom: 24, backgroundColor: 'white', borderWidth: 1, borderColor: '#F0ECE8', borderRadius: 20, padding: 16 }}>
-               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: (!modeAuto && notif.feeding) ? 12 : 0 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                     <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(78,143,212,0.1)', alignItems: 'center', justifyContent: 'center' }}>
-                        <Milk size={20} color="#4E8FD4" />
-                     </View>
-                     <View>
-                        <Text style={{ fontSize: 16, fontFamily: 'Nunito_900Black', color: '#1A1A2E' }}>Кормление</Text>
-                        <Text style={{ fontSize: 13, fontFamily: 'Nunito_700Bold', color: '#8A8A9E' }}>{modeAuto ? `Рекомендуемо: ${recs.feed} мин` : `Через: ${notif.feedingIntervalMin} мин`}</Text>
-                     </View>
-                  </View>
-                  <TouchableOpacity onPress={() => handleNotifToggle('feeding')} style={{ width: 50, height: 28, borderRadius: 14, backgroundColor: notif.feeding ? '#4DBFAA' : '#EAE6E1', padding: 2 }}>
-                     <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: 'white', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, transform: [{ translateX: notif.feeding ? 22 : 0 }] }} />
-                  </TouchableOpacity>
-               </View>
-               {!modeAuto && notif.feeding && (
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                     {[120, 150, 180, 210, 240].map(v => (
-                        <TouchableOpacity key={v} onPress={() => handleIntervalChange('feedingIntervalMin', v)} style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, borderWidth: 1, backgroundColor: notif.feedingIntervalMin === v ? '#4E8FD4' : 'white', borderColor: notif.feedingIntervalMin === v ? '#4E8FD4' : '#F0ECE8' }}>
-                           <Text style={{ fontSize: 13, fontFamily: 'Nunito_800ExtraBold', color: notif.feedingIntervalMin === v ? 'white' : '#8A8A9E' }}>{v} мин</Text>
-                        </TouchableOpacity>
-                     ))}
-                  </View>
-               )}
-            </View>
+            <NotifRow
+              icon={<Milk size={20} color="#4E8FD4" />}
+              iconBg="rgba(78,143,212,0.1)"
+              title="Кормление"
+              subtitle={modeAuto ? `Рекомендуемо: ${recs.feed} мин` : `Через: ${notif.feedingIntervalMin} мин`}
+              enabled={notif.feeding}
+              onToggle={() => handleNotifToggle('feeding')}
+              showIntervals={!modeAuto && notif.feeding}
+              intervals={FEED_INTERVALS}
+              selectedInterval={notif.feedingIntervalMin}
+              onIntervalChange={(v) => handleIntervalChange('feedingIntervalMin', v)}
+              tone="primary"
+            />
 
             {/* Diaper */}
-            <View style={{ marginBottom: 24, backgroundColor: 'white', borderWidth: 1, borderColor: '#F0ECE8', borderRadius: 20, padding: 16 }}>
-               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: (!modeAuto && notif.diaper) ? 12 : 0 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                     <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(61,191,170,0.1)', alignItems: 'center', justifyContent: 'center' }}>
-                        <Droplets size={20} color="#3DBFAA" />
-                     </View>
-                     <View>
-                        <Text style={{ fontSize: 16, fontFamily: 'Nunito_900Black', color: '#1A1A2E' }}>Подгузник</Text>
-                        <Text style={{ fontSize: 13, fontFamily: 'Nunito_700Bold', color: '#8A8A9E' }}>{modeAuto ? `Рекомендуемо: ${recs.diap} мин` : `Через: ${notif.diaperIntervalMin} мин`}</Text>
-                     </View>
-                  </View>
-                  <TouchableOpacity onPress={() => handleNotifToggle('diaper')} style={{ width: 50, height: 28, borderRadius: 14, backgroundColor: notif.diaper ? '#4DBFAA' : '#EAE6E1', padding: 2 }}>
-                     <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: 'white', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, transform: [{ translateX: notif.diaper ? 22 : 0 }] }} />
-                  </TouchableOpacity>
-               </View>
-               {!modeAuto && notif.diaper && (
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                     {[180, 240, 300, 360].map(v => (
-                        <TouchableOpacity key={v} onPress={() => handleIntervalChange('diaperIntervalMin', v)} style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, borderWidth: 1, backgroundColor: notif.diaperIntervalMin === v ? '#3DBFAA' : 'white', borderColor: notif.diaperIntervalMin === v ? '#3DBFAA' : '#F0ECE8' }}>
-                           <Text style={{ fontSize: 13, fontFamily: 'Nunito_800ExtraBold', color: notif.diaperIntervalMin === v ? 'white' : '#8A8A9E' }}>{v} мин</Text>
-                        </TouchableOpacity>
-                     ))}
-                  </View>
-               )}
-            </View>
+            <NotifRow
+              icon={<Droplets size={20} color="#3DBFAA" />}
+              iconBg="rgba(61,191,170,0.1)"
+              title="Подгузник"
+              subtitle={modeAuto ? `Рекомендуемо: ${recs.diap} мин` : `Через: ${notif.diaperIntervalMin} мин`}
+              enabled={notif.diaper}
+              onToggle={() => handleNotifToggle('diaper')}
+              showIntervals={!modeAuto && notif.diaper}
+              intervals={DIAPER_INTERVALS}
+              selectedInterval={notif.diaperIntervalMin}
+              onIntervalChange={(v) => handleIntervalChange('diaperIntervalMin', v)}
+              tone="green"
+            />
 
             {/* Sleep */}
-            <View style={{ marginBottom: 24, backgroundColor: 'white', borderWidth: 1, borderColor: '#F0ECE8', borderRadius: 20, padding: 16 }}>
-               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: (!modeAuto && notif.sleep) ? 12 : 0 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                     <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(139,111,212,0.1)', alignItems: 'center', justifyContent: 'center' }}>
-                        <Moon size={20} color="#8B6FD4" />
-                     </View>
-                     <View>
-                        <Text style={{ fontSize: 16, fontFamily: 'Nunito_900Black', color: '#1A1A2E' }}>Бодрствование</Text>
-                        <Text style={{ fontSize: 13, fontFamily: 'Nunito_700Bold', color: '#8A8A9E' }}>{modeAuto ? `Рекомендуемо: ${recs.sleep} мин` : `Через: ${notif.sleepWindowMin} мин`}</Text>
-                     </View>
-                  </View>
-                  <TouchableOpacity onPress={() => handleNotifToggle('sleep')} style={{ width: 50, height: 28, borderRadius: 14, backgroundColor: notif.sleep ? '#4DBFAA' : '#EAE6E1', padding: 2 }}>
-                     <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: 'white', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, transform: [{ translateX: notif.sleep ? 22 : 0 }] }} />
-                  </TouchableOpacity>
-               </View>
-               {!modeAuto && notif.sleep && (
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                     {[60, 90, 120, 150, 180].map(v => (
-                        <TouchableOpacity key={v} onPress={() => handleIntervalChange('sleepWindowMin', v)} style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, borderWidth: 1, backgroundColor: notif.sleepWindowMin === v ? '#8B6FD4' : 'white', borderColor: notif.sleepWindowMin === v ? '#8B6FD4' : '#F0ECE8' }}>
-                           <Text style={{ fontSize: 13, fontFamily: 'Nunito_800ExtraBold', color: notif.sleepWindowMin === v ? 'white' : '#8A8A9E' }}>{v} мин</Text>
-                        </TouchableOpacity>
-                     ))}
-                  </View>
-               )}
-            </View>
+            <NotifRow
+              icon={<Moon size={20} color="#8B6FD4" />}
+              iconBg="rgba(139,111,212,0.1)"
+              title="Бодрствование"
+              subtitle={modeAuto ? `Рекомендуемо: ${recs.sleep} мин` : `Через: ${notif.sleepWindowMin} мин`}
+              enabled={notif.sleep}
+              onToggle={() => handleNotifToggle('sleep')}
+              showIntervals={!modeAuto && notif.sleep}
+              intervals={SLEEP_INTERVALS}
+              selectedInterval={notif.sleepWindowMin}
+              onIntervalChange={(v) => handleIntervalChange('sleepWindowMin', v)}
+              tone="purple"
+            />
 
           </ScrollView>
-        </View>
-      </View>
+        </Surface>
+      </Wrapper>
     </Modal>
   );
 }

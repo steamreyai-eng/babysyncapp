@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  View, Text, TouchableOpacity, Modal, TextInput, Alert,
+  View, TouchableOpacity, Modal, Alert,
   Platform, ScrollView, KeyboardAvoidingView, Dimensions,
   Keyboard, Animated as RNAnimated,
 } from 'react-native';
@@ -12,6 +12,15 @@ import { Feeding } from '../db/models/Feeding';
 import { Sleep } from '../db/models/Sleep';
 import { Diaper } from '../db/models/Diaper';
 import { Walk } from '../db/models/Walk';
+
+import { Wrapper } from './ui/Wrapper';
+import { Surface } from './ui/Surface';
+import { Typography } from './ui/Typography';
+import { Button } from './ui/Button';
+import { FormField } from './FormField';
+import { SegmentedControl } from './SegmentedControl';
+import { ChipGroup } from './ChipGroup';
+import { COLORS } from '../lib/theme';
 
 /* ── Types ── */
 export type EditTarget =
@@ -24,6 +33,34 @@ interface Props {
   target: EditTarget | null;
   onClose: () => void;
 }
+
+/* ── Action Buttons Row ── */
+const ActionRow = ({ onDelete, onSave, saving, disabled, tone = 'primary' }: {
+  onDelete: () => void;
+  onSave: () => void;
+  saving: boolean;
+  disabled?: boolean;
+  tone?: 'primary' | 'danger' | 'success';
+}) => (
+  <Wrapper dir="row" gap={10} mt={4}>
+    <Surface onPress={onDelete} tone="transparent" radius="md" width={48} height={48} align="center" justify="center" bg="#E05A5A20">
+      <Ionicons name="trash" size={18} color="#E05A5A" />
+    </Surface>
+    <Wrapper flex={1}>
+      <Button
+        variant="solid"
+        tone={saving || disabled ? 'neutral' : tone}
+        size="lg"
+        fullWidth
+        disabled={saving || disabled}
+        onPress={onSave}
+        leftIcon={<Ionicons name="save" size={16} color="white" />}
+      >
+        {saving ? 'Сохранение...' : 'Сохранить'}
+      </Button>
+    </Wrapper>
+  </Wrapper>
+);
 
 /* ── Feeding Edit ── */
 const FeedingEdit = ({ record, onClose }: { record: any; onClose: () => void }) => {
@@ -59,42 +96,33 @@ const FeedingEdit = ({ record, onClose }: { record: any; onClose: () => void }) 
   };
 
   return (
-    <View style={{ gap: 16 }}>
-      <View>
-        <Text style={s.label}>ОПИСАНИЕ</Text>
-        <TextInput value={desc} onChangeText={setDesc} placeholder="Описание..." placeholderTextColor="#A0A0B0" style={s.input} />
-      </View>
+    <Wrapper gap={16}>
+      <FormField label="Описание" value={desc} onChangeText={setDesc} placeholder="Описание..." />
       {record.type === 'formula' && (
-        <View>
-          <Text style={s.label}>ОБЪЁМ (мл)</Text>
-          <TextInput value={vol} onChangeText={setVol} keyboardType="numeric" placeholder="0" placeholderTextColor="#A0A0B0" style={s.input} />
-        </View>
+        <FormField label="Объём (мл)" value={vol} onChangeText={setVol} keyboardType="numeric" placeholder="0" />
       )}
-      <View>
-        <Text style={s.label}>ДАТА И ВРЕМЯ</Text>
-        <TouchableOpacity onPress={() => setShowPicker(true)} style={s.input}>
-          <Text style={s.inputText}>
+      <Wrapper>
+        <Typography variant="caption" weight="extraBold" color="textMuted" uppercase letterSpacing={0.5} mb={6}>Дата и время</Typography>
+        <Surface onPress={() => setShowPicker(true)} tone="transparent" radius="md" p={14} bg="#F9F8F6">
+          <Typography variant="body" weight="extraBold">
             {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} {time.toLocaleDateString('ru-RU')}
-          </Text>
-        </TouchableOpacity>
+          </Typography>
+        </Surface>
         <DateTimePickerModal visible={showPicker} value={time} mode="time" is24Hour
             onChange={(d) => { if (d) setTime(d); }} onClose={() => setShowPicker(false)} />
-      </View>
-      <View style={s.actions}>
-        <TouchableOpacity onPress={handleDelete} style={s.deleteBtn}>
-          <Ionicons name="trash" size={18} color="#E05A5A" />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={handleSave} disabled={saving}
-          style={[s.saveBtn, { backgroundColor: saving ? '#A8A8B6' : '#5B9BD5' }]}>
-          <Ionicons name="save" size={16} color="white" style={{ marginRight: 8 }} />
-          <Text style={s.saveBtnText}>{saving ? 'Сохранение...' : 'Сохранить'}</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+      </Wrapper>
+      <ActionRow onDelete={handleDelete} onSave={handleSave} saving={saving} />
+    </Wrapper>
   );
 };
 
 /* ── Diaper Edit ── */
+const DIAPER_TYPES = [
+  { key: 'wet', label: 'Мокрый 💧' },
+  { key: 'dirty', label: 'Грязный 💩' },
+  { key: 'both', label: 'Оба 🌀' },
+];
+
 const DiaperEdit = ({ record, onClose }: { record: any; onClose: () => void }) => {
   const [type, setType] = useState(record.type || 'wet');
   const [color, setColor] = useState(record.color || '');
@@ -102,12 +130,6 @@ const DiaperEdit = ({ record, onClose }: { record: any; onClose: () => void }) =
   const [time, setTime] = useState(new Date(record.created_at));
   const [showPicker, setShowPicker] = useState(false);
   const [saving, setSaving] = useState(false);
-
-  const types = [
-    { id: 'wet', label: 'Мокрый 💧' },
-    { id: 'dirty', label: 'Грязный 💩' },
-    { id: 'both', label: 'Оба 🌀' },
-  ];
 
   const handleSave = async () => {
     setSaving(true);
@@ -136,48 +158,25 @@ const DiaperEdit = ({ record, onClose }: { record: any; onClose: () => void }) =
   };
 
   return (
-    <View style={{ gap: 16 }}>
-      <View>
-        <Text style={s.label}>ТИП</Text>
-        <View style={{ flexDirection: 'row', backgroundColor: '#F5F0E6', borderRadius: 12, padding: 4 }}>
-          {types.map(t => (
-            <TouchableOpacity key={t.id} onPress={() => setType(t.id)}
-              style={{ flex: 1, paddingVertical: 10, borderRadius: 10, backgroundColor: type === t.id ? 'white' : 'transparent', alignItems: 'center',
-                shadowColor: type === t.id ? '#000' : 'transparent', shadowOpacity: 0.05, shadowRadius: 4, elevation: type === t.id ? 1 : 0 }}>
-              <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 12, color: type === t.id ? '#1A1A2E' : '#6B6B80' }}>{t.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-      <View>
-        <Text style={s.label}>ЦВЕТ</Text>
-        <TextInput value={color} onChangeText={setColor} placeholder="Необязательно" placeholderTextColor="#A0A0B0" style={s.input} />
-      </View>
-      <View>
-        <Text style={s.label}>ЗАМЕТКА</Text>
-        <TextInput value={note} onChangeText={setNote} placeholder="Необязательно" placeholderTextColor="#A0A0B0" style={s.input} />
-      </View>
-      <View>
-        <Text style={s.label}>ДАТА И ВРЕМЯ</Text>
-        <TouchableOpacity onPress={() => setShowPicker(true)} style={s.input}>
-          <Text style={s.inputText}>
+    <Wrapper gap={16}>
+      <Wrapper>
+        <Typography variant="caption" weight="extraBold" color="textMuted" uppercase letterSpacing={0.5} mb={6}>Тип</Typography>
+        <SegmentedControl items={DIAPER_TYPES} selected={type} onChange={setType} size="sm" />
+      </Wrapper>
+      <FormField label="Цвет" value={color} onChangeText={setColor} placeholder="Необязательно" />
+      <FormField label="Заметка" value={note} onChangeText={setNote} placeholder="Необязательно" />
+      <Wrapper>
+        <Typography variant="caption" weight="extraBold" color="textMuted" uppercase letterSpacing={0.5} mb={6}>Дата и время</Typography>
+        <Surface onPress={() => setShowPicker(true)} tone="transparent" radius="md" p={14} bg="#F9F8F6">
+          <Typography variant="body" weight="extraBold">
             {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} {time.toLocaleDateString('ru-RU')}
-          </Text>
-        </TouchableOpacity>
+          </Typography>
+        </Surface>
         <DateTimePickerModal visible={showPicker} value={time} mode="time" is24Hour
             onChange={(d) => { if (d) setTime(d); }} onClose={() => setShowPicker(false)} />
-      </View>
-      <View style={s.actions}>
-        <TouchableOpacity onPress={handleDelete} style={s.deleteBtn}>
-          <Ionicons name="trash" size={18} color="#E05A5A" />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={handleSave} disabled={saving}
-          style={[s.saveBtn, { backgroundColor: saving ? '#A8A8B6' : '#5B9BD5' }]}>
-          <Ionicons name="save" size={16} color="white" style={{ marginRight: 8 }} />
-          <Text style={s.saveBtnText}>{saving ? 'Сохранение...' : 'Сохранить'}</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+      </Wrapper>
+      <ActionRow onDelete={handleDelete} onSave={handleSave} saving={saving} />
+    </Wrapper>
   );
 };
 
@@ -193,6 +192,13 @@ const safeTime = (val: any) => {
   return new Date(val).getTime() || 0;
 };
 
+const SLEEP_LOCS = [
+  { key: 'crib', label: 'Кроватка' },
+  { key: 'stroller', label: 'Коляска' },
+  { key: 'arms', label: 'На руках' },
+  { key: 'car', label: 'Авто' },
+];
+
 const SleepEdit = ({ record, onClose }: { record: any; onClose: () => void }) => {
   const startMs = safeTime(record.start_time) || safeTime(record.created_at);
   const endMs = safeTime(record.end_time) || (startMs + (record.duration_seconds || 0) * 1000);
@@ -205,13 +211,6 @@ const SleepEdit = ({ record, onClose }: { record: any; onClose: () => void }) =>
 
   const isInvalid = end.getTime() <= start.getTime();
   const durationMin = isInvalid ? 0 : Math.floor((end.getTime() - start.getTime()) / 60000);
-
-  const locs = [
-    { id: 'crib', label: 'Кроватка' },
-    { id: 'stroller', label: 'Коляска' },
-    { id: 'arms', label: 'На руках' },
-    { id: 'car', label: 'Авто' },
-  ];
 
   const handleSave = async () => {
     if (isInvalid) return;
@@ -243,68 +242,53 @@ const SleepEdit = ({ record, onClose }: { record: any; onClose: () => void }) =>
   };
 
   return (
-    <View style={{ gap: 16 }}>
-      <View style={{ flexDirection: 'row', gap: 12 }}>
-        <View style={{ flex: 1 }}>
-          <Text style={s.label}>НАЧАЛО</Text>
-          <TouchableOpacity onPress={() => setShowStartPicker(true)} style={s.input}>
-            <Text style={s.inputText}>{start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
-          </TouchableOpacity>
+    <Wrapper gap={16}>
+      <Wrapper dir="row" gap={12}>
+        <Wrapper flex={1}>
+          <Typography variant="caption" weight="extraBold" color="textMuted" uppercase letterSpacing={0.5} mb={6}>Начало</Typography>
+          <Surface onPress={() => setShowStartPicker(true)} tone="transparent" radius="md" p={14} bg="#F9F8F6">
+            <Typography variant="body" weight="extraBold">{start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Typography>
+          </Surface>
             <DateTimePickerModal visible={showStartPicker} value={start} mode="time" is24Hour
               onChange={(d) => { if (d) setStart(d); }} onClose={() => setShowStartPicker(false)} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={s.label}>КОНЕЦ</Text>
-          <TouchableOpacity onPress={() => setShowEndPicker(true)} style={s.input}>
-            <Text style={s.inputText}>{end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
-          </TouchableOpacity>
+        </Wrapper>
+        <Wrapper flex={1}>
+          <Typography variant="caption" weight="extraBold" color="textMuted" uppercase letterSpacing={0.5} mb={6}>Конец</Typography>
+          <Surface onPress={() => setShowEndPicker(true)} tone="transparent" radius="md" p={14} bg="#F9F8F6">
+            <Typography variant="body" weight="extraBold">{end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Typography>
+          </Surface>
             <DateTimePickerModal visible={showEndPicker} value={end} mode="time" is24Hour
               onChange={(d) => { if (d) setEnd(d); }} onClose={() => setShowEndPicker(false)} />
-        </View>
-      </View>
-      {isInvalid && <Text style={{ fontSize: 12, fontFamily: 'Nunito_700Bold', color: '#EF4444' }}>Конец должен быть после начала</Text>}
-      {!isInvalid && <Text style={{ fontSize: 12, fontFamily: 'Nunito_700Bold', color: '#8A8A9E' }}>
-        Длительность: {durationMin > 60 ? `${Math.floor(durationMin / 60)}ч ${durationMin % 60}м` : `${durationMin}м`}
-      </Text>}
-      <View>
-        <Text style={s.label}>МЕСТО</Text>
-        <View style={{ flexDirection: 'row', backgroundColor: '#F5F0E6', borderRadius: 12, padding: 4 }}>
-          {locs.map(l => (
-            <TouchableOpacity key={l.id} onPress={() => setLocation(l.id)}
-              style={{ flex: 1, paddingVertical: 10, borderRadius: 10, backgroundColor: location === l.id ? 'white' : 'transparent', alignItems: 'center',
-                shadowColor: location === l.id ? '#000' : 'transparent', shadowOpacity: 0.05, shadowRadius: 4, elevation: location === l.id ? 1 : 0 }}>
-              <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 10, color: location === l.id ? '#1A1A2E' : '#6B6B80' }}>{l.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-      <View style={s.actions}>
-        <TouchableOpacity onPress={handleDelete} style={s.deleteBtn}>
-          <Ionicons name="trash" size={18} color="#E05A5A" />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={handleSave} disabled={saving || isInvalid}
-          style={[s.saveBtn, { backgroundColor: saving || isInvalid ? '#A8A8B6' : '#8B6FD4' }]}>
-          <Ionicons name="save" size={16} color="white" style={{ marginRight: 8 }} />
-          <Text style={s.saveBtnText}>{saving ? 'Сохранение...' : 'Сохранить'}</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+        </Wrapper>
+      </Wrapper>
+      {isInvalid
+        ? <Typography variant="tiny" weight="bold" color="#EF4444">Конец должен быть после начала</Typography>
+        : <Typography variant="tiny" weight="bold" color="textMuted">
+            Длительность: {durationMin > 60 ? `${Math.floor(durationMin / 60)}ч ${durationMin % 60}м` : `${durationMin}м`}
+          </Typography>
+      }
+      <Wrapper>
+        <Typography variant="caption" weight="extraBold" color="textMuted" uppercase letterSpacing={0.5} mb={6}>Место</Typography>
+        <SegmentedControl items={SLEEP_LOCS} selected={location} onChange={setLocation} size="sm" />
+      </Wrapper>
+      <ActionRow onDelete={handleDelete} onSave={handleSave} saving={saving} disabled={isInvalid} tone="primary" />
+    </Wrapper>
   );
 };
 
 /* ── Walk Edit ── */
+const WALK_LOCS = [
+  { key: 'park', label: 'Парк' },
+  { key: 'city', label: 'Город' },
+  { key: 'playground', label: 'Площадка' },
+  { key: 'nature', label: 'Природа' },
+  { key: 'mall', label: 'ТЦ' },
+];
+
 const WalkEdit = ({ record, onClose }: { record: any; onClose: () => void }) => {
   const [notes, setNotes] = useState(record.notes || '');
   const [loc, setLoc] = useState(record.location || 'park');
   const [saving, setSaving] = useState(false);
-
-  const locs = [
-    { id: 'park', label: 'Парк' },
-    { id: 'city', label: 'Город' },
-    { id: 'playground', label: 'Площадка' },
-    { id: 'nature', label: 'Природа' },
-    { id: 'mall', label: 'ТЦ' },
-  ];
 
   const handleSave = async () => {
     setSaving(true);
@@ -331,34 +315,14 @@ const WalkEdit = ({ record, onClose }: { record: any; onClose: () => void }) => 
   };
 
   return (
-    <View style={{ gap: 16 }}>
-      <View>
-        <Text style={s.label}>МЕСТО</Text>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-          {locs.map(l => (
-            <TouchableOpacity key={l.id} onPress={() => setLoc(l.id)}
-              style={{ paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, backgroundColor: loc === l.id ? '#059669' : '#F5F0E6' }}>
-              <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 12, color: loc === l.id ? 'white' : '#6B6B80' }}>{l.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-      <View>
-        <Text style={s.label}>ЗАМЕТКА</Text>
-        <TextInput value={notes} onChangeText={setNotes} placeholder="Необязательно" placeholderTextColor="#A0A0B0"
-          multiline style={[s.input, { minHeight: 80, textAlignVertical: 'top' }]} />
-      </View>
-      <View style={s.actions}>
-        <TouchableOpacity onPress={handleDelete} style={s.deleteBtn}>
-          <Ionicons name="trash" size={18} color="#E05A5A" />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={handleSave} disabled={saving}
-          style={[s.saveBtn, { backgroundColor: saving ? '#A8A8B6' : '#059669' }]}>
-          <Ionicons name="save" size={16} color="white" style={{ marginRight: 8 }} />
-          <Text style={s.saveBtnText}>{saving ? 'Сохранение...' : 'Сохранить'}</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+    <Wrapper gap={16}>
+      <Wrapper>
+        <Typography variant="caption" weight="extraBold" color="textMuted" uppercase letterSpacing={0.5} mb={6}>Место</Typography>
+        <ChipGroup items={WALK_LOCS} selected={loc} onChange={setLoc} tone="green" />
+      </Wrapper>
+      <FormField label="Заметка" value={notes} onChangeText={setNotes} placeholder="Необязательно" multiline />
+      <ActionRow onDelete={handleDelete} onSave={handleSave} saving={saving} tone="success" />
+    </Wrapper>
   );
 };
 
@@ -401,31 +365,26 @@ export default function EditRecordModal({ target, onClose }: Props) {
   if (!target) return null;
 
   const sheetContent = (
-    <View style={{
-      backgroundColor: 'white', borderTopLeftRadius: 24, borderTopRightRadius: 24,
-      paddingHorizontal: 20, paddingTop: 20, paddingBottom: Platform.OS === 'ios' ? 34 : 20,
-      maxHeight: Dimensions.get('window').height * 0.85,
-    }}>
-      <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: '#E0DDD8', alignSelf: 'center', marginBottom: 16 }} />
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-        <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 17, color: '#1A1A2E' }}>{titles[target.kind]}</Text>
-        <TouchableOpacity onPress={onClose}
-          style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#F5F0E6', alignItems: 'center', justifyContent: 'center' }}>
+    <Surface tone="surface" radius="none" px={20} pt={20} pb={Platform.OS === 'ios' ? 34 : 20} style={{ borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: Dimensions.get('window').height * 0.85 }}>
+      <Wrapper width={40} height={4} bg="#E0DDD8" radius="sm" style={{ borderRadius: 2, alignSelf: 'center' }} mb={16} />
+      <Wrapper dir="row" align="center" justify="space-between" mb={20}>
+        <Typography variant="h4" weight="black">{titles[target.kind]}</Typography>
+        <Surface onPress={onClose} tone="transparent" radius="xl" width={36} height={36} align="center" justify="center" bg="#F5F0E6">
           <Ionicons name="close" size={18} color="#6B6B80" />
-        </TouchableOpacity>
-      </View>
+        </Surface>
+      </Wrapper>
       <ScrollView showsVerticalScrollIndicator={false} bounces={false} keyboardShouldPersistTaps="handled">
         {target.kind === 'feeding' && <FeedingEdit record={target.record} onClose={onClose} />}
         {target.kind === 'diaper' && <DiaperEdit record={target.record} onClose={onClose} />}
         {target.kind === 'sleep' && <SleepEdit record={target.record} onClose={onClose} />}
         {target.kind === 'walk' && <WalkEdit record={target.record} onClose={onClose} />}
       </ScrollView>
-    </View>
+    </Surface>
   );
 
   return (
     <Modal visible={!!target} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' }}>
+      <Wrapper flex={1} justify="flex-end" bg="rgba(0,0,0,0.4)">
         <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={onClose} />
         {Platform.OS === 'ios' ? (
           <KeyboardAvoidingView behavior="padding">
@@ -436,17 +395,7 @@ export default function EditRecordModal({ target, onClose }: Props) {
             {sheetContent}
           </RNAnimated.View>
         )}
-      </View>
+      </Wrapper>
     </Modal>
   );
 }
-
-const s = {
-  label: { fontFamily: 'Nunito_800ExtraBold', fontSize: 11, color: '#8A8A9E', textTransform: 'uppercase' as const, letterSpacing: 0.5, marginBottom: 6 },
-  input: { backgroundColor: '#F9F8F6', borderRadius: 14, padding: 14, fontFamily: 'Nunito_800ExtraBold', fontSize: 15, color: '#1A1A2E' },
-  inputText: { fontFamily: 'Nunito_800ExtraBold', fontSize: 15, color: '#1A1A2E' },
-  actions: { flexDirection: 'row' as const, gap: 10, marginTop: 4 },
-  deleteBtn: { width: 48, height: 48, borderRadius: 14, backgroundColor: '#E05A5A20', alignItems: 'center' as const, justifyContent: 'center' as const },
-  saveBtn: { flex: 1, height: 48, borderRadius: 14, flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'center' as const },
-  saveBtnText: { fontFamily: 'Nunito_900Black', fontSize: 14, color: 'white' },
-};

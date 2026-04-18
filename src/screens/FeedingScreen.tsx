@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, TextInput, Platform, Alert, KeyboardAvoidingView, Dimensions } from 'react-native';
+import { ScrollView, TouchableOpacity, TextInput, Platform, Alert, KeyboardAvoidingView, Dimensions } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -13,7 +12,35 @@ import { triggerHaptic } from '../utils/haptics';
 import withObservables from '@nozbe/with-observables';
 import EditRecordModal from '../components/EditRecordModal';
 
+import { Wrapper } from '../components/ui/Wrapper';
+import { Surface } from '../components/ui/Surface';
+import { Typography } from '../components/ui/Typography';
+import { ScreenHeader } from '../components/ScreenHeader';
+import { SegmentedControl } from '../components/SegmentedControl';
+import { IconCircle } from '../components/IconCircle';
+import { StatusBadge } from '../components/StatusBadge';
+import { EmptyState } from '../components/EmptyState';
+import { COLORS, FONTS, RADIUS } from '../lib/theme';
+
 const { width } = Dimensions.get('window');
+
+const TAB_ITEMS = [
+  { key: 'breast', label: 'Грудь', icon: <Ionicons name="water" size={16} /> },
+  { key: 'formula', label: 'Смесь', icon: <Ionicons name="flask" size={16} /> },
+  { key: 'solid', label: 'Прикорм', icon: <Ionicons name="restaurant" size={16} /> },
+];
+
+const TAB_TONES = {
+  breast: 'primary' as const,
+  formula: 'purple' as const,
+  solid: 'green' as const,
+};
+
+const TAB_COLORS = {
+  breast: { accent: '#4E8FD4', bg: '#F0F7FF', border: '#D1E5FC' },
+  formula: { accent: '#7B50C8', bg: '#F5F3FF', border: '#EDE9FE' },
+  solid: { accent: '#2A9B7E', bg: '#F0FCF9', border: '#CCF0E6' },
+};
 
 function FeedingScreenContent({ feedings }: { feedings: Feeding[] }) {
   const navigation = useNavigation();
@@ -136,144 +163,199 @@ function FeedingScreenContent({ feedings }: { feedings: Feeding[] }) {
     return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
   };
 
-  const handleTabPress = (idx: number) => {
-    setActiveTab(TABS[idx] as any);
-  };
+  const colors = TAB_COLORS[activeTab];
+
+  // Inline row component for formula/solid fields
+  const FieldRow = ({ label, children }: { label: string; children: React.ReactNode }) => (
+    <Wrapper dir="row" align="center" justify="space-between" px={20} py={12} mb={16}
+      style={{ backgroundColor: colors.bg, borderRadius: RADIUS.xl, borderWidth: 1, borderColor: colors.border }}>
+      <Typography variant="body" weight="extraBold">{label}</Typography>
+      {children}
+    </Wrapper>
+  );
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#FAFBFC' }}>
+    <Wrapper flex={1} bg="#FAFBFC">
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
-        <View style={{ paddingTop: Math.max(insets.top, 16), paddingHorizontal: 16, paddingBottom: 16, backgroundColor: '#FAFBFC', flexDirection: 'row', alignItems: 'center' }}>
-         <TouchableOpacity onPress={() => navigation.goBack()} style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'white', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2, marginRight: 16, borderWidth: 1, borderColor: '#E2E8F0' }}>
-             <Ionicons name="arrow-back" size={24} color="#1A1A2E" />
-         </TouchableOpacity>
-         <View>
-             <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 24, color: '#1A1A2E' }}>Кормление</Text>
-         </View>
-      </View>
+        <ScreenHeader title="Кормление" />
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: Math.max(insets.bottom, 120) }}>
           {/* Tabs */}
-          <View style={{ backgroundColor: 'rgba(255,255,255,0.6)', borderWidth: 1, borderColor: 'rgba(0,0,0,0.05)', borderRadius: 18, padding: 4, flexDirection: 'row', marginBottom: 20 }}>
-            <TouchableOpacity onPress={() => handleTabPress(0)} style={{ flex: 1, height: 46, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: activeTab === 'breast' ? '#2563EB' : 'transparent', shadowColor: activeTab === 'breast' ? '#2563EB' : 'transparent', shadowOpacity: 0.2, shadowRadius: 8, elevation: activeTab === 'breast' ? 2 : 0 }}>
-              <Ionicons name="water" size={16} color={activeTab === 'breast' ? 'white' : '#8A8A9E'} />
-              <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 13, color: activeTab === 'breast' ? 'white' : '#8A8A9E', marginLeft: 6 }}>Грудь</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => handleTabPress(1)} style={{ flex: 1, height: 46, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: activeTab === 'formula' ? '#8B5CF6' : 'transparent', shadowColor: activeTab === 'formula' ? '#8B5CF6' : 'transparent', shadowOpacity: 0.2, shadowRadius: 8, elevation: activeTab === 'formula' ? 2 : 0 }}>
-              <Ionicons name="flask" size={16} color={activeTab === 'formula' ? 'white' : '#8A8A9E'} />
-              <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 13, color: activeTab === 'formula' ? 'white' : '#8A8A9E', marginLeft: 6 }}>Смесь</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => handleTabPress(2)} style={{ flex: 1, height: 46, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: activeTab === 'solid' ? '#059669' : 'transparent', shadowColor: activeTab === 'solid' ? '#059669' : 'transparent', shadowOpacity: 0.2, shadowRadius: 8, elevation: activeTab === 'solid' ? 2 : 0 }}>
-              <Ionicons name="restaurant" size={16} color={activeTab === 'solid' ? 'white' : '#8A8A9E'} />
-              <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 13, color: activeTab === 'solid' ? 'white' : '#8A8A9E', marginLeft: 6 }}>Прикорм</Text>
-            </TouchableOpacity>
-          </View>
+          <Wrapper mb={20}>
+            <SegmentedControl
+              items={TAB_ITEMS}
+              selected={activeTab}
+              onChange={(key) => setActiveTab(key as any)}
+              tone={TAB_TONES[activeTab]}
+            />
+          </Wrapper>
 
           {/* Breast Panel */}
           {activeTab === 'breast' && (
-          <View style={{ backgroundColor: 'white', borderRadius: 24, padding: 20, shadowColor: '#4E8FD4', shadowOpacity: 0.12, shadowRadius: 32, elevation: 5, borderWidth: 2, borderColor: 'rgba(78,143,212,0.15)' }}>
-            <Text style={{ fontSize: 12, fontFamily: 'Nunito_800ExtraBold', color: '#8A8A9E', marginBottom: 8, textTransform: 'uppercase' }}>Время кормления</Text>
-            <TouchableOpacity onPress={() => setShowPicker(true)} style={{ backgroundColor: '#F0F7FF', padding: 16, borderRadius: 16, marginBottom: 20 }}>
-              <Text style={{ fontSize: 16, fontFamily: 'Nunito_700Bold', color: '#1A1A2E' }}>{eventTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} {eventTime.toLocaleDateString()}</Text>
+          <Surface variant="elevated" radius="xxl" p={20}>
+            <Typography variant="tiny" weight="extraBold" color="#8A8A9E" mb={8} uppercase>Время кормления</Typography>
+            <TouchableOpacity onPress={() => setShowPicker(true)} style={{ backgroundColor: colors.bg, padding: 16, borderRadius: RADIUS.xl, marginBottom: 20 }}>
+              <Typography variant="body" weight="bold">{eventTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} {eventTime.toLocaleDateString()}</Typography>
             </TouchableOpacity>
 
-            <Text style={{ fontSize: 12, fontFamily: 'Nunito_800ExtraBold', color: '#8A8A9E', marginBottom: 10, textTransform: 'uppercase' }}>Какая грудь?</Text>
-            <View style={{ flexDirection: 'row', gap: 12, marginBottom: 24 }}>
+            <Typography variant="tiny" weight="extraBold" color="#8A8A9E" mb={10} uppercase>Какая грудь?</Typography>
+            <Wrapper dir="row" gap={12} mb={24}>
               {['Л', 'П'].map(side => {
                 const active = breastSide === side;
                 return (
-                  <TouchableOpacity key={side} onPress={() => setBreastSide(side as any)} style={{ flex: 1, height: 56, borderRadius: 16, backgroundColor: active ? '#4E8FD4' : '#F0F7FF', alignItems: 'center', justifyContent: 'center', borderWidth: active ? 0 : 1, borderColor: '#D1E5FC' }}>
-                    <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 16, color: active ? 'white' : '#4E8FD4' }}>{side === 'Л' ? '← Левая' : 'Правая →'}</Text>
+                  <TouchableOpacity
+                    key={side}
+                    onPress={() => setBreastSide(side as any)}
+                    style={{
+                      flex: 1, height: 56, borderRadius: RADIUS.xl,
+                      backgroundColor: active ? colors.accent : colors.bg,
+                      alignItems: 'center', justifyContent: 'center',
+                      borderWidth: active ? 0 : 1, borderColor: colors.border,
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Typography variant="body" weight="extraBold" color={active ? 'white' : colors.accent}>
+                      {side === 'Л' ? '← Левая' : 'Правая →'}
+                    </Typography>
                   </TouchableOpacity>
                 );
               })}
-            </View>
+            </Wrapper>
 
-            <View style={{ backgroundColor: '#F0F7FF', borderRadius: 20, padding: 20, borderColor: '#D1E5FC', borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: (!timerRunning && seconds > 0) ? 20 : 0 }}>
-              <View>
-                <Text style={{ fontSize: 12, fontFamily: 'Nunito_800ExtraBold', color: '#8A8A9E', textTransform: 'uppercase', marginBottom: 4 }}>Длительность</Text>
-                <Text style={{ fontSize: 38, fontFamily: 'Nunito_900Black', color: '#1A1A2E' }}>{fmt(seconds)}</Text>
-              </View>
-              <TouchableOpacity onPress={() => setTimerRunning(!timerRunning)} style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: timerRunning ? '#D94F4F' : '#4E8FD4', alignItems: 'center', justifyContent: 'center' }}>
+            <Wrapper dir="row" align="center" justify="space-between" p={20} mb={(!timerRunning && seconds > 0) ? 20 : 0}
+              style={{ backgroundColor: colors.bg, borderRadius: RADIUS.xxl, borderWidth: 1, borderColor: colors.border }}>
+              <Wrapper>
+                <Typography variant="tiny" weight="extraBold" color="#8A8A9E" uppercase mb={4}>Длительность</Typography>
+                <Typography variant="h1" weight="black" size={38}>{fmt(seconds)}</Typography>
+              </Wrapper>
+              <TouchableOpacity
+                onPress={() => setTimerRunning(!timerRunning)}
+                style={{
+                  width: 56, height: 56, borderRadius: 28,
+                  backgroundColor: timerRunning ? '#D94F4F' : colors.accent,
+                  alignItems: 'center', justifyContent: 'center',
+                }}
+                activeOpacity={0.8}
+              >
                 <Ionicons name={timerRunning ? "stop" : "play"} size={26} color="white" />
               </TouchableOpacity>
-            </View>
+            </Wrapper>
 
             {!timerRunning && seconds > 0 && (
-              <TouchableOpacity onPress={handleSaveBreast} style={{ height: 56, borderRadius: 20, backgroundColor: '#4E8FD4', alignItems: 'center', justifyContent: 'center', shadowColor: '#4E8FD4', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 24, elevation: 6 }}>
-                <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 16, color: 'white' }}>Сохранить ГВ ({fmt(seconds)})</Text>
+              <TouchableOpacity
+                onPress={handleSaveBreast}
+                style={{
+                  height: 56, borderRadius: RADIUS.xl,
+                  backgroundColor: colors.accent,
+                  alignItems: 'center', justifyContent: 'center',
+                }}
+                activeOpacity={0.8}
+              >
+                <Typography variant="body" weight="black" color="white">Сохранить ГВ ({fmt(seconds)})</Typography>
               </TouchableOpacity>
             )}
-          </View>
+          </Surface>
           )}
 
           {/* Formula Panel */}
           {activeTab === 'formula' && (
-          <View style={{ backgroundColor: 'white', borderRadius: 24, padding: 20, shadowColor: '#7B50C8', shadowOpacity: 0.06, shadowRadius: 32, elevation: 5, borderWidth: 1, borderColor: 'rgba(123,80,200,0.15)' }}>
-            <Text style={{ fontSize: 12, fontFamily: 'Nunito_800ExtraBold', color: '#8A8A9E', marginBottom: 8, textTransform: 'uppercase' }}>Время кормления</Text>
-            <TouchableOpacity onPress={() => setShowPicker(true)} style={{ backgroundColor: '#F5F3FF', padding: 16, borderRadius: 16, marginBottom: 20 }}>
-              <Text style={{ fontSize: 16, fontFamily: 'Nunito_700Bold', color: '#1A1A2E' }}>{eventTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} {eventTime.toLocaleDateString()}</Text>
+          <Surface variant="elevated" radius="xxl" p={20}>
+            <Typography variant="tiny" weight="extraBold" color="#8A8A9E" mb={8} uppercase>Время кормления</Typography>
+            <TouchableOpacity onPress={() => setShowPicker(true)} style={{ backgroundColor: colors.bg, padding: 16, borderRadius: RADIUS.xl, marginBottom: 20 }}>
+              <Typography variant="body" weight="bold">{eventTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} {eventTime.toLocaleDateString()}</Typography>
             </TouchableOpacity>
 
-            <Text style={{ fontSize: 12, fontFamily: 'Nunito_800ExtraBold', color: '#8A8A9E', marginBottom: 10, textTransform: 'uppercase' }}>Параметры смеси</Text>
-            <View style={{ backgroundColor: '#F5F3FF', borderRadius: 16, paddingHorizontal: 20, paddingVertical: 12, marginBottom: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#EDE9FE' }}>
-              <Text style={{ fontSize: 16, fontFamily: 'Nunito_800ExtraBold', color: '#1A1A2E' }}>Объём (мл)</Text>
-              <TextInput value={formulaVolume} onChangeText={setFormulaVolume} keyboardType="numeric" placeholder="120" placeholderTextColor="#B8A8D8" style={{ fontSize: 18, fontFamily: 'Nunito_900Black', color: '#7B50C8', textAlign: 'right', minWidth: 60 }} />
-            </View>
-            <View style={{ backgroundColor: '#F5F3FF', borderRadius: 16, paddingHorizontal: 20, paddingVertical: 12, marginBottom: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#EDE9FE' }}>
-              <Text style={{ fontSize: 16, fontFamily: 'Nunito_800ExtraBold', color: '#1A1A2E' }}>Бренд</Text>
-              <TextInput value={formulaBrand} onChangeText={setFormulaBrand} placeholder="Nan Optipro" placeholderTextColor="#B8A8D8" style={{ fontSize: 16, fontFamily: 'Nunito_800ExtraBold', color: '#7B50C8', textAlign: 'right', minWidth: 100 }} />
-            </View>
-            <View style={{ backgroundColor: '#F5F3FF', borderRadius: 16, paddingHorizontal: 20, paddingVertical: 12, marginBottom: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#EDE9FE' }}>
-              <Text style={{ fontSize: 16, fontFamily: 'Nunito_800ExtraBold', color: '#1A1A2E' }}>Температура (°C)</Text>
-              <TextInput value={temperature} onChangeText={setTemperature} keyboardType="numeric" placeholder="37" placeholderTextColor="#B8A8D8" style={{ fontSize: 16, fontFamily: 'Nunito_800ExtraBold', color: '#7B50C8', textAlign: 'right', minWidth: 60 }} />
-            </View>
+            <Typography variant="tiny" weight="extraBold" color="#8A8A9E" mb={10} uppercase>Параметры смеси</Typography>
+            <FieldRow label="Объём (мл)">
+              <TextInput value={formulaVolume} onChangeText={setFormulaVolume} keyboardType="numeric" placeholder="120" placeholderTextColor="#B8A8D8"
+                style={{ fontSize: 18, fontFamily: FONTS.black, color: colors.accent, textAlign: 'right', minWidth: 60 }} />
+            </FieldRow>
+            <FieldRow label="Бренд">
+              <TextInput value={formulaBrand} onChangeText={setFormulaBrand} placeholder="Nan Optipro" placeholderTextColor="#B8A8D8"
+                style={{ fontSize: 16, fontFamily: FONTS.extraBold, color: colors.accent, textAlign: 'right', minWidth: 100 }} />
+            </FieldRow>
+            <FieldRow label="Температура (°C)">
+              <TextInput value={temperature} onChangeText={setTemperature} keyboardType="numeric" placeholder="37" placeholderTextColor="#B8A8D8"
+                style={{ fontSize: 16, fontFamily: FONTS.extraBold, color: colors.accent, textAlign: 'right', minWidth: 60 }} />
+            </FieldRow>
 
-            <TouchableOpacity onPress={handleSaveFormula} style={{ height: 56, borderRadius: 20, backgroundColor: '#7B50C8', alignItems: 'center', justifyContent: 'center', marginTop: 10, shadowColor: '#7B50C8', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 24, elevation: 6 }}>
-              <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 16, color: 'white' }}>Сохранить смесь ({formulaVolume}мл)</Text>
+            <TouchableOpacity
+              onPress={handleSaveFormula}
+              style={{
+                marginTop: 10, height: 56, borderRadius: RADIUS.xl,
+                backgroundColor: colors.accent,
+                alignItems: 'center', justifyContent: 'center',
+              }}
+              activeOpacity={0.8}
+            >
+              <Typography variant="body" weight="black" color="white">Сохранить смесь ({formulaVolume}мл)</Typography>
             </TouchableOpacity>
-          </View>
+          </Surface>
           )}
 
           {/* Solid Panel */}
           {activeTab === 'solid' && (
-          <View style={{ backgroundColor: 'white', borderRadius: 24, padding: 20, shadowColor: '#2A9B7E', shadowOpacity: 0.12, shadowRadius: 32, elevation: 5, borderWidth: 2, borderColor: 'rgba(42,155,126,0.15)' }}>
-            <Text style={{ fontSize: 12, fontFamily: 'Nunito_800ExtraBold', color: '#8A8A9E', marginBottom: 8, textTransform: 'uppercase' }}>Время кормления</Text>
-            <TouchableOpacity onPress={() => setShowPicker(true)} style={{ backgroundColor: '#F0FCF9', padding: 16, borderRadius: 16, marginBottom: 20 }}>
-              <Text style={{ fontSize: 16, fontFamily: 'Nunito_700Bold', color: '#1A1A2E' }}>{eventTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} {eventTime.toLocaleDateString()}</Text>
+          <Surface variant="elevated" radius="xxl" p={20}>
+            <Typography variant="tiny" weight="extraBold" color="#8A8A9E" mb={8} uppercase>Время кормления</Typography>
+            <TouchableOpacity onPress={() => setShowPicker(true)} style={{ backgroundColor: colors.bg, padding: 16, borderRadius: RADIUS.xl, marginBottom: 20 }}>
+              <Typography variant="body" weight="bold">{eventTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} {eventTime.toLocaleDateString()}</Typography>
             </TouchableOpacity>
 
-            <Text style={{ fontSize: 12, fontFamily: 'Nunito_800ExtraBold', color: '#8A8A9E', marginBottom: 10, textTransform: 'uppercase' }}>Что ел малыш?</Text>
-            <TextInput placeholder="Напр. Брокколи" placeholderTextColor="#94A3B8" value={weaningProduct} onChangeText={setWeaningProduct} style={{ backgroundColor: '#F0FCF9', borderRadius: 16, padding: 16, fontFamily: 'Nunito_800ExtraBold', fontSize: 16, color: '#1A1A2E', marginBottom: 16, borderWidth: 1, borderColor: '#CCF0E6' }} />
+            <Typography variant="tiny" weight="extraBold" color="#8A8A9E" mb={10} uppercase>Что ел малыш?</Typography>
+            <TextInput placeholder="Напр. Брокколи" placeholderTextColor="#94A3B8" value={weaningProduct} onChangeText={setWeaningProduct}
+              style={{ backgroundColor: colors.bg, borderRadius: RADIUS.lg, padding: 16, fontFamily: FONTS.extraBold, fontSize: 16, color: COLORS.foreground, marginBottom: 16, borderWidth: 1, borderColor: colors.border }} />
 
-            <View style={{ backgroundColor: '#F0FCF9', borderRadius: 16, paddingHorizontal: 20, paddingVertical: 12, marginBottom: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#CCF0E6' }}>
-              <Text style={{ fontSize: 16, fontFamily: 'Nunito_800ExtraBold', color: '#1A1A2E' }}>Объём (г)</Text>
-              <TextInput value={weaningVolume} onChangeText={setWeaningVolume} keyboardType="numeric" placeholder="100" placeholderTextColor="#7EC8B5" style={{ fontSize: 18, fontFamily: 'Nunito_900Black', color: '#2A9B7E', textAlign: 'right', minWidth: 60 }} />
-            </View>
+            <FieldRow label="Объём (г)">
+              <TextInput value={weaningVolume} onChangeText={setWeaningVolume} keyboardType="numeric" placeholder="100" placeholderTextColor="#7EC8B5"
+                style={{ fontSize: 18, fontFamily: FONTS.black, color: colors.accent, textAlign: 'right', minWidth: 60 }} />
+            </FieldRow>
 
-            <Text style={{ fontSize: 12, fontFamily: 'Nunito_800ExtraBold', color: '#8A8A9E', marginBottom: 10, textTransform: 'uppercase' }}>Реакция</Text>
-            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 20 }}>
+            <Typography variant="tiny" weight="extraBold" color="#8A8A9E" mb={10} uppercase>Реакция</Typography>
+            <Wrapper dir="row" gap={8} mb={20}>
               {[
                 { id: 'happy', emoji: '😋', label: 'Рад', color: '#2A9B7E' },
                 { id: 'neutral', emoji: '😐', label: 'Норм', color: '#E69600' },
                 { id: 'fussy', emoji: '😖', label: 'Плач', color: '#D94F4F' }
-              ].map(r => (
-                <TouchableOpacity key={r.id} onPress={() => setReaction(r.id as any)} style={{ flex: 1, height: 74, borderRadius: 16, backgroundColor: reaction === r.id ? `${r.color}15` : '#F5F5F9', alignItems: 'center', justifyContent: 'center', borderWidth: reaction === r.id ? 2 : 0, borderColor: r.color }}>
-                  <Text style={{ fontSize: 26, opacity: reaction !== r.id ? 0.3 : 1 }}>{r.emoji}</Text>
-                  <Text style={{ fontSize: 11, fontFamily: 'Nunito_800ExtraBold', color: reaction === r.id ? r.color : '#8A8A9E', marginTop: 4 }}>{r.label}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+              ].map(r => {
+                const active = reaction === r.id;
+                return (
+                  <TouchableOpacity
+                    key={r.id}
+                    onPress={() => setReaction(r.id as any)}
+                    style={{
+                      flex: 1, height: 74, borderRadius: RADIUS.xl,
+                      backgroundColor: active ? `${r.color}15` : '#F5F5F9',
+                      alignItems: 'center', justifyContent: 'center',
+                      borderWidth: active ? 2 : 0, borderColor: r.color,
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Typography variant="h1" size={26} style={{ opacity: !active ? 0.3 : 1 }}>{r.emoji}</Typography>
+                    <Wrapper mt={4}>
+                      <Typography variant="tiny" weight="extraBold" color={active ? r.color : '#8A8A9E'}>{r.label}</Typography>
+                    </Wrapper>
+                  </TouchableOpacity>
+                );
+              })}
+            </Wrapper>
 
-            <TouchableOpacity onPress={handleSaveSolid} style={{ height: 56, borderRadius: 20, backgroundColor: '#2A9B7E', alignItems: 'center', justifyContent: 'center', shadowColor: '#2A9B7E', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 24, elevation: 6 }}>
-              <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 16, color: 'white' }}>Сохранить прикорм ({weaningVolume}г)</Text>
+            <TouchableOpacity
+              onPress={handleSaveSolid}
+              style={{
+                height: 56, borderRadius: RADIUS.xl,
+                backgroundColor: colors.accent,
+                alignItems: 'center', justifyContent: 'center',
+              }}
+              activeOpacity={0.8}
+            >
+              <Typography variant="body" weight="black" color="white">Сохранить прикорм ({weaningVolume}г)</Typography>
             </TouchableOpacity>
-          </View>
+          </Surface>
           )}
 
       {/* ── History Timeline ── */}
-        <View style={{ marginTop: 24 }}>
-        <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 18, color: '#1A1A2E', marginBottom: 16 }}>
+        <Wrapper mt={24}>
+        <Typography variant="body" weight="black" mb={16}>
           История за день ({(() => {
             const today = feedings.filter(f => {
               const d = new Date(f.created_at);
@@ -281,7 +363,7 @@ function FeedingScreenContent({ feedings }: { feedings: Feeding[] }) {
             });
             return today.length;
           })()})
-        </Text>
+        </Typography>
 
         {(() => {
           const today = feedings.filter(f => {
@@ -290,19 +372,17 @@ function FeedingScreenContent({ feedings }: { feedings: Feeding[] }) {
           }).sort((a, b) => b.created_at - a.created_at);
 
           if (today.length === 0) return (
-            <View style={{ paddingVertical: 40, alignItems: 'center', backgroundColor: 'white', borderRadius: 20, borderWidth: 1, borderColor: 'rgba(0,0,0,0.04)' }}>
-              <Text style={{ fontSize: 42, marginBottom: 12, opacity: 0.8 }}>🍽️</Text>
-              <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 15, color: '#1A1A2E' }}>Пока нет записей</Text>
-              <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 13, color: '#8A8A9E', marginTop: 4 }}>Сохраните первое кормление выше</Text>
-            </View>
+            <Surface variant="flat" radius="xl" p={0}>
+              <EmptyState emoji="🍽️" title="Пока нет записей" subtitle="Сохраните первое кормление выше" />
+            </Surface>
           );
 
           const getTypeStyle = (type: string) => {
             switch (type) {
-              case 'breast': return { icon: 'water', bg: '#DBEAFE', color: '#2563EB', label: 'Грудь' };
-              case 'formula': return { icon: 'flask', bg: '#F3E8FF', color: '#8B5CF6', label: 'Смесь' };
-              case 'solid': return { icon: 'restaurant', bg: '#D1FAE5', color: '#059669', label: 'Прикорм' };
-              default: return { icon: 'water', bg: '#F5F0E6', color: '#6B6B80', label: type };
+              case 'breast': return { icon: 'water' as const, bg: '#DBEAFE', color: '#2563EB', label: 'Грудь' };
+              case 'formula': return { icon: 'flask' as const, bg: '#F3E8FF', color: '#8B5CF6', label: 'Смесь' };
+              case 'solid': return { icon: 'restaurant' as const, bg: '#D1FAE5', color: '#059669', label: 'Прикорм' };
+              default: return { icon: 'water' as const, bg: '#F5F0E6', color: '#6B6B80', label: type };
             }
           };
 
@@ -312,51 +392,49 @@ function FeedingScreenContent({ feedings }: { feedings: Feeding[] }) {
           };
 
           return (
-            <View style={{ paddingLeft: 8 }}>
-              <View style={{ position: 'absolute', left: 23, top: 16, bottom: 24, width: 2, backgroundColor: '#E5E7EB' }} />
+            <Wrapper pl={8}>
+              <Wrapper style={{ position: 'absolute', left: 23, top: 16, bottom: 24, width: 2, backgroundColor: '#E5E7EB' }} />
               {today.map(f => {
                 const ts = getTypeStyle(f.type);
                 
                 const renderRightActions = () => (
-                  <View style={{ flexDirection: 'row', width: 140 }}>
+                  <Wrapper dir="row" width={140}>
                     <TouchableOpacity onPress={() => setEditTarget({ kind: 'feeding', record: f })} style={{ flex: 1, backgroundColor: ts.color, justifyContent: 'center', alignItems: 'center' }}>
                       <Ionicons name="pencil" size={20} color="white" />
-                      <Text style={{ color: 'white', fontSize: 10, fontFamily: 'Nunito_800ExtraBold', marginTop: 4 }}>Изменить</Text>
+                      <Typography variant="tiny" weight="extraBold" color="white" mt={4}>Изменить</Typography>
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={() => handleDeleteRecord(f as Feeding)} style={{ flex: 1, backgroundColor: '#D94F4F', borderTopRightRadius: 16, borderBottomRightRadius: 16, justifyContent: 'center', alignItems: 'center' }}>
+                    <TouchableOpacity onPress={() => handleDeleteRecord(f as Feeding)} style={{ flex: 1, backgroundColor: '#D94F4F', justifyContent: 'center', alignItems: 'center', borderTopRightRadius: 16, borderBottomRightRadius: 16 }}>
                       <Ionicons name="trash" size={20} color="white" />
-                      <Text style={{ color: 'white', fontSize: 10, fontFamily: 'Nunito_800ExtraBold', marginTop: 4 }}>Удалить</Text>
+                      <Typography variant="tiny" weight="extraBold" color="white" mt={4}>Удалить</Typography>
                     </TouchableOpacity>
-                  </View>
+                  </Wrapper>
                 );
 
                 return (
-                  <View key={f.id} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 14, marginBottom: 16 }}>
-                    <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: ts.bg, alignItems: 'center', justifyContent: 'center', zIndex: 2, borderWidth: 3, borderColor: '#FAFAFC' }}>
-                      <Ionicons name={ts.icon as any} size={14} color={ts.color} />
-                    </View>
-                    <View style={{ flex: 1, backgroundColor: 'white', borderRadius: 16, shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 16, elevation: 1, borderWidth: 1, borderColor: 'rgba(0,0,0,0.04)', overflow: 'hidden' }}>
+                  <Wrapper key={f.id} dir="row" align="flex-start" gap={14} mb={16}>
+                    <IconCircle size="sm" bg={ts.bg}>
+                      <Ionicons name={ts.icon} size={14} color={ts.color} />
+                    </IconCircle>
+                    <Wrapper flex={1} overflow="hidden" style={{ backgroundColor: COLORS.card, borderRadius: RADIUS.xl, borderWidth: 1, borderColor: 'rgba(0,0,0,0.04)' }}>
                       <Swipeable renderRightActions={renderRightActions} friction={2} rightThreshold={40}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', padding: 12, paddingHorizontal: 16, backgroundColor: 'white' }}>
-                          <View style={{ flex: 1 }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                              <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 15, color: '#1A1A2E' }}>{fmtTime(f.created_at)}</Text>
-                              <View style={{ backgroundColor: ts.bg, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 }}>
-                                <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 11, color: ts.color }}>{ts.label}</Text>
-                              </View>
-                            </View>
-                            <Text numberOfLines={1} style={{ fontFamily: 'Nunito_700Bold', fontSize: 13, color: '#6B6B80' }}>{f.description}</Text>
-                          </View>
-                        </View>
+                        <Wrapper dir="row" align="center" p={12} px={16}>
+                          <Wrapper flex={1}>
+                            <Wrapper dir="row" align="center" gap={8} mb={4}>
+                              <Typography variant="body" weight="black">{fmtTime(f.created_at)}</Typography>
+                              <StatusBadge label={ts.label} tone={f.type === 'breast' ? 'info' : f.type === 'formula' ? 'purple' : 'success'} />
+                            </Wrapper>
+                            <Typography variant="tiny" weight="bold" color="#6B6B80" numberOfLines={1}>{f.description}</Typography>
+                          </Wrapper>
+                        </Wrapper>
                       </Swipeable>
-                    </View>
-                  </View>
+                    </Wrapper>
+                  </Wrapper>
                 );
               })}
-            </View>
+            </Wrapper>
           );
         })()}
-        </View>
+        </Wrapper>
       </ScrollView>
 
       <DateTimePickerModal
@@ -369,7 +447,7 @@ function FeedingScreenContent({ feedings }: { feedings: Feeding[] }) {
       />
       <EditRecordModal target={editTarget} onClose={() => setEditTarget(null)} />
       </KeyboardAvoidingView>
-    </View>
+    </Wrapper>
   );
 }
 
@@ -378,4 +456,3 @@ const enhance = withObservables([], () => ({
 }));
 
 export default enhance(FeedingScreenContent as any);
-
