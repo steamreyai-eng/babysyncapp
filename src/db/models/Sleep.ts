@@ -10,5 +10,6 @@ export class Sleep extends Model {
   @field('start_time') start_time?: number
   @field('end_time') end_time?: number
   @field('recorded_by') recorded_by!: string
+  @field('is_synthetic') is_synthetic?: boolean
   @date('created_at') created_at!: number
 }

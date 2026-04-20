@@ -12,6 +12,7 @@
 
 import notifee, { AndroidImportance, AndroidVisibility, EventType } from '@notifee/react-native';
 import { Platform } from 'react-native';
+import { LiveActivities } from './liveActivities';
 import { database } from '../db';
 import { Sleep } from '../db/models/Sleep';
 import { Walk } from '../db/models/Walk';
@@ -59,8 +60,19 @@ export async function setupTimerNotifications() {
 }
 
 export async function startSleepTimerNotification(startTimeMs: number) {
-  if (Platform.OS !== 'android') return;
   const startTimeStr = formatTime(startTimeMs);
+
+  if (Platform.OS === 'ios') {
+     LiveActivities.startActivity('BabysyncTimer', {
+        type: 'sleep',
+        title: 'Сон идёт',
+        body: `${startTimeStr} – Сейчас`,
+        startTime: startTimeMs
+     });
+     return;
+  }
+
+  if (Platform.OS !== 'android') return;
 
   await notifee.displayNotification({
     id: SLEEP_NOTIF_ID,
@@ -69,7 +81,7 @@ export async function startSleepTimerNotification(startTimeMs: number) {
     android: {
       channelId: 'sleep-timer',
       color: '#8B6FD4',
-      colorized: true, // Changes the background entirely on some Android versions
+      asForegroundService: true, // Mark as foreground service to prevent OS from killing it
       ongoing: true,
       autoCancel: false,
       showChronometer: true,
@@ -77,7 +89,7 @@ export async function startSleepTimerNotification(startTimeMs: number) {
       timestamp: startTimeMs,
       actions: [
         {
-          title: 'Стоп',
+          title: 'Остановить сон',
           pressAction: { id: 'stop-sleep' },
         },
       ],
@@ -86,6 +98,10 @@ export async function startSleepTimerNotification(startTimeMs: number) {
 }
 
 export async function cancelSleepTimerNotification() {
+  if (Platform.OS === 'ios') {
+     LiveActivities.endActivity('BabysyncTimer');
+     return;
+  }
   if (Platform.OS !== 'android') return;
   try {
     await notifee.cancelNotification(SLEEP_NOTIF_ID);
@@ -93,8 +109,19 @@ export async function cancelSleepTimerNotification() {
 }
 
 export async function startWalkTimerNotification(startTimeMs: number) {
-  if (Platform.OS !== 'android') return;
   const startTimeStr = formatTime(startTimeMs);
+
+  if (Platform.OS === 'ios') {
+     LiveActivities.startActivity('BabysyncTimer', {
+        type: 'walk',
+        title: 'Прогулка идёт',
+        body: `${startTimeStr} – Сейчас`,
+        startTime: startTimeMs
+     });
+     return;
+  }
+
+  if (Platform.OS !== 'android') return;
 
   await notifee.displayNotification({
     id: WALK_NOTIF_ID,
@@ -103,7 +130,7 @@ export async function startWalkTimerNotification(startTimeMs: number) {
     android: {
       channelId: 'walk-timer',
       color: '#059669',
-      colorized: true,
+      asForegroundService: true,
       ongoing: true,
       autoCancel: false,
       showChronometer: true,
@@ -111,7 +138,7 @@ export async function startWalkTimerNotification(startTimeMs: number) {
       timestamp: startTimeMs,
       actions: [
         {
-          title: 'Стоп',
+          title: 'Завершить прогулку',
           pressAction: { id: 'stop-walk' },
         },
       ],
@@ -120,6 +147,10 @@ export async function startWalkTimerNotification(startTimeMs: number) {
 }
 
 export async function cancelWalkTimerNotification() {
+  if (Platform.OS === 'ios') {
+     LiveActivities.endActivity('BabysyncTimer');
+     return;
+  }
   if (Platform.OS !== 'android') return;
   try {
     await notifee.cancelNotification(WALK_NOTIF_ID);
@@ -132,11 +163,22 @@ export async function startFeedingTimerNotification(
   leftRunning: boolean,
   rightRunning: boolean
 ) {
-  if (Platform.OS !== 'android') return;
   const startTimeStr = formatTime(sessionStartMs);
-  
-  // Calculate a "fake" timestamp so the chronometer shows the correct total elapsed time
   const runningTimestamp = Date.now() - (totalElapsedSecs * 1000);
+
+  if (Platform.OS === 'ios') {
+     LiveActivities.startActivity('BabysyncTimer', {
+        type: 'feeding',
+        title: '🍼 Кормление грудью',
+        body: `${startTimeStr} – Сейчас`,
+        startTime: runningTimestamp,
+        leftRunning,
+        rightRunning
+     });
+     return;
+  }
+
+  if (Platform.OS !== 'android') return;
 
   const actions = [];
   if (leftRunning) {
@@ -156,7 +198,7 @@ export async function startFeedingTimerNotification(
     android: {
       channelId: 'feeding-timer',
       color: '#5B9BD5',
-      colorized: true,
+      asForegroundService: true,
       ongoing: true,
       autoCancel: false,
       showChronometer: true,
@@ -168,6 +210,10 @@ export async function startFeedingTimerNotification(
 }
 
 export async function cancelFeedingTimerNotification() {
+  if (Platform.OS === 'ios') {
+     LiveActivities.endActivity('BabysyncTimer');
+     return;
+  }
   if (Platform.OS !== 'android') return;
   try {
     await notifee.cancelNotification(FEEDING_NOTIF_ID);
@@ -181,7 +227,7 @@ export async function restoreTimerNotifications(
   walkStartTime: number | null,
   feedingConfig: any
 ) {
-  if (Platform.OS !== 'android') return;
+  // Now supports iOS via LiveActivities
   if (sleepRunning && sleepStartTime) {
     await startSleepTimerNotification(sleepStartTime);
   }
@@ -190,7 +236,6 @@ export async function restoreTimerNotifications(
   }
   if (feedingConfig?.leftRunning || feedingConfig?.rightRunning) {
     const totalSecs = feedingConfig.accumulatedLeftSeconds + feedingConfig.accumulatedRightSeconds;
-    // Estimate elapsed if it was running. (Not perfectly accurate on reboot, but good enough for restore)
     const sessionStart = feedingConfig.sessionStart || Date.now();
     await startFeedingTimerNotification(totalSecs, sessionStart, feedingConfig.leftRunning, feedingConfig.rightRunning);
   }

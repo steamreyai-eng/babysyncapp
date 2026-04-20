@@ -17,7 +17,9 @@
       "bundleIdentifier": "com.babysync.app",
       "infoPlist": {
         "NSCameraUsageDescription": "BabySync использует камеру для добавления фотографий в записи о ребёнке.",
-        "NSPhotoLibraryUsageDescription": "BabySync использует фотоплёнку для добавления фотографий в записи."
+        "NSPhotoLibraryUsageDescription": "BabySync использует фотоплёнку для добавления фотографий в записи.",
+        "NSHealthShareUsageDescription": "BabySync использует Apple Health для синхронизации параметров сна и грудного вскармливания матери, чтобы анализировать режим.",
+        "NSHealthUpdateUsageDescription": "BabySync использует Apple Health для синхронизации записей сна и грудного вскармливания."
       }
     },
     "android": {
@@ -36,6 +38,11 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      "./plugins/withLiveActivities.js",
+      [
+        "react-native-health",
+        {}
+      ],
       [
         "expo-build-properties",
         {

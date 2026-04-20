@@ -4,8 +4,8 @@
 
 import { corsHeaders } from '../_shared/cors.ts'
 
-const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY')
-const OPENAI_TIMEOUT_MS = 30_000
+const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY')!
+const TAVILY_API_KEY = Deno.env.get('TAVILY_API_KEY')
 
 Deno.serve(async (req) => {
   // Handle CORS preflight
@@ -14,15 +14,6 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Check that OPENAI_API_KEY is configured
-    if (!OPENAI_API_KEY) {
-      console.error('[ai-chat] OPENAI_API_KEY is not set in Supabase secrets')
-      return new Response(JSON.stringify({ error: 'AI service not configured', code: 'NO_API_KEY' }), {
-        status: 503,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
     // Verify the request has a valid Supabase JWT
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
@@ -56,70 +47,36 @@ ${JSON.stringify(contextData || {})}
 4. Быть эмпатичным. Всегда напоминать, что твои советы — не диагноз и не заменяют очную консультацию врача.`,
     }
 
-    // Create an AbortController for timeout
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), OPENAI_TIMEOUT_MS)
+    const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [systemMessage, ...messages],
+        max_tokens: 1500,
+        temperature: 0.7,
+      }),
+    })
 
-    try {
-      const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${OPENAI_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          messages: [systemMessage, ...messages],
-          max_tokens: 1500,
-          temperature: 0.7,
-        }),
-        signal: controller.signal,
-      })
-
-      clearTimeout(timeoutId)
-
-      if (!openaiRes.ok) {
-        const errText = await openaiRes.text()
-        console.error(`[ai-chat] OpenAI API error ${openaiRes.status}:`, errText)
-
-        // Provide specific error codes for client-side handling
-        let code = 'OPENAI_ERROR'
-        if (openaiRes.status === 401) code = 'INVALID_API_KEY'
-        else if (openaiRes.status === 429) code = 'RATE_LIMITED'
-        else if (openaiRes.status === 500) code = 'OPENAI_DOWN'
-
-        return new Response(JSON.stringify({ error: 'OpenAI API error', code, status: openaiRes.status }), {
-          status: openaiRes.status,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        })
-      }
-
-      const data = await openaiRes.json()
-      const content = data.choices?.[0]?.message?.content || null
-
-      return new Response(JSON.stringify({ content }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    } catch (fetchErr: any) {
-      clearTimeout(timeoutId)
-
-      if (fetchErr.name === 'AbortError') {
-        console.error('[ai-chat] OpenAI request timed out after', OPENAI_TIMEOUT_MS, 'ms')
-        return new Response(JSON.stringify({ error: 'Request timed out', code: 'TIMEOUT' }), {
-          status: 504,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        })
-      }
-
-      console.error('[ai-chat] Fetch error:', fetchErr.message)
-      return new Response(JSON.stringify({ error: 'Network error', code: 'NETWORK_ERROR' }), {
-        status: 502,
+    if (!openaiRes.ok) {
+      const errText = await openaiRes.text()
+      return new Response(JSON.stringify({ error: 'OpenAI API error', details: errText }), {
+        status: openaiRes.status,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
-  } catch (err: any) {
-    console.error('[ai-chat] Internal error:', err.message)
-    return new Response(JSON.stringify({ error: 'Internal error', code: 'INTERNAL_ERROR' }), {
+
+    const data = await openaiRes.json()
+    const content = data.choices?.[0]?.message?.content || null
+
+    return new Response(JSON.stringify({ content }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  } catch (err) {
+    return new Response(JSON.stringify({ error: 'Internal error' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })

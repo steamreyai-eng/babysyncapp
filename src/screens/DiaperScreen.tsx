@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { TouchableOpacity, ScrollView, Platform, Alert, KeyboardAvoidingView, TextInput } from 'react-native';
+
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, Platform, Alert, KeyboardAvoidingView, TextInput } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -12,19 +13,6 @@ import withObservables from '@nozbe/with-observables';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import EditRecordModal from '../components/EditRecordModal';
 
-import { Wrapper } from '../components/ui/Wrapper';
-import { Surface } from '../components/ui/Surface';
-import { Typography } from '../components/ui/Typography';
-import { ScreenHeader } from '../components/ScreenHeader';
-import { DateSelector } from '../components/DateSelector';
-import { SegmentedControl } from '../components/SegmentedControl';
-import { FormField } from '../components/FormField';
-import { ProgressBar } from '../components/ProgressBar';
-import { EmptyState } from '../components/EmptyState';
-import { IconCircle } from '../components/IconCircle';
-import { StatusBadge } from '../components/StatusBadge';
-import { COLORS, FONTS, RADIUS } from '../lib/theme';
-
 const COLOR_OPTIONS = [
   { label: 'Жёлтый – жидкий', tag: 'норма', dotColor: '#F5D63D' },
   { label: 'Жёлтый – зернистый', tag: 'норма', dotColor: '#E8C72A' },
@@ -34,20 +22,9 @@ const COLOR_OPTIONS = [
   { label: 'Красный – следы крови', tag: '', dotColor: '#D94F4F' },
 ];
 
-const TYPE_CONFIG = {
-  wet: { label: 'Мокрый', icon: 'water' as const, color: '#2563EB', bg: '#DBEAFE' },
-  dirty: { label: 'Грязный', icon: 'cloudy' as const, color: '#F97316', bg: '#FFEDD5' },
-  both: { label: 'Оба', icon: 'thunderstorm' as const, color: '#8B5CF6', bg: '#F3E8FF' },
-};
-
-const SEGMENT_ITEMS = [
-  { key: 'wet', label: 'Мокрый', icon: <Ionicons name="water" size={16} /> },
-  { key: 'dirty', label: 'Грязный', icon: <Ionicons name="cloudy" size={16} /> },
-  { key: 'both', label: 'Оба', icon: <Ionicons name="thunderstorm" size={16} /> },
-];
-
 function DiaperScreenContent({ diapers }: { diapers: Diaper[] }) {
   const navigation = useNavigation();
+  const session = useAuthStore(state => state.session);
   const activeParent = useAuthStore(state => state.activeParent);
   const insets = useSafeAreaInsets();
 
@@ -103,16 +80,21 @@ function DiaperScreenContent({ diapers }: { diapers: Diaper[] }) {
     );
   };
 
+  const changeDate = (days: number) => {
+    const d = new Date(selectedDate);
+    d.setDate(d.getDate() + days);
+    setSelectedDate(d);
+  };
+
   const today = diapers.filter(d => {
     const date = new Date(d.created_at);
-    return date.getDate() === selectedDate.getDate() &&
-           date.getMonth() === selectedDate.getMonth() &&
+    return date.getDate() === selectedDate.getDate() && 
+           date.getMonth() === selectedDate.getMonth() && 
            date.getFullYear() === selectedDate.getFullYear();
-  }).sort((a, b) => b.created_at - a.created_at);
+  }).sort((a,b) => b.created_at - a.created_at);
 
-  // AI warning logic
-  let warningMsg: string | null = null;
-  const recent = diapers.sort((a, b) => b.created_at - a.created_at).slice(0, 5);
+  let warningMsg = null;
+  const recent = diapers.sort((a,b) => b.created_at - a.created_at).slice(0, 5);
   let consecutive = 0;
   for (const d of recent) {
     if (d.type === 'dirty' || d.type === 'both') {
@@ -129,12 +111,15 @@ function DiaperScreenContent({ diapers }: { diapers: Diaper[] }) {
 
   const NORM_MIN = 4;
   const NORM_MAX = 8;
+  const progressPct = Math.min((today.length / NORM_MAX) * 100, 100);
   const isInNorm = today.length >= NORM_MIN && today.length <= NORM_MAX;
   const isBelowNorm = today.length < NORM_MIN;
 
-  const progressTone = isInNorm ? 'success' as const : isBelowNorm ? 'warning' as const : 'primary' as const;
-  const normBadgeTone = isInNorm ? 'success' as const : isBelowNorm ? 'warning' as const : 'info' as const;
-  const normBadgeLabel = isInNorm ? "Норма" : isBelowNorm ? "Нужно ещё" : "Выше нормы";
+  const typeConfig = {
+    wet: { label: 'Мокрый', icon: 'water', color: '#2563EB', bg: '#DBEAFE' },
+    dirty: { label: 'Грязный', icon: 'cloudy', color: '#F97316', bg: '#FFEDD5' },
+    both: { label: 'Оба', icon: 'thunderstorm', color: '#8B5CF6', bg: '#F3E8FF' }
+  };
 
   const fmtTime = (ms: number) => {
     const d = new Date(ms);
@@ -142,196 +127,183 @@ function DiaperScreenContent({ diapers }: { diapers: Diaper[] }) {
   };
 
   return (
-    <Wrapper flex={1} bg="#FAFBFC">
+    <View style={{ flex: 1, backgroundColor: '#FAFBFC' }}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
-        <ScreenHeader title="Подгузники" />
+        <View style={{ paddingTop: Math.max(insets.top, 16), paddingHorizontal: 16, paddingBottom: 16, backgroundColor: '#FAFBFC', flexDirection: 'row', alignItems: 'center' }}>
+           <TouchableOpacity onPress={() => navigation.goBack()} style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'white', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2, marginRight: 16, borderWidth: 1, borderColor: '#E2E8F0' }}>
+               <Ionicons name="arrow-back" size={24} color="#1A1A2E" />
+           </TouchableOpacity>
+           <View>
+               <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 24, color: '#1A1A2E' }}>Подгузники</Text>
+           </View>
+        </View>
 
         <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: Math.max(insets.bottom, 40) }}>
-
+        
         {/* Date Selector */}
-        <Wrapper mb={20}>
-          <DateSelector value={selectedDate} onChange={setSelectedDate} tone="diaper" />
-        </Wrapper>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'white', borderRadius: 14, padding: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 12, elevation: 2, marginBottom: 20 }}>
+          <TouchableOpacity onPress={() => changeDate(-1)} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#F5F0E6', alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name="chevron-back" size={20} color="#6B6B80" />
+          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Ionicons name="calendar" size={16} color="#059669" style={{ marginRight: 8 }} />
+            <Text style={{ fontSize: 14, fontFamily: 'Nunito_800ExtraBold', color: '#1A1A2E' }}>
+              {selectedDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
+            </Text>
+          </View>
+          <TouchableOpacity onPress={() => changeDate(1)} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#F5F0E6', alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name="chevron-forward" size={20} color="#6B6B80" />
+          </TouchableOpacity>
+        </View>
 
-        <Typography variant="body" weight="bold" color="textMuted" mb={16}>Физиология</Typography>
+          <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 15, color: '#8A8A9E', marginBottom: 16 }}>Физиология</Text>
 
         {/* Main Form */}
-        <Surface variant="elevated" radius="xl" p={20} mb={20}>
+        <View style={{ backgroundColor: 'white', borderRadius: 24, padding: 20, shadowColor: '#8A8A9E', shadowOpacity: 0.08, shadowRadius: 32, elevation: 4, borderWidth: 1, borderColor: '#F0ECE8', marginBottom: 20 }}>
+          
+          <Text style={{ fontSize: 11, fontFamily: 'Nunito_800ExtraBold', color: '#8A8A9E', textTransform: 'uppercase', marginBottom: 8, letterSpacing: 0.5 }}>Дата и время смены</Text>
+          <TouchableOpacity onPress={() => setShowPicker(true)} style={{ backgroundColor: '#F9F8F6', padding: 16, borderRadius: 16, marginBottom: 20 }}>
+            <Text style={{ fontSize: 16, fontFamily: 'Nunito_700Bold', color: '#1A1A2E' }}>{manualTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</Text>
+          </TouchableOpacity>
+          
+          <Text style={{ fontSize: 11, fontFamily: 'Nunito_800ExtraBold', color: '#8A8A9E', textTransform: 'uppercase', marginBottom: 8, letterSpacing: 0.5 }}>Тип подгузника</Text>
+          <View style={{ flexDirection: 'row', backgroundColor: '#F9F8F6', borderRadius: 16, padding: 4, marginBottom: 24 }}>
+            {(Object.keys(typeConfig) as Array<keyof typeof typeConfig>).map(t => {
+              const active = type === t;
+              const cfg = typeConfig[t];
+              return (
+                <TouchableOpacity key={t} onPress={() => setType(t)} style={{ flex: 1, height: 44, borderRadius: 12, backgroundColor: active ? 'white' : 'transparent', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', shadowColor: active ? '#000' : 'transparent', shadowOffset: { width: 0, height: 2 }, shadowOpacity: active ? 0.05 : 0, shadowRadius: 8, elevation: active ? 2 : 0 }}>
+                  <Ionicons name={cfg.icon as any} size={16} color={active ? cfg.color : '#8A8A9E'} style={{ opacity: active ? 1 : 0.5, marginRight: 6 }} />
+                  <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 12, color: active ? cfg.color : '#8A8A9E' }}>{cfg.label}</Text>
+                </TouchableOpacity>
+              )
+            })}
+          </View>
 
-          {/* Time */}
-          <Wrapper mb={20}>
-            <Typography variant="tiny" weight="extraBold" color="textMuted" uppercase letterSpacing={0.5} mb={8}>Дата и время смены</Typography>
-            <TouchableOpacity onPress={() => setShowPicker(true)} style={{ backgroundColor: '#F9F8F6', padding: 16, borderRadius: RADIUS.lg }}>
-              <Typography variant="body" weight="bold">{manualTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</Typography>
-            </TouchableOpacity>
-          </Wrapper>
-
-          {/* Type Selector */}
-          <Wrapper mb={24}>
-            <Typography variant="tiny" weight="extraBold" color="textMuted" uppercase letterSpacing={0.5} mb={8}>Тип подгузника</Typography>
-            <SegmentedControl
-              items={SEGMENT_ITEMS}
-              selected={type}
-              onChange={(key) => setType(key as any)}
-            />
-          </Wrapper>
-
-          {/* Color Options (dirty/both only) */}
           {type !== 'wet' && (
-            <Wrapper mb={20}>
-              <Typography variant="tiny" weight="extraBold" color="textMuted" uppercase letterSpacing={0.5} mb={12}>Цвет и консистенция</Typography>
-              <Wrapper dir="row" wrap="wrap" gap={8}>
-                {COLOR_OPTIONS.map(c => {
-                  const fullLabel = c.tag ? `${c.label} (${c.tag})` : c.label;
-                  const isSelected = color === fullLabel;
-                  return (
-                    <TouchableOpacity
-                      key={c.label}
-                      onPress={() => setColor(isSelected ? '' : fullLabel)}
-                      style={{
-                        width: '48%',
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        padding: 12,
-                        borderRadius: RADIUS.lg,
-                        backgroundColor: isSelected ? '#DBEAFE' : '#F9F8F6',
-                        borderWidth: 1.5,
-                        borderColor: isSelected ? '#93C5FD' : 'transparent',
-                        minHeight: 48,
-                      }}
-                      activeOpacity={0.8}
-                    >
-                      <Wrapper width={14} height={14} mr={8} style={{ borderRadius: 7, backgroundColor: c.dotColor }} />
-                      <Typography variant="tiny" weight="bold" color={isSelected ? 'textPrimary' : '#5A5A6E'}>
-                        {c.label} {c.tag ? '✓' : ''}
-                      </Typography>
-                    </TouchableOpacity>
-                  );
-                })}
-              </Wrapper>
-            </Wrapper>
+             <View style={{ marginBottom: 20 }}>
+               <Text style={{ fontSize: 11, fontFamily: 'Nunito_800ExtraBold', color: '#8A8A9E', textTransform: 'uppercase', marginBottom: 12, letterSpacing: 0.5 }}>Цвет и консистенция</Text>
+               <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+                 {COLOR_OPTIONS.map(c => {
+                   const fullLabel = c.tag ? `${c.label} (${c.tag})` : c.label;
+                   const isSelected = color === fullLabel;
+                   return (
+                     <TouchableOpacity key={c.label} onPress={() => setColor(isSelected ? '' : fullLabel)} style={{ width: '48%', flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 14, backgroundColor: isSelected ? '#DBEAFE' : '#F9F8F6', borderWidth: 1.5, borderColor: isSelected ? '#93C5FD' : 'transparent', marginBottom: 8, minHeight: 48 }}>
+                       <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: c.dotColor, marginRight: 8, shadowColor: c.dotColor, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 6, elevation: 1 }} />
+                       <Text style={{ flex: 1, fontFamily: 'Nunito_700Bold', fontSize: 11, color: isSelected ? '#1A1A2E' : '#5A5A6E', lineHeight: 14 }}>
+                         {c.label} {c.tag ? <Text style={{ color: '#059669', fontFamily: 'Nunito_900Black' }}>✓</Text> : ''}
+                       </Text>
+                     </TouchableOpacity>
+                   )
+                 })}
+               </View>
+             </View>
           )}
 
-          {/* Notes */}
-          <Wrapper mb={24}>
-            <FormField
-              label="Заметка"
-              value={notes}
-              onChangeText={setNotes}
-              placeholder="Дополнительные заметки..."
-              multiline
-            />
-          </Wrapper>
+          <Text style={{ fontSize: 11, fontFamily: 'Nunito_800ExtraBold', color: '#8A8A9E', textTransform: 'uppercase', marginBottom: 8, letterSpacing: 0.5 }}>Заметка</Text>
+          <TextInput 
+            value={notes} 
+            onChangeText={setNotes} 
+            placeholder="Дополнительные заметки..." 
+            placeholderTextColor="#A0A0B0"
+            style={{ backgroundColor: '#F9F8F6', borderRadius: 16, padding: 16, fontFamily: 'Nunito_700Bold', fontSize: 15, color: '#1A1A2E', marginBottom: 24, minHeight: 52 }}
+          />
 
           {/* Stats Bar */}
-          <Surface radius="xl" p={16} mb={16} tone="transparent" style={{ backgroundColor: '#EEF7F5', borderWidth: 1, borderColor: '#D9F0EA' }}>
-            <Wrapper dir="row" align="center" justify="space-between" mb={12}>
-              <Wrapper>
-                <Typography variant="tiny" weight="bold" color="textMuted" uppercase letterSpacing={0.5}>За сегодня</Typography>
-                <Wrapper dir="row" align="baseline" mt={2}>
-                  <Typography variant="h1" weight="black" letterSpacing={-1}>{today.length}</Typography>
-                  <Wrapper ml={6}>
-                    <Typography variant="tiny" weight="bold" color="textMuted">/ {NORM_MAX}</Typography>
-                  </Wrapper>
-                </Wrapper>
-              </Wrapper>
-              <StatusBadge label={normBadgeLabel} tone={normBadgeTone} size="md" />
-            </Wrapper>
-            <ProgressBar value={today.length} max={NORM_MAX} tone={progressTone} />
-            <Wrapper dir="row" justify="space-between" mt={6}>
-              <Typography variant="tiny" weight="bold" color="textMuted">0</Typography>
-              <Typography variant="tiny" weight="bold" color="textMuted">Норма: {NORM_MIN}–{NORM_MAX}</Typography>
-            </Wrapper>
-          </Surface>
+          <View style={{ backgroundColor: '#EEF7F5', borderRadius: 20, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: '#D9F0EA' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <View>
+                <Text style={{ fontSize: 11, fontFamily: 'Nunito_700Bold', color: '#8A8A9E', textTransform: 'uppercase', letterSpacing: 0.5 }}>За сегодня</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'baseline', marginTop: 2 }}>
+                  <Text style={{ fontSize: 32, fontFamily: 'Nunito_900Black', color: '#1A1A2E', letterSpacing: -1 }}>{today.length}</Text>
+                  <Text style={{ fontSize: 12, fontFamily: 'Nunito_700Bold', color: '#8A8A9E', marginLeft: 6 }}>/ {NORM_MAX}</Text>
+                </View>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: isInNorm ? '#D1FAE5' : isBelowNorm ? '#FFEDD5' : '#DBEAFE', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 100, borderWidth: 1, borderColor: isInNorm ? '#A7F3D0' : isBelowNorm ? '#FED7AA' : '#BFDBFE' }}>
+                <Ionicons name="checkmark" size={14} color={isInNorm ? '#059669' : isBelowNorm ? '#F97316' : '#2563EB'} />
+                <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 11, color: isInNorm ? '#059669' : isBelowNorm ? '#F97316' : '#2563EB', marginLeft: 4 }}>
+                  {isInNorm ? "Норма" : isBelowNorm ? "Нужно ещё" : "Выше нормы"}
+                </Text>
+              </View>
+            </View>
+            <View style={{ height: 6, backgroundColor: 'rgba(138,138,158,0.1)', borderRadius: 3, overflow: 'hidden' }}>
+              <View style={{ height: '100%', width: `${progressPct}%`, backgroundColor: isInNorm ? '#10B981' : isBelowNorm ? '#F97316' : '#3B82F6', borderRadius: 3 }} />
+            </View>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 }}>
+              <Text style={{ fontSize: 10, fontFamily: 'Nunito_700Bold', color: '#8A8A9E' }}>0</Text>
+              <Text style={{ fontSize: 10, fontFamily: 'Nunito_700Bold', color: '#8A8A9E' }}>Норма: {NORM_MIN}–{NORM_MAX}</Text>
+            </View>
+          </View>
 
           {/* AI Warning */}
           {warningMsg && (
-            <Wrapper dir="row" p={16} mb={20} style={{ backgroundColor: '#FDF1F1', borderRadius: RADIUS.lg, borderWidth: 1, borderColor: '#F9DEDC' }}>
-              <Wrapper mr={12}>
-                <IconCircle size="md" bg="#FFE4E4">
-                  <Ionicons name="warning" size={20} color="#D94F4F" />
-                </IconCircle>
-              </Wrapper>
-              <Wrapper flex={1}>
-                <Typography variant="body" weight="black" color="#D94F4F" letterSpacing={-0.2}>AI-предупреждение</Typography>
-                <Wrapper mt={4}>
-                  <Typography variant="tiny" weight="bold" color="#5A5A6E">{warningMsg}</Typography>
-                </Wrapper>
-              </Wrapper>
-            </Wrapper>
+            <View style={{ backgroundColor: '#FDF1F1', borderRadius: 16, padding: 16, flexDirection: 'row', marginBottom: 20, borderWidth: 1, borderColor: '#F9DEDC' }}>
+              <View style={{ width: 40, height: 40, borderRadius: 14, backgroundColor: '#FFE4E4', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                <Ionicons name="warning" size={20} color="#D94F4F" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 13, color: '#D94F4F', letterSpacing: -0.2 }}>AI-предупреждение</Text>
+                <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 12, color: '#5A5A6E', marginTop: 4, lineHeight: 18 }}>{warningMsg}</Text>
+              </View>
+            </View>
           )}
 
-          {/* Save Button */}
-          <Surface
-            onPress={handleSave}
-            tone={saved ? 'success' : 'primary'}
-            variant="elevated"
-            radius="lg"
-            p={16}
-            dir="row"
-            align="center"
-            justify="center"
-          >
-            {saved && <Wrapper mr={8}><Ionicons name="checkmark" size={18} color="white" /></Wrapper>}
-            <Typography variant="body" weight="black" color="white">{saved ? "Сохранено!" : "Сохранить подгузник"}</Typography>
-          </Surface>
-        </Surface>
+          <TouchableOpacity onPress={handleSave} style={{ width: '100%', height: 52, borderRadius: 16, backgroundColor: saved ? '#4DBFAA' : '#5B9BD5', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', shadowColor: saved ? '#3DBFAA' : '#5B9BD5', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 24, elevation: 5 }}>
+            {saved && <Ionicons name="checkmark" size={18} color="white" style={{ marginRight: 8 }} />}
+            <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 15, color: 'white' }}>{saved ? "Сохранено!" : "Сохранить подгузник"}</Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Journal */}
-        <Surface variant="elevated" radius="xl" p={20}>
-          <Typography variant="h2" weight="black" letterSpacing={-0.5} mb={16}>Журнал за сегодня</Typography>
+        <View style={{ backgroundColor: 'white', borderRadius: 24, padding: 20, shadowColor: '#8A8A9E', shadowOpacity: 0.08, shadowRadius: 32, elevation: 4, borderWidth: 1, borderColor: '#F0ECE8' }}>
+          <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 18, color: '#1A1A2E', letterSpacing: -0.5, marginBottom: 16 }}>Журнал за сегодня</Text>
           {today.length === 0 ? (
-            <EmptyState
-              icon={<Ionicons name="happy" size={24} color="#8A8A9E" />}
-              title="Нет записей за выбранный день"
-            />
+            <View style={{ paddingVertical: 32, alignItems: 'center', opacity: 0.6 }}>
+              <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: '#F5F0E6', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+                <Ionicons name="happy" size={24} color="#8A8A9E" />
+              </View>
+              <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 13, color: '#8A8A9E' }}>Нет записей за выбранный день</Text>
+            </View>
           ) : (
-            <Wrapper>
+            <View>
               {today.map((d, i) => {
-                const cfg = TYPE_CONFIG[d.type as keyof typeof TYPE_CONFIG] || TYPE_CONFIG.wet;
-
+                const cfg = typeConfig[d.type as keyof typeof typeConfig] || typeConfig.wet;
+                
                 const renderRightActions = () => (
-                  <Wrapper dir="row" width={140}>
+                  <View style={{ flexDirection: 'row', width: 140 }}>
                     <TouchableOpacity onPress={() => setEditTarget({ kind: 'diaper', record: d })} style={{ flex: 1, backgroundColor: cfg.color, justifyContent: 'center', alignItems: 'center' }}>
                       <Ionicons name="pencil" size={20} color="white" />
-                      <Typography variant="tiny" weight="extraBold" color="white" mt={4}>Изменить</Typography>
+                      <Text style={{ color: 'white', fontSize: 10, fontFamily: 'Nunito_800ExtraBold', marginTop: 4 }}>Изменить</Text>
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => handleDeleteRecord(d as Diaper)} style={{ flex: 1, backgroundColor: '#D94F4F', justifyContent: 'center', alignItems: 'center' }}>
                       <Ionicons name="trash" size={20} color="white" />
-                      <Typography variant="tiny" weight="extraBold" color="white" mt={4}>Удалить</Typography>
+                      <Text style={{ color: 'white', fontSize: 10, fontFamily: 'Nunito_800ExtraBold', marginTop: 4 }}>Удалить</Text>
                     </TouchableOpacity>
-                  </Wrapper>
+                  </View>
                 );
 
                 return (
                   <Swipeable key={d.id} renderRightActions={renderRightActions} friction={2} rightThreshold={40} containerStyle={{ overflow: 'hidden' }}>
-                    <Wrapper dir="row" align="center" py={12} style={{ borderBottomWidth: i < today.length - 1 ? 1 : 0, borderBottomColor: 'rgba(224, 221, 216, 0.5)' }}>
-                      <Wrapper mr={12}>
-                        <IconCircle bg={cfg.bg}>
-                          <Ionicons name={cfg.icon} size={20} color={cfg.color} />
-                        </IconCircle>
-                      </Wrapper>
-                      <Wrapper flex={1} mr={8}>
-                        <Typography variant="body" weight="extraBold">
+                    <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: i < today.length - 1 ? 1 : 0, borderBottomColor: 'rgba(224, 221, 216, 0.5)', backgroundColor: 'white' }}>
+                      <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: cfg.bg, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                        <Ionicons name={cfg.icon as any} size={20} color={cfg.color} />
+                      </View>
+                      <View style={{ flex: 1, marginRight: 8 }}>
+                        <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 15, color: '#1A1A2E' }}>
                           {cfg.label}{d.color ? ` · ${d.color}` : ''}
-                        </Typography>
-                        {d.note && (
-                          <Wrapper mt={2}>
-                            <Typography variant="tiny" weight="bold" color="textMuted">{d.note}</Typography>
-                          </Wrapper>
-                        )}
-                      </Wrapper>
-                      <Typography variant="tiny" weight="extraBold" color="textMuted">{fmtTime(d.created_at)}</Typography>
-                    </Wrapper>
+                        </Text>
+                        {d.note && <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 12, color: '#8A8A9E', marginTop: 2 }} numberOfLines={1}>{d.note}</Text>}
+                      </View>
+                      <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 13, color: '#8A8A9E' }}>{fmtTime(d.created_at)}</Text>
+                    </View>
                   </Swipeable>
-                );
+                )
               })}
-            </Wrapper>
+            </View>
           )}
-        </Surface>
-
+        </View>
         <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 16, alignItems: 'center', marginTop: 8 }}>
-          <Typography variant="body" weight="extraBold" color="textMuted">К трекеру</Typography>
+          <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 16, color: '#8A8A9E' }}>К трекеру</Text>
         </TouchableOpacity>
       </ScrollView>
 
@@ -345,7 +317,7 @@ function DiaperScreenContent({ diapers }: { diapers: Diaper[] }) {
       />
       <EditRecordModal target={editTarget} onClose={() => setEditTarget(null)} />
       </KeyboardAvoidingView>
-    </Wrapper>
+    </View>
   );
 }
 
@@ -354,3 +326,4 @@ const enhance = withObservables([], () => ({
 }));
 
 export default enhance(DiaperScreenContent);
+

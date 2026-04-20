@@ -20,6 +20,13 @@ notifee.onBackgroundEvent(async ({ type, detail }) => {
   }
 });
 
+notifee.registerForegroundService((notification) => {
+  return new Promise(() => {
+    // Keeps the process alive until the notification is cancelled programmatically
+    // For timers, we just want it to run indefinitely until the user hits Stop
+  });
+});
+
 // registerRootComponent calls AppRegistry.registerComponent('main', () => App);
 // It also ensures that whether you load the app in Expo Go or in a native build,
 // the environment is set up appropriately

@@ -14,6 +14,7 @@ import { synchronize } from '@nozbe/watermelondb/sync'
 import { database } from './index'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../store/authStore'
+import { RealtimeChannel } from '@supabase/supabase-js'
 
 const SYNC_TABLES = [
   'feedings',
@@ -26,6 +27,7 @@ const SYNC_TABLES = [
   'vaccinations',
   'doctor_visits',
   'shifts',
+  'insight_cards',
 ] as const;
 
 // Track if local changes exist (set by WatermelonDB observers or manual flag)

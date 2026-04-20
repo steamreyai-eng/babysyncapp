@@ -1,18 +1,16 @@
 import React from 'react';
-import { ActivityIndicator } from 'react-native';
-import { Wrapper } from '../components/ui/Wrapper';
-import { Typography } from '../components/ui/Typography';
-import { COLORS } from '../lib/theme';
+import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 
 export default function LoadingScreen() {
   return (
-    <Wrapper flex={1} justify="center" align="center" bg="#EFF6FF">
-      <ActivityIndicator size="large" color={COLORS.primary} />
-      <Wrapper mt={16}>
-        <Typography color="#1E40AF" weight="bold">
-          Синхронизация...
-        </Typography>
-      </Wrapper>
-    </Wrapper>
+    <View style={styles.container}>
+      <ActivityIndicator size="large" color="#2563EB" />
+      <Text style={styles.text}>Синхронизация...</Text>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#EFF6FF' },
+  text: { marginTop: 16, color: '#1E40AF', fontFamily: 'Nunito_700Bold' },
+});

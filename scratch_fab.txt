@@ -1,0 +1,183 @@
+  const renderSheetContent = () => (
+    <>
+      {activeSheet === 'feeding' && (
+        <View>
+          <View style={{ marginBottom: 24, flexDirection: "row", alignItems: "center", gap: 14 }}>
+            <View style={{ width: 52, height: 52, borderRadius: 20, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "rgba(255,255,255,0.5)", backgroundColor: "#EDE4F8" }}>
+              <Milk size={22} color="#8B6FD4" strokeWidth={1.5} />
+            </View>
+            <Typography variant="h2" color="textPrimary" weight="black">Новое кормление</Typography>
+          </View>
+          <View style={{ flexDirection: "row", backgroundColor: "#F1F5F9", borderRadius: 20, padding: 6, marginBottom: 20, borderWidth: 1, borderColor: "#E2E8F0" }}>
+            {([
+              { id: 'breast' as const, label: 'Грудное' },
+              { id: 'formula' as const, label: 'Смесь' },
+              { id: 'solid' as const, label: 'Прикорм' },
+            ]).map(t => (
+              <TouchableOpacity key={t.id} style={{ flex: 1, paddingVertical: 12, borderRadius: 16, alignItems: "center", backgroundColor: feedingType === t.id ? "white" : "transparent", ...(feedingType === t.id && { shadowColor: "#2563EB", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 4, borderWidth: 1, borderColor: "#E2E8F0" }) }} onPress={() => setFeedingType(t.id)}>
+                <Typography variant="body" weight="extraBold" color={feedingType === t.id ? "#4E8FD4" : "textMuted"}>{t.label}</Typography>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <View style={{ marginBottom: 20 }}>
+            <Wrapper mb={8}><Typography variant="caption" color="textMuted" weight="extraBold" uppercase letterSpacing={0.8}>Время</Typography></Wrapper>
+            <TouchableOpacity style={{ backgroundColor: "#F1F5F9", borderRadius: 20, borderWidth: 1, borderColor: "#E2E8F0", paddingHorizontal: 16, paddingVertical: 16 }} onPress={() => setShowDatePicker(true)}>
+              <Typography variant="body" weight="bold" color="textPrimary">{formatDate(logDate)}</Typography>
+            </TouchableOpacity>
+            {renderInlineIOSPicker('#2563EB', '#EFF6FF')}
+          </View>
+          {feedingType === 'breast' && (
+            <View style={{ flexDirection: 'row', gap: 12, marginBottom: 20 }}>
+              {[
+                { side: 'Л', label: 'Левая грудь', seconds: secondsL, running: feedingConfig.leftRunning, toggle: toggleLeftBreastTimer },
+                { side: 'П', label: 'Правая грудь', seconds: secondsR, running: feedingConfig.rightRunning, toggle: toggleRightBreastTimer }
+              ].map(({ side, label, seconds, running, toggle }) => (
+                <View key={side} style={{ flex: 1, padding: 16, backgroundColor: 'white', borderRadius: 16, borderWidth: 1, borderColor: running ? '#5B9BD5' : '#E0DDD8', alignItems: 'center' }}>
+                  <Wrapper mb={8}><Typography variant="caption" uppercase weight="extraBold" color="#5B9BD5" letterSpacing={0.8}>{label}</Typography></Wrapper>
+                  <Wrapper mb={16}><Typography variant="display" weight="black" color={running ? "#5B9BD5" : "textPrimary"}>{fmt(seconds)}</Typography></Wrapper>
+                  <TouchableOpacity style={{ width: '100%', paddingVertical: 10, borderRadius: 12, backgroundColor: running ? '#E05A5A' : '#E8DEFF', alignItems: 'center' }} onPress={toggle}>
+                    <Typography variant="body" weight="extraBold" color={running ? "white" : "textPrimary"}>{running ? "Стоп" : "Старт"}</Typography>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          )}
+          {feedingType === 'formula' && (
+            <>
+              <View style={{ marginBottom: 20 }}>
+                <Wrapper mb={8}><Typography variant="caption" color="textMuted" weight="extraBold" uppercase letterSpacing={0.8}>Бренд смеси</Typography></Wrapper>
+                <TextInput style={{ backgroundColor: "#F1F5F9", borderRadius: 20, borderWidth: 1, borderColor: "#E2E8F0", paddingHorizontal: 16, paddingVertical: 16, fontSize: 16, fontFamily: "Nunito_700Bold", color: "#0F172A" }} value={formulaBrand} onChangeText={setFormulaBrand} placeholder="Nan Optipro..." placeholderTextColor="#94A3B8" />
+              </View>
+              <View style={{ marginBottom: 20 }}>
+                <Wrapper mb={8}><Typography variant="caption" color="textMuted" weight="extraBold" uppercase letterSpacing={0.8}>Объём (мл)</Typography></Wrapper>
+                <TextInput style={{ backgroundColor: "#F1F5F9", borderRadius: 20, borderWidth: 1, borderColor: "#E2E8F0", paddingHorizontal: 16, paddingVertical: 16, fontSize: 16, fontFamily: "Nunito_700Bold", color: "#0F172A" }} value={formulaVolume} onChangeText={setFormulaVolume} keyboardType="number-pad" placeholder="120" placeholderTextColor="#94A3B8" />
+              </View>
+            </>
+          )}
+          {feedingType === 'solid' && (
+            <>
+              <View style={{ marginBottom: 20 }}>
+                <Wrapper mb={8}><Typography variant="caption" color="textMuted" weight="extraBold" uppercase letterSpacing={0.8}>Продукт</Typography></Wrapper>
+                <TextInput style={{ backgroundColor: "#F1F5F9", borderRadius: 20, borderWidth: 1, borderColor: "#E2E8F0", paddingHorizontal: 16, paddingVertical: 16, fontSize: 16, fontFamily: "Nunito_700Bold", color: "#0F172A" }} value={solidProduct} onChangeText={setSolidProduct} placeholder="Каша овсяная" placeholderTextColor="#94A3B8" />
+              </View>
+              <View style={{ marginBottom: 20 }}>
+                <Wrapper mb={8}><Typography variant="caption" color="textMuted" weight="extraBold" uppercase letterSpacing={0.8}>Количество (г)</Typography></Wrapper>
+                <TextInput style={{ backgroundColor: "#F1F5F9", borderRadius: 20, borderWidth: 1, borderColor: "#E2E8F0", paddingHorizontal: 16, paddingVertical: 16, fontSize: 16, fontFamily: "Nunito_700Bold", color: "#0F172A" }} value={solidVolume} onChangeText={setSolidVolume} keyboardType="number-pad" placeholder="80" placeholderTextColor="#94A3B8" />
+              </View>
+            </>
+          )}
+          <TouchableOpacity style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 18, borderRadius: 24, borderWidth: 2, borderColor: "rgba(255,255,255,0.3)", backgroundColor: "#5B9BD5", shadowColor: "#000", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.15, shadowRadius: 16, elevation: 6 }} onPress={handleSaveFeeding}>
+            <Check size={20} color="white" strokeWidth={2.5} />
+            <Typography variant="body" weight="black" color="white">Сохранить</Typography>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {activeSheet === 'diaper' && (
+        <View>
+          <View style={{ marginBottom: 24, flexDirection: "row", alignItems: "center", gap: 14 }}>
+            <View style={{ width: 52, height: 52, borderRadius: 20, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "rgba(255,255,255,0.5)", backgroundColor: "#D4F3EC" }}>
+              <Droplets size={22} color="#3DBFAA" strokeWidth={1.5} />
+            </View>
+            <Typography variant="h2" color="textPrimary" weight="black">Подгузник</Typography>
+          </View>
+          <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
+            {([
+              { id: 'wet' as const, label: 'Мокрый', IconComp: Droplet, color: '#4E8FD4', bg: '#DEEAF8' },
+              { id: 'both' as const, label: 'Смешан.', IconComp: CloudRain, color: '#8B6FD4', bg: '#EDE4F8' },
+              { id: 'dirty' as const, label: 'Грязный', IconComp: Cloud, color: '#E69600', bg: '#FFF0CC' },
+            ]).map(t => (
+              <TouchableOpacity key={t.id} style={{ flex: 1, alignItems: "center", gap: 8, padding: 14, borderRadius: 20, borderWidth: 3, backgroundColor: diaperType === t.id ? t.bg : "white", borderColor: diaperType === t.id ? t.color : "#E2E8F0" }} onPress={() => setDiaperType(t.id)}>
+                <View style={{ width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: t.bg }}>
+                  <t.IconComp size={18} color={t.color} strokeWidth={1.5} />
+                </View>
+                <Typography variant="caption" weight="extraBold" color={diaperType === t.id ? t.color : "textPrimary"}>{t.label}</Typography>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <View style={{ marginBottom: 20 }}>
+            <Wrapper mb={8}><Typography variant="caption" color="textMuted" weight="extraBold" uppercase letterSpacing={0.8}>Время</Typography></Wrapper>
+            <TouchableOpacity style={{ backgroundColor: "#F1F5F9", borderRadius: 20, borderWidth: 1, borderColor: "#E2E8F0", paddingHorizontal: 16, paddingVertical: 16 }} onPress={() => setShowDatePicker(true)}>
+              <Typography variant="body" weight="bold" color="textPrimary">{formatDate(logDate)}</Typography>
+            </TouchableOpacity>
+            {renderInlineIOSPicker('#059669', '#ECFDF5')}
+          </View>
+          <View style={{ marginBottom: 20 }}>
+            <Wrapper mb={8}><Typography variant="caption" color="textMuted" weight="extraBold" uppercase letterSpacing={0.8}>Цвет / консистенция</Typography></Wrapper>
+            <TextInput style={{ backgroundColor: "#F1F5F9", borderRadius: 20, borderWidth: 1, borderColor: "#E2E8F0", paddingHorizontal: 16, paddingVertical: 16, fontSize: 16, fontFamily: "Nunito_700Bold", color: "#0F172A" }} value={diaperColor} onChangeText={setDiaperColor} placeholder="Жёлтый – жидкий (норма)..." placeholderTextColor="#94A3B8" />
+          </View>
+          <View style={{ marginBottom: 20 }}>
+            <Wrapper mb={8}><Typography variant="caption" color="textMuted" weight="extraBold" uppercase letterSpacing={0.8}>Заметка</Typography></Wrapper>
+            <TextInput style={{ backgroundColor: "#F1F5F9", borderRadius: 20, borderWidth: 1, borderColor: "#E2E8F0", paddingHorizontal: 16, paddingVertical: 16, fontSize: 16, fontFamily: "Nunito_700Bold", color: "#0F172A", minHeight: 60, textAlignVertical: "top" }} value={diaperNote} onChangeText={setDiaperNote} placeholder="Раздражение кожи..." placeholderTextColor="#94A3B8" multiline />
+          </View>
+          <TouchableOpacity style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 18, borderRadius: 24, borderWidth: 2, borderColor: "rgba(255,255,255,0.3)", backgroundColor: "#4DBFAA", shadowColor: "#000", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.15, shadowRadius: 16, elevation: 6 }} onPress={handleSaveDiaper}>
+            <Check size={20} color="white" strokeWidth={2.5} />
+            <Typography variant="body" weight="black" color="white">Сохранить</Typography>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {activeSheet === 'sleep' && (
+        <View>
+          <View style={{ marginBottom: 24, flexDirection: "row", alignItems: "center", gap: 14 }}>
+            <View style={{ width: 52, height: 52, borderRadius: 20, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "rgba(255,255,255,0.5)", backgroundColor: "#DEEAF8" }}>
+              <Moon size={22} color="#4E8FD4" strokeWidth={1.5} />
+            </View>
+            <Typography variant="h2" color="textPrimary" weight="black">Новый сон</Typography>
+          </View>
+          {!showManualSleep ? (
+            <>
+              <View style={{ alignItems: 'center', marginBottom: 20 }}>
+                <Typography variant="display" weight="black" color="#8B6FD4" align="center" style={{ fontSize: 64 }}>{fmt(sleepSeconds)}</Typography>
+                <Text style={{ fontSize: 14, color: '#6B6B80', marginTop: 4 }}>{sleepTimerRunning ? 'Сон идёт...' : 'Готов к запуску'}</Text>
+              </View>
+              <TouchableOpacity style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 18, borderRadius: 24, borderWidth: 2, borderColor: "rgba(255,255,255,0.3)", backgroundColor: sleepTimerRunning ? "#D94F4F" : "#8B6FD4", shadowColor: "#000", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.15, shadowRadius: 16, elevation: 6 }}
+                onPress={() => { if (sleepTimerRunning) { setSleepTimerRunning(false); handleSaveSleep(); } else { setSleepSeconds(0); setSleepTimerRunning(true); } }}
+              >
+                {sleepTimerRunning ? <Square size={20} color="white" strokeWidth={2.5} /> : <Play size={20} color="white" strokeWidth={2.5} />}
+                <Typography variant="body" weight="black" color="white">{sleepTimerRunning ? 'Остановить и сохранить' : 'Начать сон'}</Typography>
+              </TouchableOpacity>
+              {!sleepTimerRunning && (
+                <TouchableOpacity style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 18, borderRadius: 24, borderWidth: 2, borderColor: "#E2E8F0", backgroundColor: "#FFFFFF", marginTop: 12, shadowColor: "#000", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.15, shadowRadius: 16, elevation: 6 }} onPress={() => setShowManualSleep(true)}>
+                  <Typography variant="body" weight="black" color="#64748B">Ввести время вручную</Typography>
+                </TouchableOpacity>
+              )}
+            </>
+          ) : (
+            <>
+              <View style={{ marginBottom: 20 }}>
+                <Wrapper mb={8}><Typography variant="caption" color="textMuted" weight="extraBold" uppercase letterSpacing={0.8}>Время начала</Typography></Wrapper>
+                <TouchableOpacity style={{ backgroundColor: "#F1F5F9", borderRadius: 20, borderWidth: 1, borderColor: "#E2E8F0", paddingHorizontal: 16, paddingVertical: 16 }} onPress={() => setShowDatePicker(true)}>
+                  <Typography variant="body" weight="bold" color="textPrimary">{formatDate(logDate)}</Typography>
+                </TouchableOpacity>
+                {renderInlineIOSPicker('#8B5CF6', '#F3E8FF')}
+              </View>
+              <View style={{ marginBottom: 20 }}>
+                <Wrapper mb={8}><Typography variant="caption" color="textMuted" weight="extraBold" uppercase letterSpacing={0.8}>Длительность (мин)</Typography></Wrapper>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 16, marginBottom: 16 }}>
+                  <TouchableOpacity style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: "#DBEAFE", borderWidth: 1, borderColor: "#BFDBFE", alignItems: "center", justifyContent: "center", shadowColor: "#2563EB", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 2 }} onPress={() => setSleepMinutes(String(Math.max(5, (parseInt(sleepMinutes) || 60) - 5)))}>
+                    <Typography variant="h1" weight="black" color="#2563EB">−</Typography>
+                  </TouchableOpacity>
+                  <Typography variant="display" weight="black" color="textPrimary" align="center">{sleepMinutes}</Typography>
+                  <TouchableOpacity style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: "#DBEAFE", borderWidth: 1, borderColor: "#BFDBFE", alignItems: "center", justifyContent: "center", shadowColor: "#2563EB", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 2 }} onPress={() => setSleepMinutes(String((parseInt(sleepMinutes) || 60) + 5))}>
+                    <Typography variant="h1" weight="black" color="#2563EB">+</Typography>
+                  </TouchableOpacity>
+                </View>
+                <Text style={{ textAlign: 'center', fontSize: 12, color: '#6B6B80', marginBottom: 12 }}>
+                  {parseInt(sleepMinutes) || 0} минут = {Math.floor((parseInt(sleepMinutes) || 0) / 60)}ч {(parseInt(sleepMinutes) || 0) % 60}м
+                </Text>
+              </View>
+              <TouchableOpacity style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 18, borderRadius: 24, borderWidth: 2, borderColor: "rgba(255,255,255,0.3)", backgroundColor: "#8B6FD4", shadowColor: "#000", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.15, shadowRadius: 16, elevation: 6 }} onPress={handleSaveSleep}>
+                <Check size={20} color="white" strokeWidth={2.5} />
+                <Typography variant="body" weight="black" color="white">Сохранить</Typography>
+              </TouchableOpacity>
+              <TouchableOpacity style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 18, borderRadius: 24, borderWidth: 2, borderColor: "#E2E8F0", backgroundColor: "#FFFFFF", marginTop: 12, shadowColor: "#000", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.15, shadowRadius: 16, elevation: 6 }} onPress={() => setShowManualSleep(false)}>
+                <Typography variant="body" weight="black" color="#64748B">Назад к таймеру</Typography>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+      )}
+    </>
+  );
+

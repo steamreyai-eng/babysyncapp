@@ -8,12 +8,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, TouchableOpacity, Modal, Platform, ViewStyle } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, Platform, StyleSheet } from 'react-native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
-
-import { Wrapper } from './ui/Wrapper';
-import { Typography } from './ui/Typography';
-import { COLORS, RADIUS } from '../lib/theme';
 
 interface Props {
   visible: boolean;
@@ -23,32 +19,6 @@ interface Props {
   onChange: (date: Date | undefined) => void;
   onClose: () => void;
 }
-
-const sheetStyle: ViewStyle = {
-  backgroundColor: COLORS.card,
-  borderTopLeftRadius: 20,
-  borderTopRightRadius: 20,
-  paddingBottom: 34,
-  overflow: 'hidden',
-};
-
-const headerStyle: ViewStyle = {
-  flexDirection: 'row',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  paddingHorizontal: 16,
-  paddingVertical: 14,
-  borderBottomWidth: 1,
-  borderBottomColor: '#E2E8F0',
-  backgroundColor: '#F8FAFC',
-  borderTopLeftRadius: 20,
-  borderTopRightRadius: 20,
-};
-
-const headerBtnStyle: ViewStyle = {
-  paddingHorizontal: 8,
-  paddingVertical: 4,
-};
 
 const DateTimePickerModal: React.FC<Props> = ({
   visible,
@@ -87,12 +57,6 @@ const DateTimePickerModal: React.FC<Props> = ({
     );
   }
 
-  const titleMap = {
-    time: 'Выберите время',
-    date: 'Выберите дату',
-    datetime: 'Дата и время',
-  };
-
   // iOS: wrap in a bottom-sheet modal with spinner
   return (
     <Modal
@@ -102,22 +66,34 @@ const DateTimePickerModal: React.FC<Props> = ({
       onRequestClose={onClose}
     >
       <TouchableOpacity
-        style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.35)' }}
+        style={styles.overlay}
         activeOpacity={1}
-        onPress={onClose}
+        onPress={() => {
+          onClose();
+        }}
       >
-        <View style={sheetStyle} onStartShouldSetResponder={() => true}>
+        <View style={styles.sheet} onStartShouldSetResponder={() => true}>
           {/* Header with Cancel / Done */}
-          <View style={headerStyle}>
-            <TouchableOpacity onPress={onClose} style={headerBtnStyle}>
-              <Typography variant="body" weight="bold" color="#8A8A9E">Отмена</Typography>
-            </TouchableOpacity>
-            <Typography variant="body" weight="extraBold">{titleMap[mode]}</Typography>
+          <View style={styles.header}>
             <TouchableOpacity
-              onPress={() => { onChange(tempDate); onClose(); }}
-              style={headerBtnStyle}
+              onPress={() => {
+                onClose();
+              }}
+              style={styles.headerBtn}
             >
-              <Typography variant="body" weight="extraBold" color="#2563EB">Готово</Typography>
+              <Text style={styles.cancelText}>Отмена</Text>
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>
+              {mode === 'time' ? 'Выберите время' : mode === 'date' ? 'Выберите дату' : 'Дата и время'}
+            </Text>
+            <TouchableOpacity
+              onPress={() => {
+                onChange(tempDate);
+                onClose();
+              }}
+              style={styles.headerBtn}
+            >
+              <Text style={styles.doneText}>Готово</Text>
             </TouchableOpacity>
           </View>
 
@@ -126,7 +102,7 @@ const DateTimePickerModal: React.FC<Props> = ({
             mode={mode}
             is24Hour={is24Hour}
             display="spinner"
-            textColor={COLORS.foreground}
+            textColor="#1A1A2E"
             onChange={(event: DateTimePickerEvent, selectedDate?: Date) => {
               if (selectedDate) {
                 setTempDate(selectedDate);
@@ -139,5 +115,51 @@ const DateTimePickerModal: React.FC<Props> = ({
     </Modal>
   );
 };
+
+const styles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  sheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 34,
+    overflow: 'hidden',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+  },
+  headerBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  headerTitle: {
+    fontFamily: 'Nunito_800ExtraBold',
+    fontSize: 16,
+    color: '#1A1A2E',
+  },
+  cancelText: {
+    fontFamily: 'Nunito_700Bold',
+    fontSize: 15,
+    color: '#8A8A9E',
+  },
+  doneText: {
+    fontFamily: 'Nunito_800ExtraBold',
+    fontSize: 15,
+    color: '#2563EB',
+  },
+});
 
 export default DateTimePickerModal;

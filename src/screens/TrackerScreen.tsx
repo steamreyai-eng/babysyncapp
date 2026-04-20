@@ -1,13 +1,11 @@
+
 import React from 'react';
-import { ScrollView, RefreshControl } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import withObservables from '@nozbe/with-observables';
 import { database } from '../db';
 import { Q } from '@nozbe/watermelondb';
-import { Wrapper } from '../components/ui/Wrapper';
-import { Typography } from '../components/ui/Typography';
-import { Surface } from '../components/ui/Surface';
 
 const CARDS = [
   { id: 'Feeding', icon: 'water-outline', bg: '#EBF4FF', border: 'rgba(0,0,0,0.04)', iconColor: '#3B82F6', label: 'Кормление' },
@@ -89,6 +87,7 @@ const TrackerScreenContent = ({ feedings, sleeps, diapers, walks, growthRecords 
     }
   }, []);
 
+  // Build recent events from all data
   const recentEvents = React.useMemo(() => {
     const events: { type: string; icon: string; iconColor: string; iconBg: string; label: string; sub: string; time: number }[] = [];
     feedings.slice(0, 5).forEach((f: any) => {
@@ -120,85 +119,60 @@ const TrackerScreenContent = ({ feedings, sleeps, diapers, walks, growthRecords 
   };
 
   return (
-    <Wrapper flex={1} pt={16} bg="background">
-      <ScrollView refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#6366F1']} />}>
-        <Wrapper p={20} pb={100}>
-          <Wrapper mb={4}>
-            <Typography variant="h1">Трекер</Typography>
-          </Wrapper>
-          <Wrapper mb={24}>
-            <Typography variant="body" color="textMuted">Быстрый доступ к разделам</Typography>
-          </Wrapper>
+    <View style={{ flex: 1, paddingTop: 16, backgroundColor: '#FAFBFC' }}>
+      <ScrollView 
+        contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#6366F1']} />}
+      >
+        <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 30, color: '#0F172A', marginBottom: 4 }}>Трекер</Text>
+        <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 13, color: '#64748B', marginBottom: 24 }}>Быстрый доступ к разделам</Text>
 
-          <Wrapper dir="row" wrap="wrap" justify="space-between" mt={8} gap={12}>
-            {CARDS.map((card) => (
-              <Surface
-                key={card.id}
-                onPress={() => navigation.navigate(card.id)}
-                variant="elevated"
-                width="48%"
-                radius="lg"
-                p={16}
-                align="center"
-                justify="center"
-                bg={card.bg}
-                height={130}
-              >
-                <Wrapper mb={8} height={40} justify="center" align="center">
-                  <Ionicons name={card.icon as any} size={36} color={card.iconColor} />
-                </Wrapper>
-                <Wrapper mb={4}>
-                  <Typography variant="body" weight="black" align="center">{card.label}</Typography>
-                </Wrapper>
-                <Typography variant="tiny" color="textSecondary" align="center">
-                  {getCardSub(card.id, feedings, sleeps, diapers, walks, growthRecords)}
-                </Typography>
-              </Surface>
-            ))}
-          </Wrapper>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 12, marginTop: 8 }}>
+          {CARDS.map((card) => (
+            <TouchableOpacity
+              key={card.id}
+              onPress={() => navigation.navigate(card.id)}
+              style={{ width: '48%', borderRadius: 20, padding: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: card.bg, minHeight: 130, borderWidth: 1.5, borderColor: card.border, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 12, elevation: 2 }}
+            >
+              <View style={{ marginBottom: 8, height: 40, justifyContent: 'center', alignItems: 'center' }}>
+                <Ionicons name={card.icon as any} size={36} color={card.iconColor} />
+              </View>
+              <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 13, color: '#0F172A', marginBottom: 5 }}>{card.label}</Text>
+              <Text style={{ fontFamily: 'Nunito_600SemiBold', fontSize: 10, color: '#475569', textAlign: 'center', lineHeight: 14 }} numberOfLines={2}>
+                {getCardSub(card.id, feedings, sleeps, diapers, walks, growthRecords)}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
 
-          {recentEvents.length > 0 && (
-            <Surface variant="elevated" tone="surface" radius="lg" p={16} mt={24}>
-              <Wrapper mb={16}>
-                <Typography variant="h3">Последние события</Typography>
-              </Wrapper>
-              
-              <Wrapper gap={12}>
-                {recentEvents.map((ev, i) => {
-                  const { time, day } = fmtEventDate(ev.time);
-                  return (
-                    <Wrapper key={i} dir="row" align="center" width="100%">
-                      <Surface
-                        radius="button"
-                        width={40}
-                        height={40}
-                        align="center"
-                        justify="center"
-                        mr={12}
-                        bg={ev.iconBg}
-                        tone="transparent"
-                      >
-                        <Ionicons name={ev.icon as any} size={18} color={ev.iconColor} />
-                      </Surface>
-                      
-                      <Wrapper flex={1} pr={8}>
-                        <Typography variant="body" weight="bold" numberOfLines={1}>{ev.label}</Typography>
-                        <Typography variant="caption" color="textSecondary" weight="semiBold" numberOfLines={1}>{ev.sub}</Typography>
-                      </Wrapper>
-                      
-                      <Wrapper align="flex-end">
-                        <Typography variant="tiny" weight="bold" color="textSecondary">{time}</Typography>
-                        <Typography variant="tiny" weight="semiBold" color="#94A3B8">{day}</Typography>
-                      </Wrapper>
-                    </Wrapper>
-                  );
-                })}
-              </Wrapper>
-            </Surface>
-          )}
-        </Wrapper>
+        {/* Recent Events */}
+        {recentEvents.length > 0 && (
+          <View style={{ backgroundColor: 'white', borderRadius: 20, padding: 16, marginTop: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 12, elevation: 3 }}>
+            <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 18, color: '#0F172A', marginBottom: 16 }}>Последние события</Text>
+            <View style={{ gap: 12 }}>
+              {recentEvents.map((ev, i) => {
+                const { time, day } = fmtEventDate(ev.time);
+                return (
+                  <View key={i} style={{ flexDirection: 'row', alignItems: 'center', width: '100%' }}>
+                    <View style={{ width: 40, height: 40, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginRight: 12, flexShrink: 0, backgroundColor: ev.iconBg }}>
+                      <Ionicons name={ev.icon as any} size={18} color={ev.iconColor} />
+                    </View>
+                    <View style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
+                      <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 13, color: '#0F172A' }} numberOfLines={1}>{ev.label}</Text>
+                      <Text style={{ fontFamily: 'Nunito_600SemiBold', fontSize: 11, color: '#475569' }} numberOfLines={1}>{ev.sub}</Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end', flexShrink: 0 }}>
+                      <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 10, color: '#475569' }}>{time}</Text>
+                      <Text style={{ fontFamily: 'Nunito_600SemiBold', fontSize: 9, color: '#94A3B8' }}>{day}</Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        )}
       </ScrollView>
-    </Wrapper>
+    </View>
   );
 };
 

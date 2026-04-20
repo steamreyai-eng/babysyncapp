@@ -13,6 +13,7 @@ import { MedicationModel } from './models/MedicationModel'
 import { VaccinationModel } from './models/VaccinationModel'
 import { DoctorVisitModel } from './models/DoctorVisitModel'
 import { ShiftModel } from './models/ShiftModel'
+import { InsightCard } from './models/InsightCard'
 import { setGenerator } from '@nozbe/watermelondb/utils/common/randomId'
 import * as Crypto from 'expo-crypto';
 
@@ -51,5 +52,6 @@ export const database = new Database({
     VaccinationModel,
     DoctorVisitModel,
     ShiftModel,
+    InsightCard,
   ],
 })

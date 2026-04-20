@@ -1,20 +1,14 @@
+
 import React, { useState } from 'react';
 import { 
-   View, TextInput, TouchableOpacity, ScrollView, 
-   Alert, KeyboardAvoidingView, Platform, ViewStyle,
+   View, Text, TextInput, TouchableOpacity, ScrollView, 
+   Alert, KeyboardAvoidingView, Platform, StyleSheet 
 } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import DateTimePickerModal from '../components/DateTimePickerModal';
-
-import { Wrapper } from '../components/ui/Wrapper';
-import { Surface } from '../components/ui/Surface';
-import { Typography } from '../components/ui/Typography';
-import { FormField } from '../components/FormField';
-import { SegmentedControl } from '../components/SegmentedControl';
-import { COLORS, FONTS, RADIUS } from '../lib/theme';
 
 export default function OnboardingScreen() {
   const [step, setStep] = useState(1);
@@ -76,94 +70,110 @@ export default function OnboardingScreen() {
   };
 
   const stepConfig = [
-      { icon: "happy" as const, colors: ['#4E8FD4', '#3A78C0'] as const, shadow: '#4E8FD4' },
-      { icon: "balloon" as const, colors: ['#8B6FD4', '#6B4FB4'] as const, shadow: '#8B6FD4' },
-      { icon: "globe" as const, colors: ['#E69600', '#C87800'] as const, shadow: '#E69600' },
-      { icon: "people" as const, colors: ['#3DBFAA', '#2E9E8A'] as const, shadow: '#3DBFAA' },
+      { icon: "happy", colors: ['#4E8FD4', '#3A78C0'], shadow: '#4E8FD4' },
+      { icon: "balloon", colors: ['#8B6FD4', '#6B4FB4'], shadow: '#8B6FD4' },
+      { icon: "globe", colors: ['#E69600', '#C87800'], shadow: '#E69600' },
+      { icon: "people", colors: ['#3DBFAA', '#2E9E8A'], shadow: '#3DBFAA' },
   ];
   const current = stepConfig[step - 1];
 
-  const GENDER_ITEMS = [
-    { key: 'boy', label: 'Мальчик' },
-    { key: 'girl', label: 'Девочка' },
-  ];
-
   return (
-    <View style={containerStyle}>
+    <View style={styles.container}>
       <LinearGradient
         colors={['#E8DEFF', '#C8D8F0', '#B8E8DC']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+        style={StyleSheet.absoluteFill}
       />
       
       {/* Decorative Blobs */}
-      <View style={[blobStyle, { width: 260, height: 260, backgroundColor: '#C8D8F0', top: -60, left: -60 }]} />
-      <View style={[blobStyle, { width: 200, height: 200, backgroundColor: '#B8E8DC', bottom: 80, right: -50 }]} />
-      <View style={[blobStyle, { width: 150, height: 150, backgroundColor: '#E8DEFF', top: '40%' as any, right: -30 }]} />
+      <View style={[styles.blob, { width: 260, height: 260, backgroundColor: '#C8D8F0', top: -60, left: -60 }]} />
+      <View style={[styles.blob, { width: 200, height: 200, backgroundColor: '#B8E8DC', bottom: 80, right: -50 }]} />
+      <View style={[styles.blob, { width: 150, height: 150, backgroundColor: '#E8DEFF', top: '40%', right: -30 }]} />
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={{ flexGrow: 1, padding: 20, justifyContent: 'center' }} showsVerticalScrollIndicator={false}>
           
           {/* Progress Dots */}
-          <Wrapper dir="row" justify="center" gap={8} mb={32} zIndex={10}>
+          <View style={styles.progressContainer}>
              {[1, 2, 3, 4].map((s) => (
                 <View 
                    key={s} 
-                   style={[progressDotStyle, {
+                   style={[styles.progressDot, {
                       width: step === s ? 36 : 8,
-                      backgroundColor: step >= s ? '#4E8FD4' : 'rgba(255,255,255,0.5)',
+                      backgroundColor: step >= s ? '#4E8FD4' : 'rgba(255,255,255,0.5)'
                    }]} 
                 />
              ))}
-          </Wrapper>
+          </View>
 
-          {/* Card */}
-          <Surface variant="elevated" radius="xxl" p={24} zIndex={10}>
+          <View style={styles.card}>
              
              {/* Step Icon */}
-             <View style={[iconWrapStyle, { shadowColor: current.shadow }]}>
+             <View style={[styles.iconWrap, { shadowColor: current.shadow }]}>
                 <LinearGradient
                    colors={current.colors as unknown as readonly [string, string]}
                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                   style={iconGradientStyle}
+                   style={styles.iconGradient}
                 >
-                   <Ionicons name={current.icon} size={30} color="white" />
+                   <Ionicons name={current.icon as any} size={30} color="white" />
                 </LinearGradient>
              </View>
 
              {/* Steps */}
              {step === 1 && (
-                <Wrapper>
-                   <Typography variant="h2" weight="black" letterSpacing={-0.5} mb={4}>Как зовут малыша?</Typography>
-                   <Typography variant="tiny" weight="bold" color="#6B6B80" mb={24}>Давайте познакомимся.</Typography>
+                <View>
+                   <Text style={styles.title}>Как зовут малыша?</Text>
+                   <Text style={styles.subtitle}>Давайте познакомимся.</Text>
                    
-                   <Wrapper mb={16}>
-                     <FormField label="Имя ребёнка" value={babyName} onChangeText={setBabyName} placeholder="Например: Миша" />
-                   </Wrapper>
-
-                   <Wrapper>
-                      <Typography variant="tiny" weight="extraBold" color="#8A8A9E" uppercase letterSpacing={0.5} mb={8}>Пол малыша</Typography>
-                      <SegmentedControl
-                        items={GENDER_ITEMS}
-                        selected={gender}
-                        onChange={(key) => setGender(key as any)}
-                        tone={gender === 'girl' ? 'purple' : 'primary'}
+                   <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabel}>Имя ребёнка</Text>
+                      <TextInput
+                         style={styles.input}
+                         placeholder="Например: Миша"
+                         placeholderTextColor="#94A3B8"
+                         value={babyName}
+                         onChangeText={setBabyName}
+                         autoFocus
                       />
-                   </Wrapper>
-                </Wrapper>
+                   </View>
+
+                   <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabel}>Пол малыша</Text>
+                      <View style={{ flexDirection: 'row', gap: 12 }}>
+                         <TouchableOpacity 
+                            onPress={() => setGender('boy')}
+                            style={[
+                               styles.genderBtn, 
+                               gender === 'boy' ? { backgroundColor: '#4E8FD4', borderColor: '#4E8FD4' } : { backgroundColor: '#F6F2EB', borderColor: 'transparent' }
+                            ]}
+                         >
+                            <Text style={[styles.genderBtnText, { color: gender === 'boy' ? 'white' : '#8A8A9E' }]}>Мальчик</Text>
+                         </TouchableOpacity>
+                         <TouchableOpacity 
+                            onPress={() => setGender('girl')}
+                            style={[
+                               styles.genderBtn, 
+                               gender === 'girl' ? { backgroundColor: '#8B6FD4', borderColor: '#8B6FD4' } : { backgroundColor: '#F6F2EB', borderColor: 'transparent' }
+                            ]}
+                         >
+                            <Text style={[styles.genderBtnText, { color: gender === 'girl' ? 'white' : '#8A8A9E' }]}>Девочка</Text>
+                         </TouchableOpacity>
+                      </View>
+                   </View>
+                </View>
              )}
 
              {step === 2 && (
-                <Wrapper>
-                   <Typography variant="h2" weight="black" letterSpacing={-0.5} mb={4}>Когда {babyName} родился?</Typography>
-                   <Typography variant="tiny" weight="bold" color="#6B6B80" mb={24}>Нужно для трекинга норм ВОЗ.</Typography>
-                   <Wrapper>
-                      <Typography variant="tiny" weight="extraBold" color="#8A8A9E" uppercase letterSpacing={0.5} mb={8}>Дата рождения</Typography>
-                      <Surface onPress={() => setShowDatePicker(true)} tone="transparent" radius="md" p={16} bg="#F6F2EB" style={{ minHeight: 52 }}>
-                         <Typography variant="body" weight="extraBold" color={birthdate ? COLORS.foreground : '#94A3B8'}>{birthdate || 'Выберите дату'}</Typography>
-                      </Surface>
-                   </Wrapper>
+                <View>
+                   <Text style={styles.title}>Когда {babyName} родился?</Text>
+                   <Text style={styles.subtitle}>Нужно для трекинга норм ВОЗ.</Text>
+                   <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabel}>Дата рождения</Text>
+                      <TouchableOpacity onPress={() => setShowDatePicker(true)} style={[styles.input, { justifyContent: 'center' }]}>
+                         <Text style={{ fontFamily: 'Nunito_800ExtraBold', color: birthdate ? '#1A1A2E' : '#94A3B8' }}>{birthdate || 'Выберите дату'}</Text>
+                      </TouchableOpacity>
+                   </View>
                    <DateTimePickerModal
                       visible={showDatePicker}
                       value={birthdate ? new Date(birthdate) : new Date()}
@@ -171,76 +181,90 @@ export default function OnboardingScreen() {
                       onChange={(d) => { if (d) setBirthdate(d.toISOString().split('T')[0]); }}
                       onClose={() => setShowDatePicker(false)}
                    />
-                </Wrapper>
+                </View>
              )}
 
              {step === 3 && (
-                <Wrapper>
-                   <Typography variant="h2" weight="black" letterSpacing={-0.5} mb={4}>Откуда вы?</Typography>
-                   <Typography variant="tiny" weight="bold" color="#6B6B80" mb={24}>Для персональных советов AI по климату.</Typography>
+                <View>
+                   <Text style={styles.title}>Откуда вы?</Text>
+                   <Text style={styles.subtitle}>Для персональных советов AI по климату.</Text>
                    <LinearGradient
                       colors={['#4E8FD4', '#3A78C0']}
                       start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                      style={locationGradientStyle}
+                      style={{ borderRadius: 16, padding: 16, shadowColor: '#4E8FD4', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 20, elevation: 4 }}
                    >
-                      <Wrapper gap={12}>
+                      <View style={{ gap: 12 }}>
                          <TextInput
-                            style={locationInputStyle}
+                            style={[styles.input, { backgroundColor: 'white' }]}
                             placeholder="Страна"
                             placeholderTextColor="#94A3B8"
                             value={country}
                             onChangeText={setCountry}
                          />
                          <TextInput
-                            style={locationInputStyle}
+                            style={[styles.input, { backgroundColor: 'white' }]}
                             placeholder="Город (необязательно)"
                             placeholderTextColor="#94A3B8"
                             value={city}
                             onChangeText={setCity}
                          />
-                      </Wrapper>
+                      </View>
                       {(country || city) ? (
-                         <Typography variant="tiny" weight="bold" color="rgba(255,255,255,0.9)" align="center" mt={12}>
+                         <Text style={{ textAlign: 'center', marginTop: 12, fontSize: 13, fontFamily: 'Nunito_700Bold', color: 'rgba(255,255,255,0.9)' }}>
                             ✓ {[country, city].filter(Boolean).join(", ")}
-                         </Typography>
+                         </Text>
                       ) : null}
                    </LinearGradient>
-                </Wrapper>
+                </View>
              )}
 
              {step === 4 && (
-                <Wrapper>
-                   <Typography variant="h2" weight="black" letterSpacing={-0.5} mb={4}>Имена родителей</Typography>
-                   <Typography variant="tiny" weight="bold" color="#6B6B80" mb={24}>Для передачи смен в приложении.</Typography>
-                   <Wrapper mb={16}>
-                     <FormField label="Имя мамы" value={momName} onChangeText={setMomName} placeholder="Имя мамы" />
-                   </Wrapper>
-                   <FormField label="Имя папы" value={dadName} onChangeText={setDadName} placeholder="Имя папы" />
-                </Wrapper>
+                <View>
+                   <Text style={styles.title}>Имена родителей</Text>
+                   <Text style={styles.subtitle}>Для передачи смен в приложении.</Text>
+                   <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabel}>Имя мамы</Text>
+                      <TextInput
+                         style={styles.input}
+                         placeholder="Имя мамы"
+                         placeholderTextColor="#94A3B8"
+                         value={momName}
+                         onChangeText={setMomName}
+                      />
+                   </View>
+                   <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabel}>Имя папы</Text>
+                      <TextInput
+                         style={styles.input}
+                         placeholder="Имя папы"
+                         placeholderTextColor="#94A3B8"
+                         value={dadName}
+                         onChangeText={setDadName}
+                      />
+                   </View>
+                </View>
              )}
 
-             {/* Submit */}
              <TouchableOpacity 
-                style={[submitBtnStyle, loading && { opacity: 0.6 }]}
+                style={[styles.submitBtn, loading && { opacity: 0.6 }]}
                 onPress={handleNext}
                 disabled={loading}
-                activeOpacity={0.8}
              >
                 <LinearGradient
                    colors={['#4E8FD4', '#3DBFAA']}
                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                   style={submitGradientStyle}
+                   style={styles.submitGradient}
                 >
                    <Ionicons name={step === 4 ? "arrow-forward" : "chevron-forward"} size={18} color="white" />
-                   <Typography variant="body" weight="extraBold" color="white">
+                   <Text style={styles.submitText}>
                       {loading ? 'Загрузка...' : step === 4 ? 'Начать использование' : 'Далее'}
-                   </Typography>
+                   </Text>
                 </LinearGradient>
              </TouchableOpacity>
 
-          </Surface>
+          </View>
           
-          <Typography variant="tiny" weight="bold" color="rgba(26,26,46,0.45)" align="center" mt={20} zIndex={10}>Шаг {step} из 4</Typography>
+          <Text style={styles.stepText}>Шаг {step} из 4</Text>
 
         </ScrollView>
       </KeyboardAvoidingView>
@@ -248,35 +272,32 @@ export default function OnboardingScreen() {
   );
 }
 
-/* ── ViewStyle constants (decorative/absolute-positioned elements) ── */
-const containerStyle: ViewStyle = { flex: 1, backgroundColor: '#E8DEFF' };
-const blobStyle: ViewStyle = { position: 'absolute', borderRadius: 9999, opacity: 0.3 };
-const progressDotStyle: ViewStyle = { height: 5, borderRadius: 3 };
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#E8DEFF' },
+  blob: { position: 'absolute', borderRadius: 9999, opacity: 0.3 },
+  
+  progressContainer: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 32, zIndex: 10 },
+  progressDot: { height: 5, borderRadius: 3 },
 
-const iconWrapStyle: ViewStyle = {
-  width: 64, height: 64, borderRadius: 20, marginBottom: 20,
-  alignSelf: 'flex-start', elevation: 8,
-  shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.4, shadowRadius: 28,
-};
-const iconGradientStyle: ViewStyle = { flex: 1, borderRadius: 20, alignItems: 'center', justifyContent: 'center' };
+  card: { backgroundColor: 'white', borderRadius: 24, padding: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.05, shadowRadius: 24, elevation: 4, zIndex: 10 },
+  
+  iconWrap: { width: 64, height: 64, borderRadius: 20, marginBottom: 20, alignSelf: 'flex-start', elevation: 8, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.4, shadowRadius: 28 },
+  iconGradient: { flex: 1, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
 
-const locationGradientStyle: ViewStyle = {
-  borderRadius: RADIUS.lg, padding: 16,
-  shadowColor: '#4E8FD4', shadowOffset: { width: 0, height: 6 },
-  shadowOpacity: 0.3, shadowRadius: 20, elevation: 4,
-};
-const locationInputStyle = {
-  backgroundColor: 'white', borderRadius: RADIUS.lg,
-  paddingHorizontal: 20, minHeight: 52,
-  fontSize: 16, fontFamily: FONTS.extraBold, color: COLORS.foreground,
-};
+  title: { fontSize: 24, fontFamily: 'Nunito_900Black', color: '#1A1A2E', letterSpacing: -0.5, marginBottom: 4 },
+  subtitle: { fontSize: 13, fontFamily: 'Nunito_700Bold', color: '#6B6B80', marginBottom: 24 },
 
-const submitBtnStyle: ViewStyle = {
-  marginTop: 28, borderRadius: RADIUS.lg,
-  shadowColor: '#4E8FD4', shadowOffset: { width: 0, height: 8 },
-  shadowOpacity: 0.38, shadowRadius: 24, elevation: 6,
-};
-const submitGradientStyle: ViewStyle = {
-  flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-  gap: 8, paddingVertical: 16, borderRadius: RADIUS.lg,
-};
+  inputGroup: { marginBottom: 16 },
+  inputLabel: { fontSize: 10, fontFamily: 'Nunito_800ExtraBold', color: '#8A8A9E', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 },
+  input: { minHeight: 52, backgroundColor: '#F6F2EB', borderRadius: 16, paddingHorizontal: 20, fontSize: 16, fontFamily: 'Nunito_800ExtraBold', color: '#1A1A2E' },
+
+  genderBtn: { flex: 1, paddingVertical: 16, borderRadius: 16, borderWidth: 2, alignItems: 'center' },
+  genderBtnText: { fontSize: 16, fontFamily: 'Nunito_800ExtraBold' },
+
+  submitBtn: { marginTop: 28, borderRadius: 16, shadowColor: '#4E8FD4', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.38, shadowRadius: 24, elevation: 6 },
+  submitGradient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 16, borderRadius: 16 },
+  submitText: { fontSize: 16, fontFamily: 'Nunito_800ExtraBold', color: 'white' },
+
+  stepText: { textAlign: 'center', marginTop: 20, fontSize: 13, fontFamily: 'Nunito_700Bold', color: 'rgba(26,26,46,0.45)', zIndex: 10 },
+});
+

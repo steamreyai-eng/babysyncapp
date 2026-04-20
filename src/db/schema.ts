@@ -1,7 +1,7 @@
 import { appSchema, tableSchema } from '@nozbe/watermelondb'
 
 export const schema = appSchema({
-  version: 5,
+  version: 7,
   tables: [
     tableSchema({
       name: 'feedings',
@@ -36,6 +36,7 @@ export const schema = appSchema({
         { name: 'created_at', type: 'number' },
         { name: 'updated_at', type: 'number' },
         { name: 'deleted_at', type: 'number', isOptional: true },
+        { name: 'is_synthetic', type: 'boolean', isOptional: true },
       ]
     }),
     tableSchema({
@@ -133,6 +134,18 @@ export const schema = appSchema({
         { name: 'started_at', type: 'number', isOptional: true },
         { name: 'shift_date', type: 'string', isOptional: true },
         { name: 'assigned_to', type: 'string', isOptional: true },
+        { name: 'updated_at', type: 'number' },
+        { name: 'deleted_at', type: 'number', isOptional: true },
+      ]
+    }),
+    tableSchema({
+      name: 'insight_cards',
+      columns: [
+        { name: 'user_id', type: 'string' },
+        { name: 'insight_title', type: 'string' },
+        { name: 'short_text', type: 'string' },
+        { name: 'type', type: 'string' },
+        { name: 'created_at', type: 'number' },
         { name: 'updated_at', type: 'number' },
         { name: 'deleted_at', type: 'number', isOptional: true },
       ]

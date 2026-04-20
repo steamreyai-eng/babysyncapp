@@ -1,23 +1,14 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { 
-   View, TextInput, TouchableOpacity, KeyboardAvoidingView, 
-   Platform, Alert, Animated, ScrollView, ViewStyle
+   View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, 
+   Platform, Alert, StyleSheet, Dimensions, Animated, ScrollView
 } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
-import { Wrapper } from '../components/ui/Wrapper';
-import { Surface } from '../components/ui/Surface';
-import { Typography } from '../components/ui/Typography';
-import { SegmentedControl } from '../components/SegmentedControl';
-import { FormField } from '../components/FormField';
-import { COLORS, FONTS, RADIUS } from '../lib/theme';
-
-const AUTH_TABS = [
-  { key: 'login', label: 'Войти' },
-  { key: 'register', label: 'Регистрация' },
-];
+const { width, height } = Dimensions.get('window');
 
 export default function AuthScreen() {
   const [email, setEmail] = useState('');
@@ -73,157 +64,172 @@ export default function AuthScreen() {
   };
 
   return (
-    <Wrapper flex={1} bg="#F6F2EB">
+    <View style={styles.container}>
       <LinearGradient
         colors={['#F6F2EB', '#C8D8F0', '#E8DEFF']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+        style={StyleSheet.absoluteFill}
       />
       
       {/* Decorative Blobs */}
-      <View style={[blobStyle, { width: 280, height: 280, backgroundColor: '#C8D8F0', top: -80, right: -60 }]} />
-      <View style={[blobStyle, { width: 200, height: 200, backgroundColor: '#E0D0F4', bottom: 60, left: -50 }]} />
-      <View style={[blobStyle, { width: 140, height: 140, backgroundColor: '#B8E8DC', top: '35%' as any, left: -20 }]} />
+      <View style={[styles.blob, { width: 280, height: 280, backgroundColor: '#C8D8F0', top: -80, right: -60 }]} />
+      <View style={[styles.blob, { width: 200, height: 200, backgroundColor: '#E0D0F4', bottom: 60, left: -50 }]} />
+      <View style={[styles.blob, { width: 140, height: 140, backgroundColor: '#B8E8DC', top: '35%', left: -20 }]} />
 
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : undefined} 
-        style={{ flex: 1 }}
+        style={styles.keyboardView}
       >
-        <ScrollView showsVerticalScrollIndicator={false}>
-          <Wrapper px={20} pb={100} pt={60} flex={1} justify="center">
-            
-            {/* Logo */}
-            <Wrapper align="center" mb={32} mt={40} zIndex={10}>
-               <Animated.View style={{ transform: [{ translateY: floatAnim }] }}>
-                  <LinearGradient
-                     colors={['#4E8FD4', '#3DBFAA']}
-                     start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                   style={logoGradientStyle}
-                  >
-                     <Ionicons name="happy" size={40} color="white" />
-                  </LinearGradient>
-               </Animated.View>
-               <Wrapper mt={16}>
-                 <Typography variant="h1" weight="black" letterSpacing={-0.5}>BabySync</Typography>
-               </Wrapper>
-               <Wrapper mt={4}>
-                 <Typography variant="caption" weight="bold" color="textMuted" align="center">
-                   Сохраняйте важные моменты роста вашего малыша.
-                 </Typography>
-               </Wrapper>
-            </Wrapper>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+           
+           <View style={{ alignItems: 'center', marginBottom: 32, marginTop: 40, zIndex: 10 }}>
+              <Animated.View style={[styles.logoWrap, { transform: [{ translateY: floatAnim }] }]}>
+                 <LinearGradient
+                    colors={['#4E8FD4', '#3DBFAA']}
+                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                    style={styles.logoGradient}
+                 >
+                    <Ionicons name="happy" size={40} color="white" />
+                 </LinearGradient>
+              </Animated.View>
+              <Text style={styles.title}>BabySync</Text>
+              <Text style={styles.subtitle}>Сохраняйте важные моменты роста вашего малыша.</Text>
+           </View>
 
-            {/* Auth Card */}
-            <Surface variant="elevated" radius="xl" p={24} zIndex={10}>
-               {/* Tabs */}
-               <Wrapper mb={24}>
-                 <SegmentedControl
-                   items={AUTH_TABS}
-                   selected={isLogin ? 'login' : 'register'}
-                   onChange={(key) => setIsLogin(key === 'login')}
-                 />
-               </Wrapper>
-
-               <Wrapper gap={16}>
-                  {/* Email */}
-                  <FormField
-                    label="Email"
-                    value={email}
-                    onChangeText={setEmail}
-                    placeholder="you@example.com"
-                    autoCapitalize="none"
-                    keyboardType="email-address"
-                    leftIcon={<Ionicons name="mail" size={18} color="#8A8A9E" />}
-                  />
-
-                  {/* Password */}
-                  <FormField
-                    label="Пароль"
-                    value={password}
-                    onChangeText={setPassword}
-                    placeholder="Минимум 6 символов"
-                    secureTextEntry={!showPassword}
-                    leftIcon={<Ionicons name="lock-closed" size={18} color="#8A8A9E" />}
-                    rightElement={
-                      <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={{ padding: 14 }}>
-                         <Ionicons name={showPassword ? "eye-off" : "eye"} size={20} color="#8A8A9E" />
-                      </TouchableOpacity>
-                    }
-                  />
-
-                  {/* Submit */}
-                  <TouchableOpacity 
-                     onPress={handleAuth}
-                     disabled={loading}
-                     style={{ marginTop: 8, opacity: loading ? 0.6 : 1 }}
-                     activeOpacity={0.8}
-                  >
-                     <LinearGradient
-                        colors={['#4E8FD4', '#3DBFAA']}
-                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                        style={submitGradientStyle}
-                     >
-                        <Ionicons name={isLogin ? "log-in" : "person-add"} size={20} color="white" />
-                        <Typography variant="body" weight="extraBold" color="white">
-                           {loading ? 'Загрузка...' : (isLogin ? 'Войти' : 'Зарегистрироваться')}
-                        </Typography>
-                     </LinearGradient>
-                  </TouchableOpacity>
-               </Wrapper>
-
-               {isLogin && (
-                  <Wrapper mt={16} align="center">
-                    <TouchableOpacity onPress={handleForgotPassword}>
-                       <Typography variant="body" weight="extraBold" color="#4E8FD4">Забыли пароль?</Typography>
+           <View style={styles.card}>
+              {/* Tabs */}
+              <View style={styles.tabsContainer}>
+                 {[
+                    { key: true, label: "Войти" },
+                    { key: false, label: "Регистрация" },
+                 ].map(({ key, label }) => (
+                    <TouchableOpacity
+                       key={String(key)}
+                       onPress={() => setIsLogin(key)}
+                       style={[styles.tab, isLogin === key && styles.tabActive]}
+                    >
+                       <Text style={[styles.tabText, isLogin === key && styles.tabTextActive]}>{label}</Text>
                     </TouchableOpacity>
-                  </Wrapper>
-               )}
+                 ))}
+              </View>
 
-               {/* Divider */}
-               <Wrapper dir="row" align="center" gap={12} my={24}>
-                  <Wrapper flex={1} height={1.5} bg="#E8E4DF" />
-                  <Typography variant="tiny" weight="extraBold" color="#8A8A9E" uppercase letterSpacing={0.5}>Или</Typography>
-                  <Wrapper flex={1} height={1.5} bg="#E8E4DF" />
-               </Wrapper>
+              <View style={{ gap: 16 }}>
+                 <View>
+                    <Text style={styles.inputLabel}>Email</Text>
+                    <View style={styles.inputWrap}>
+                       <Ionicons name="mail" size={18} color="#8A8A9E" style={styles.inputIcon} />
+                       <TextInput
+                          style={styles.input}
+                          placeholder="you@example.com"
+                          placeholderTextColor="#94A3B8"
+                          value={email}
+                          onChangeText={setEmail}
+                          autoCapitalize="none"
+                          keyboardType="email-address"
+                       />
+                    </View>
+                 </View>
 
-               {/* Google Button */}
-               <TouchableOpacity
-                  onPress={() => Alert.alert('Внимание', 'Google Auth в нативном приложении будет добавлен в следующем обновлении.')}
-                  style={googleBtnStyle}
-                  activeOpacity={0.8}
-               >
-                  <Ionicons name="logo-google" size={20} color="#EA4335" />
-                  <Typography variant="body" weight="extraBold">Войти через Google</Typography>
-               </TouchableOpacity>
+                 <View>
+                    <Text style={styles.inputLabel}>Пароль</Text>
+                    <View style={styles.inputWrap}>
+                       <Ionicons name="lock-closed" size={18} color="#8A8A9E" style={styles.inputIcon} />
+                       <TextInput
+                          style={styles.input}
+                          placeholder="Минимум 6 символов"
+                          placeholderTextColor="#94A3B8"
+                          value={password}
+                          onChangeText={setPassword}
+                          secureTextEntry={!showPassword}
+                       />
+                       <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeBtn}>
+                          <Ionicons name={showPassword ? "eye-off" : "eye"} size={20} color="#8A8A9E" />
+                       </TouchableOpacity>
+                    </View>
+                 </View>
 
-            </Surface>
-          </Wrapper>
+                 <TouchableOpacity 
+                    style={[styles.submitBtn, loading && { opacity: 0.6 }]}
+                    onPress={handleAuth}
+                    disabled={loading}
+                 >
+                    <LinearGradient
+                       colors={['#4E8FD4', '#3DBFAA']}
+                       start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                       style={styles.submitGradient}
+                    >
+                       <Ionicons name={isLogin ? "log-in" : "person-add"} size={20} color="white" />
+                       <Text style={styles.submitText}>
+                          {loading ? 'Загрузка...' : (isLogin ? 'Войти' : 'Зарегистрироваться')}
+                       </Text>
+                    </LinearGradient>
+                 </TouchableOpacity>
+              </View>
+
+              {isLogin && (
+                 <TouchableOpacity onPress={handleForgotPassword} style={{ marginTop: 16, alignItems: 'center' }}>
+                    <Text style={styles.forgotText}>Забыли пароль?</Text>
+                 </TouchableOpacity>
+              )}
+
+              <View style={styles.dividerWrap}>
+                 <View style={styles.dividerLine} />
+                 <Text style={styles.dividerText}>Или</Text>
+                 <View style={styles.dividerLine} />
+              </View>
+
+              <TouchableOpacity 
+                 onPress={() => Alert.alert('Внимание', 'Google Auth в нативном приложении будет добавлен в следующем обновлении.')}
+                 style={styles.googleBtn}
+              >
+                 <Ionicons name="logo-google" size={20} color="#EA4335" />
+                 <Text style={styles.googleBtnText}>Войти через Google</Text>
+              </TouchableOpacity>
+
+           </View>
+
         </ScrollView>
       </KeyboardAvoidingView>
-    </Wrapper>
+    </View>
   );
 }
 
-/* ── ViewStyle constants ── */
-const blobStyle: ViewStyle = { position: 'absolute', borderRadius: 9999, opacity: 0.3 };
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#F6F2EB' },
+  blob: { position: 'absolute', borderRadius: 9999, opacity: 0.3 },
+  keyboardView: { flex: 1 },
+  scrollContent: { paddingHorizontal: 20, paddingBottom: 100, paddingTop: 60, flexGrow: 1, justifyContent: 'center' },
+  
+  logoWrap: { width: 76, height: 76, borderRadius: 24, marginBottom: 16, elevation: 8, shadowColor: '#4E8FD4', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.42, shadowRadius: 36 },
+  logoGradient: { flex: 1, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+  title: { fontSize: 32, fontFamily: 'Nunito_900Black', color: '#1A1A2E', letterSpacing: -0.5 },
+  subtitle: { fontSize: 13, fontFamily: 'Nunito_700Bold', color: '#6B6B80', textAlign: 'center', marginTop: 4, maxWidth: 260, lineHeight: 20 },
 
-const logoGradientStyle: ViewStyle = {
-  width: 76, height: 76, borderRadius: 24,
-  alignItems: 'center', justifyContent: 'center',
-  shadowColor: '#4E8FD4', shadowOffset: { width: 0, height: 12 },
-  shadowOpacity: 0.42, shadowRadius: 36, elevation: 8,
-};
+  card: { backgroundColor: 'white', borderRadius: 24, padding: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.05, shadowRadius: 24, elevation: 4, zIndex: 10 },
+  
+  tabsContainer: { flexDirection: 'row', backgroundColor: '#F0EDE8', borderRadius: 14, padding: 4, marginBottom: 24 },
+  tab: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  tabActive: { backgroundColor: 'white', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.09, shadowRadius: 8, elevation: 1 },
+  tabText: { fontSize: 13, fontFamily: 'Nunito_800ExtraBold', color: '#8A8A9E' },
+  tabTextActive: { color: '#1A1A2E' },
 
-const submitGradientStyle: ViewStyle = {
-  flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-  gap: 8, paddingVertical: 16, borderRadius: 14,
-  shadowColor: '#4E8FD4', shadowOffset: { width: 0, height: 8 },
-  shadowOpacity: 0.36, shadowRadius: 24, elevation: 4,
-};
+  inputLabel: { fontSize: 10, fontFamily: 'Nunito_800ExtraBold', color: '#8A8A9E', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 },
+  inputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F6F2EB', borderRadius: 14, borderWidth: 2, borderColor: 'transparent' },
+  inputIcon: { paddingLeft: 16 },
+  input: { flex: 1, paddingVertical: 14, paddingHorizontal: 12, fontSize: 14, fontFamily: 'Nunito_800ExtraBold', color: '#1A1A2E' },
+  eyeBtn: { padding: 14 },
 
-const googleBtnStyle: ViewStyle = {
-  flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-  gap: 12, paddingVertical: 14, borderRadius: RADIUS.lg,
-  backgroundColor: 'white', borderWidth: 1.5, borderColor: '#E0DDD8',
-};
+  submitBtn: { marginTop: 8, borderRadius: 14, shadowColor: '#4E8FD4', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.36, shadowRadius: 24, elevation: 4 },
+  submitGradient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 16, borderRadius: 14 },
+  submitText: { fontSize: 15, fontFamily: 'Nunito_800ExtraBold', color: 'white' },
+
+  forgotText: { fontSize: 13, fontFamily: 'Nunito_800ExtraBold', color: '#4E8FD4' },
+
+  dividerWrap: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 24 },
+  dividerLine: { flex: 1, height: 1.5, backgroundColor: '#E8E4DF' },
+  dividerText: { fontSize: 10, fontFamily: 'Nunito_800ExtraBold', color: '#8A8A9E', textTransform: 'uppercase', letterSpacing: 0.5 },
+
+  googleBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, paddingVertical: 14, borderRadius: 14, backgroundColor: 'white', borderWidth: 1.5, borderColor: '#E0DDD8', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 1 },
+  googleBtnText: { fontSize: 14, fontFamily: 'Nunito_800ExtraBold', color: '#1A1A2E' },
+});

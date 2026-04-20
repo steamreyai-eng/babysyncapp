@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  ScrollView, TouchableOpacity, TextInput,
-  Alert, Dimensions, Platform, RefreshControl
+  View, Text, ScrollView, TouchableOpacity, TextInput,
+  StyleSheet, Alert, Dimensions, Platform, RefreshControl
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../store/authStore';
@@ -13,17 +13,6 @@ import DateTimePickerModal from '../components/DateTimePickerModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 
-import { Wrapper } from '../components/ui/Wrapper';
-import { Surface } from '../components/ui/Surface';
-import { Typography } from '../components/ui/Typography';
-import { Button } from '../components/ui/Button';
-import { ScreenHeader } from '../components/ScreenHeader';
-import { IconCircle } from '../components/IconCircle';
-import { EmptyState } from '../components/EmptyState';
-import { StatusBadge } from '../components/StatusBadge';
-import { FormField } from '../components/FormField';
-import { COLORS, RADIUS, SHADOWS } from '../lib/theme';
-
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const ShiftsScreenContent = ({ feedings, sleeps, diapers, tasks, shiftsData }: any) => {
@@ -31,13 +20,17 @@ const ShiftsScreenContent = ({ feedings, sleeps, diapers, tasks, shiftsData }: a
   const { activeParent, baby, setActiveParent } = useAuthStore();
   const insets = useSafeAreaInsets();
   
+  // Date states for Calendar
   const [currentDate, setCurrentDate] = useState(new Date());
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
 
+  // Tasks form state
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskTime, setNewTaskTime] = useState<Date | null>(null);
   const [showTimePicker, setShowTimePicker] = useState(false);
+
+  // Debounce flag to prevent rapid clicks on same cell
   const [isAssigning, setIsAssigning] = useState(false);
 
   const [refreshing, setRefreshing] = useState(false);
@@ -53,6 +46,7 @@ const ShiftsScreenContent = ({ feedings, sleeps, diapers, tasks, shiftsData }: a
     }
   }, []);
 
+  // Parse shifts into dict: { 'YYYY-MM-DD': 'mom' | 'dad' }
   const shiftsDict = useMemo(() => {
      const dict: Record<string, string> = {};
      shiftsData.forEach((s: any) => {
@@ -63,6 +57,7 @@ const ShiftsScreenContent = ({ feedings, sleeps, diapers, tasks, shiftsData }: a
      return dict;
   }, [shiftsData]);
 
+  // Calendar Helpers
   const changeMonth = (delta: number) => {
     const d = new Date(currentDate);
     d.setDate(1);
@@ -70,6 +65,7 @@ const ShiftsScreenContent = ({ feedings, sleeps, diapers, tasks, shiftsData }: a
     setCurrentDate(d);
   };
 
+  // Helper: trigger immediate sync to propagate changes to other devices
   const triggerSync = () => {
     import('../db/sync').then(({ syncWithSupabase }) =>
       syncWithSupabase().catch(e => { if (__DEV__) console.warn('Sync failed', e); })
@@ -77,6 +73,7 @@ const ShiftsScreenContent = ({ feedings, sleeps, diapers, tasks, shiftsData }: a
   };
 
   const assignShift = async (dateStr: string, currentAssigned: string | undefined) => {
+    // Prevent rapid double-clicks causing stale data
     if (isAssigning) return;
     setIsAssigning(true);
 
@@ -99,6 +96,8 @@ const ShiftsScreenContent = ({ feedings, sleeps, diapers, tasks, shiftsData }: a
             });
          }
       });
+
+      // Trigger immediate sync so shift changes propagate to other devices
       triggerSync();
     } catch (e) {
       if (__DEV__) console.warn("assignShift error", e);
@@ -110,7 +109,7 @@ const ShiftsScreenContent = ({ feedings, sleeps, diapers, tasks, shiftsData }: a
   const getDays = () => {
     const days: (Date | null)[] = [];
     const first = new Date(year, month, 1);
-    const startDay = first.getDay() || 7;
+    const startDay = first.getDay() || 7; // Mon=1..Sun=7
     for (let i = 1; i < startDay; i++) days.push(null);
     const d = new Date(year, month, 1);
     while (d.getMonth() === month) { days.push(new Date(d)); d.setDate(d.getDate() + 1); }
@@ -205,51 +204,60 @@ const ShiftsScreenContent = ({ feedings, sleeps, diapers, tasks, shiftsData }: a
 
   const renderCalDays = () => {
      const days = getDays();
+     // Calculate responsive size for 7 columns
      const cellMargin = 2;
+     // 16 padding on each side of screen, 16 padding inside card = 64 total horizontal padding
      const availableWidth = SCREEN_WIDTH - 64; 
      const cellWidth = Math.floor(availableWidth / 7) - (cellMargin * 2);
 
      return days.map((d, i) => {
-        if (!d) return <Wrapper key={`empty-${i}`} width={cellWidth} m={cellMargin} />;
+        if (!d) return <View key={`empty-${i}`} style={{ width: cellWidth, margin: cellMargin }} />;
         const dStr = `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')}`;
         const assigned = shiftsDict[dStr];
         const isToday = dStr === todayStr;
 
         let cellBg = 'transparent';
         let label = '';
-        let labelColor = COLORS.foreground;
+        let labelColor = '#1A1A2E';
         if (assigned === 'mom') { cellBg = '#C8D8F0'; label = 'М'; labelColor = '#3A6CB0'; }
         if (assigned === 'dad') { cellBg = '#E0D0F4'; label = 'П'; labelColor = '#7B50C8'; }
 
         return (
-           <Surface
+           <TouchableOpacity
               key={dStr}
               onPress={() => assignShift(dStr, assigned)}
-              tone="transparent"
-              radius="sm"
-              bg={cellBg}
-              width={cellWidth}
-              height={44}
-              m={cellMargin}
-              align="center"
-              justify="center"
-              py={2}
-              style={{ borderWidth: 2, borderColor: isToday ? '#5B9BD5' : 'transparent' }}
+              style={{
+                 width: cellWidth,
+                 minHeight: 44,
+                 margin: cellMargin,
+                 backgroundColor: cellBg,
+                 borderColor: isToday ? '#5B9BD5' : 'transparent',
+                 borderWidth: 2,
+                 borderRadius: 10,
+                 alignItems: 'center',
+                 justifyContent: 'center',
+                 paddingVertical: 2,
+              }}
            >
-              <Typography variant="caption" weight="extraBold" color={isToday ? '#5B9BD5' : COLORS.foreground}>
+              <Text style={{ fontSize: 11, fontFamily: 'Nunito_800ExtraBold', color: isToday ? '#5B9BD5' : '#1A1A2E' }}>
                  {d.getDate()}
-              </Typography>
+              </Text>
               {label ? (
-                 <Typography variant="caption" weight="black" color={labelColor} style={{ fontSize: 10 }}>{label}</Typography>
+                 <Text style={{ fontSize: 10, fontFamily: 'Nunito_900Black', color: labelColor }}>{label}</Text>
               ) : null}
-           </Surface>
+           </TouchableOpacity>
         );
      });
   };
 
   return (
-    <Wrapper flex={1} bg="background">
-      <ScreenHeader title="Смены родителей" />
+    <View style={{ flex: 1, backgroundColor: '#FAFBFC' }}>
+      <View style={{ paddingTop: Math.max(insets.top, 16), paddingHorizontal: 16, paddingBottom: 12, backgroundColor: '#FAFBFC', flexDirection: 'row', alignItems: 'center' }}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'white', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2, marginRight: 16, borderWidth: 1, borderColor: '#E2E8F0' }}>
+          <Ionicons name="arrow-back" size={24} color="#1A1A2E" />
+        </TouchableOpacity>
+        <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 24, color: '#1A1A2E' }}>Смены родителей</Text>
+      </View>
       <ScrollView 
         style={{ flex: 1, paddingHorizontal: 16 }} 
         contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 160) }} 
@@ -258,176 +266,161 @@ const ShiftsScreenContent = ({ feedings, sleeps, diapers, tasks, shiftsData }: a
       >
 
       {/* Active parent banner */}
-      <Surface tone="transparent" radius="xl" p={16} mb={16} bg="#5B9BD5" style={{ shadowColor: '#5B9BD5', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 24, elevation: 4 }}>
-        <Typography variant="caption" weight="extraBold" color="rgba(255,255,255,0.8)" letterSpacing={1} mb={8}>СЕЙЧАС АКТИВЕН</Typography>
-        <Wrapper dir="row" align="center" gap={12}>
-          <IconCircle size="lg" bg="rgba(255,255,255,0.25)" radius={24}>
-            <Typography variant="h3" weight="black" color="white">{activeParent === 'mom' ? 'М' : 'П'}</Typography>
-          </IconCircle>
-          <Wrapper flex={1}>
-            <Typography variant="h4" weight="black" color="white">
+      <View style={styles.banner}>
+        <Text style={styles.bannerCaption}>СЕЙЧАС АКТИВЕН</Text>
+        <View style={styles.bannerRow}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{activeParent === 'mom' ? 'М' : 'П'}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.bannerName}>
               {activeParent === 'mom' ? (baby?.mom_name || 'Мама') : (baby?.dad_name || 'Папа')}
-            </Typography>
-            <Typography variant="caption" weight="semiBold" color="rgba(255,255,255,0.75)">Активен сейчас</Typography>
-          </Wrapper>
-          <Surface onPress={() => setActiveParent(activeParent === 'mom' ? 'dad' : 'mom')} tone="transparent" radius="md" px={14} py={8} style={{ borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)', backgroundColor: 'rgba(255,255,255,0.15)' }}>
-            <Typography variant="tiny" weight="extraBold" color="white">Передать →</Typography>
-          </Surface>
-        </Wrapper>
-      </Surface>
+            </Text>
+            <Text style={styles.bannerSub}>Активен сейчас</Text>
+          </View>
+          <TouchableOpacity style={styles.transferBtn} onPress={() => setActiveParent(activeParent === 'mom' ? 'dad' : 'mom')}>
+            <Text style={styles.transferBtnText}>Передать →</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
 
       {/* CALENDAR */}
-      <Surface variant="elevated" radius="xl" p={16} mb={16}>
-         <Wrapper dir="row" justify="space-between" align="center" mb={16}>
-            <Surface onPress={() => changeMonth(-1)} tone="transparent" radius="xl" width={44} height={44} align="center" justify="center" bg="#F5F0E6">
+      <View style={styles.card}>
+         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <TouchableOpacity onPress={() => changeMonth(-1)} style={styles.calNavBtn}>
                <Ionicons name="chevron-back" size={20} color="#6B6B80" />
-            </Surface>
-            <Typography variant="body" weight="black">{monthNames[month]} {year}</Typography>
-            <Surface onPress={() => changeMonth(1)} tone="transparent" radius="xl" width={44} height={44} align="center" justify="center" bg="#F5F0E6">
+            </TouchableOpacity>
+            <Text style={{ fontSize: 15, fontFamily: 'Nunito_900Black', color: '#1A1A2E' }}>
+               {monthNames[month]} {year}
+            </Text>
+            <TouchableOpacity onPress={() => changeMonth(1)} style={styles.calNavBtn}>
                <Ionicons name="chevron-forward" size={20} color="#6B6B80" />
-            </Surface>
-         </Wrapper>
+            </TouchableOpacity>
+         </View>
 
-         <Wrapper dir="row" mb={8} px={2}>
+         <View style={{ flexDirection: 'row', marginBottom: 8, paddingHorizontal: 2 }}>
             {['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map(d => (
-               <Wrapper key={d} flex={1} align="center">
-                  <Typography variant="caption" weight="extraBold" color="#9B9BAF" style={{ fontSize: 10 }}>{d}</Typography>
-               </Wrapper>
+               <View key={d} style={{ flex: 1, alignItems: 'center' }}>
+                  <Text style={{ fontSize: 10, fontFamily: 'Nunito_800ExtraBold', color: '#9B9BAF' }}>{d}</Text>
+               </View>
             ))}
-         </Wrapper>
+         </View>
 
-         <Wrapper dir="row" wrap="wrap">
+         <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
             {renderCalDays()}
-         </Wrapper>
+         </View>
 
-         <Wrapper dir="row" align="center" mt={16} pt={8} style={{ borderTopWidth: 1, borderColor: '#E0DDD8' }}>
-            <Wrapper dir="row" align="center" gap={6} mr={16}>
-               <Wrapper width={16} height={16} bg="#C8D8F0" radius="sm" style={{ borderRadius: 4 }} />
-               <Typography variant="caption" weight="bold" color="textMuted">Мама</Typography>
-            </Wrapper>
-            <Wrapper dir="row" align="center" gap={6}>
-               <Wrapper width={16} height={16} bg="#E0D0F4" radius="sm" style={{ borderRadius: 4 }} />
-               <Typography variant="caption" weight="bold" color="textMuted">Папа</Typography>
-            </Wrapper>
-            <Wrapper flex={1} align="flex-end">
-              <Typography variant="caption" weight="semiBold" color="#AAA" style={{ fontSize: 10 }}>Нажмите: М→П→пусто</Typography>
-            </Wrapper>
-         </Wrapper>
-      </Surface>
+         <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 16, paddingTop: 8, borderTopWidth: 1, borderColor: '#E0DDD8' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginRight: 16 }}>
+               <View style={{ width: 16, height: 16, borderRadius: 4, backgroundColor: '#C8D8F0' }} />
+               <Text style={{ fontSize: 11, fontFamily: 'Nunito_700Bold', color: '#6B6B80' }}>Мама</Text>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+               <View style={{ width: 16, height: 16, borderRadius: 4, backgroundColor: '#E0D0F4' }} />
+               <Text style={{ fontSize: 11, fontFamily: 'Nunito_700Bold', color: '#6B6B80' }}>Папа</Text>
+            </View>
+            <Text style={{ fontSize: 10, fontFamily: 'Nunito_600SemiBold', color: '#AAA', marginLeft: 'auto' }}>
+               Нажмите: М→П→пусто
+            </Text>
+         </View>
+      </View>
 
       {/* Manual Switch */}
-      <Surface variant="elevated" radius="xl" p={16} mb={16}>
-        <Typography variant="body" weight="black" mb={12}>Ручная передача смены</Typography>
-        <Wrapper dir="row" justify="space-around" py={8}>
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Ручная передача смены</Text>
+        <View style={styles.switchRow}>
           {(['mom', 'dad'] as const).map(p => (
-            <Surface
+            <TouchableOpacity
               key={p}
+              style={[styles.parentBtn, { opacity: activeParent === p ? 1 : 0.4 }]}
               onPress={() => p !== activeParent && setActiveParent(p)}
-              tone="transparent"
-              radius="none"
-              align="center"
-              gap={6}
-              style={{ opacity: activeParent === p ? 1 : 0.4 }}
             >
-              <IconCircle size="lg" bg={p === 'mom' ? '#5B9BD5' : '#8B6FD4'} radius={34}>
-                <Typography variant="h2" weight="black" color="white">{p === 'mom' ? 'М' : 'П'}</Typography>
-              </IconCircle>
-              <Typography variant="tiny" weight="extraBold">{p === 'mom' ? 'Мама' : 'Папа'}</Typography>
-              {activeParent === p && <Typography variant="caption" weight="bold" color="#4DBFAA" style={{ fontSize: 9 }}>● Активен</Typography>}
-            </Surface>
+              <View style={[styles.parentCircle, {
+                backgroundColor: p === 'mom' ? '#5B9BD5' : '#8B6FD4',
+                transform: [{ scale: activeParent === p ? 1.1 : 1 }],
+              }]}>
+                <Text style={styles.parentCircleText}>{p === 'mom' ? 'М' : 'П'}</Text>
+              </View>
+              <Text style={styles.parentLabel}>{p === 'mom' ? 'Мама' : 'Папа'}</Text>
+              {activeParent === p && <Text style={styles.activeLabel}>● Активен</Text>}
+            </TouchableOpacity>
           ))}
-        </Wrapper>
-      </Surface>
+        </View>
+      </View>
 
       {/* Tasks */}
-      <Surface variant="elevated" radius="xl" p={16} mb={16} bg="#EEF2FF" style={{ borderWidth: 1.5, borderColor: '#E0E7FF' }}>
-        <Wrapper dir="row" align="center" justify="space-between" mb={12}>
-          <Typography variant="body" weight="black" color="#6366F1">📋 Задачи на смену</Typography>
+      <View style={[styles.card, { backgroundColor: '#EEF2FF', borderColor: '#E0E7FF' }]}>
+        <View style={[styles.cardHeader, { justifyContent: 'space-between' }]}>
+          <Text style={[styles.cardTitle, { color: '#6366F1' }]}>📋 Задачи на смену</Text>
           {incompleteTasks > 0 && (
-            <StatusBadge label={`${incompleteTasks} ост.`} tone="primary" />
+            <View style={styles.taskBadge}>
+              <Text style={styles.taskBadgeText}>{incompleteTasks} ост.</Text>
+            </View>
           )}
-        </Wrapper>
+        </View>
 
         {tasks.length === 0 ? (
-          <Typography variant="tiny" weight="semiBold" color="#A0A0B0" align="center" py={8}>Нет активных задач</Typography>
+          <Text style={{ textAlign: 'center', fontSize: 12, color: '#A0A0B0', paddingVertical: 8, fontFamily: 'Nunito_600SemiBold' }}>Нет активных задач</Text>
         ) : (
-          <Wrapper style={{ maxHeight: 200 }}>
+          <View style={{ maxHeight: 200 }}>
              <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false}>
                 {tasks.map((t: any) => (
-                  <Surface key={t.id} variant="elevated" radius="sm" p={10} mb={8} style={{ borderWidth: 1, borderColor: '#F5EAD6' }}>
-                    <Wrapper dir="row" align="center" gap={10}>
-                      <TouchableOpacity onPress={() => toggleTask(t)} style={{ opacity: t.is_completed ? 0.6 : 1 }}>
-                        <Ionicons
-                          name={t.is_completed ? 'checkmark-circle' : 'radio-button-off'}
-                          size={22}
-                          color={t.is_completed ? '#4DBFAA' : '#E0DDD8'}
-                        />
-                      </TouchableOpacity>
-                      <Wrapper flex={1}>
-                        <Typography variant="tiny" weight="extraBold" color={t.is_completed ? '#A0A0B0' : COLORS.foreground} style={t.is_completed ? { textDecorationLine: 'line-through' } : {}} numberOfLines={1}>{t.title}</Typography>
-                        <Typography variant="caption" weight="bold" color="#AAA" mt={2} style={{ fontSize: 9 }}>
-                          {t.due_time ? `До: ${new Date(t.due_time).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} • ` : ''}
-                          Добавил(а): {t.recorded_by === 'mom' ? 'Мама' : 'Папа'}
-                        </Typography>
-                      </Wrapper>
-                      <Surface
-                        onPress={() => deleteTask(t)}
-                        tone="transparent"
-                        radius="sm"
-                        p={6}
-                        bg="#FFE4E4"
-                        style={{ opacity: t.is_completed ? 1 : 0.2 }}
-                      >
-                        <Ionicons name="trash" size={14} color="#D94F4F" />
-                      </Surface>
-                    </Wrapper>
-                  </Surface>
+                  <View key={t.id} style={styles.taskRow}>
+                    <TouchableOpacity onPress={() => toggleTask(t)} style={{ opacity: t.is_completed ? 0.6 : 1 }}>
+                      <Ionicons
+                        name={t.is_completed ? 'checkmark-circle' : 'radio-button-off'}
+                        size={22}
+                        color={t.is_completed ? '#4DBFAA' : '#E0DDD8'}
+                      />
+                    </TouchableOpacity>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.taskTitle, t.is_completed && styles.taskTitleDone]} numberOfLines={1}>{t.title}</Text>
+                      <Text style={styles.taskMeta}>
+                        {t.due_time ? `До: ${new Date(t.due_time).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} • ` : ''}
+                        Добавил(а): {t.recorded_by === 'mom' ? 'Мама' : 'Папа'}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => deleteTask(t)}
+                      style={[styles.deleteBtn, { opacity: t.is_completed ? 1 : 0.2 }]}
+                    >
+                      <Ionicons name="trash" size={14} color="#D94F4F" />
+                    </TouchableOpacity>
+                  </View>
                 ))}
              </ScrollView>
-          </Wrapper>
+          </View>
         )}
 
         {/* Task Input Area */}
-        <Wrapper dir="row" gap={8} mt={8}>
-          <Wrapper flex={1}>
-            <FormField value={newTaskTitle} onChangeText={setNewTaskTitle} placeholder="Напр. дать витамин Д" onSubmitEditing={handleAddTask} />
-          </Wrapper>
+        <View style={styles.addTaskRow}>
+          <TextInput
+            style={styles.taskInput}
+            placeholder="Напр. дать витамин Д"
+            placeholderTextColor="#94A3B8"
+            value={newTaskTitle}
+            onChangeText={setNewTaskTitle}
+            onSubmitEditing={handleAddTask}
+            returnKeyType="done"
+          />
           
-          <Surface
+          <TouchableOpacity 
              onPress={() => setShowTimePicker(true)} 
-             tone="transparent"
-             radius="sm"
-             height={40}
-             width={newTaskTime ? undefined : 40}
-             px={newTaskTime ? 12 : 0}
-             align="center"
-             justify="center"
-             bg="white"
-             style={{ borderWidth: 1, borderColor: '#E0DDD8', minWidth: 40 }}
+             style={[styles.timeBtn, newTaskTime && { paddingHorizontal: 12 }]}
           >
              {newTaskTime ? (
-                <Typography variant="caption" weight="extraBold" color="#6366F1">
+                <Text style={{ fontSize: 11, fontFamily: 'Nunito_800ExtraBold', color: '#6366F1' }}>
                    {fmtTime(newTaskTime.getTime())}
-                </Typography>
+                </Text>
              ) : (
                 <Ionicons name="calendar" size={18} color="#6366F1" />
              )}
-          </Surface>
+          </TouchableOpacity>
 
-          <Surface
-            onPress={handleAddTask}
-            tone="transparent"
-            radius="sm"
-            width={40}
-            height={40}
-            align="center"
-            justify="center"
-            bg="#6366F1"
-            style={{ shadowColor: '#6366F1', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 2 }}
-          >
+          <TouchableOpacity style={styles.addTaskBtn} onPress={handleAddTask}>
             <Ionicons name="add" size={18} color="white" />
-          </Surface>
-        </Wrapper>
+          </TouchableOpacity>
+        </View>
 
          <DateTimePickerModal
            visible={showTimePicker}
@@ -438,49 +431,100 @@ const ShiftsScreenContent = ({ feedings, sleeps, diapers, tasks, shiftsData }: a
            onClose={() => setShowTimePicker(false)}
          />
 
-      </Surface>
+      </View>
 
       {/* Activity timeline */}
-      <Surface variant="elevated" radius="xl" p={16}>
-        <Typography variant="body" weight="black" mb={12}>История активности</Typography>
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>История активности</Text>
         {allEvents.length === 0 ? (
-          <EmptyState icon={<Ionicons name="clipboard" size={36} color="#C8D8F0" />} title="Нет данных" subtitle="Добавьте кормление, сон или подгузник" />
+          <View style={{ alignItems: 'center', paddingVertical: 24 }}>
+            <Ionicons name="clipboard" size={36} color="#C8D8F0" />
+            <Text style={{ fontSize: 12, fontWeight: '800', color: '#1A1A2E', marginTop: 8 }}>Нет данных</Text>
+            <Text style={{ fontSize: 10, fontWeight: '600', color: '#6B6B80' }}>Добавьте кормление, сон или подгузник</Text>
+          </View>
         ) : (
-          <Wrapper pl={24} mt={8}>
-            <Wrapper position="absolute" left={11} top={8} bottom={8} width={2} bg="#E0DDD8" radius="sm" style={{ borderRadius: 2 }} />
+          <View style={{ paddingLeft: 24, marginTop: 8 }}>
+            <View style={{ position: 'absolute', left: 11, top: 8, bottom: 8, width: 2, borderRadius: 2, backgroundColor: '#E0DDD8' }} />
             {allEvents.map((item, i) => {
               const isDad = item.who === 'Папа';
               return (
-                <Wrapper key={i} dir="row" align="center" gap={10} mb={16}>
-                  <Wrapper position="absolute" left={-24} width={18} height={18} bg={isDad ? '#8B6FD4' : '#5B9BD5'} style={{ borderRadius: 9, borderWidth: 2, borderColor: '#F5F0E6' }} />
-                  <IconCircle size="sm" bg={item.bg}>
+                <View key={i} style={styles.timelineItem}>
+                  <View style={[styles.timelineDot, { backgroundColor: isDad ? '#8B6FD4' : '#5B9BD5', borderColor: '#F5F0E6' }]} />
+                  <View style={[styles.timelineIcon, { backgroundColor: item.bg }]}>
                     <Ionicons name={item.icon} size={16} color={item.iconColor} />
-                  </IconCircle>
-                  <Wrapper flex={1}>
-                    <Typography variant="tiny" weight="extraBold">{item.action}</Typography>
-                    <Wrapper mt={2} align="flex-start">
-                      <StatusBadge label={item.who} tone={isDad ? 'purple' : 'primary'} />
-                    </Wrapper>
-                  </Wrapper>
-                  <Typography variant="caption" weight="bold" color="textMuted">{item.time}</Typography>
-                </Wrapper>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 12, fontFamily: 'Nunito_800ExtraBold', color: '#1A1A2E' }}>{item.action}</Text>
+                    <View style={[styles.whoBadge, { backgroundColor: isDad ? '#8B6FD4' : '#5B9BD5' }]}>
+                      <Text style={{ color: 'white', fontSize: 9, fontFamily: 'Nunito_800ExtraBold' }}>{item.who}</Text>
+                    </View>
+                  </View>
+                  <Text style={{ fontSize: 11, fontFamily: 'Nunito_700Bold', color: '#6B6B80' }}>{item.time}</Text>
+                </View>
               );
             })}
-          </Wrapper>
+          </View>
         )}
-      </Surface>
+      </View>
     </ScrollView>
-    </Wrapper>
+    </View>
   );
 };
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#FAFBFC' },
+  title: { fontSize: 32, fontFamily: 'Nunito_800ExtraBold', color: '#0F172A', letterSpacing: -0.5 },
+  subtitle: { fontSize: 15, fontFamily: 'Nunito_600SemiBold', color: '#6B6B80', marginBottom: 16 },
+  banner: { borderRadius: 20, padding: 16, marginBottom: 16, backgroundColor: '#5B9BD5', shadowColor: '#5B9BD5', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 24, elevation: 4 },
+  bannerCaption: { fontSize: 10, fontFamily: 'Nunito_800ExtraBold', color: 'rgba(255,255,255,0.8)', marginBottom: 8, letterSpacing: 1 },
+  bannerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.25)', alignItems: 'center', justifyContent: 'center' },
+  avatarText: { fontSize: 20, fontFamily: 'Nunito_900Black', color: 'white' },
+  bannerName: { fontSize: 18, fontFamily: 'Nunito_900Black', color: 'white' },
+  bannerSub: { fontSize: 11, fontFamily: 'Nunito_600SemiBold', color: 'rgba(255,255,255,0.75)' },
+  transferBtn: { borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)', backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 14, paddingHorizontal: 14, paddingVertical: 8 },
+  transferBtnText: { color: 'white', fontSize: 12, fontFamily: 'Nunito_800ExtraBold' },
+  
+  card: { backgroundColor: 'white', borderRadius: 20, padding: 16, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 20, elevation: 3, borderWidth: 1.5, borderColor: '#F0ECE8' },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  cardTitle: { fontSize: 16, fontFamily: 'Nunito_900Black', color: '#1A1A2E', marginBottom: 12 },
+  
+  calNavBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#F5F0E6', alignItems: 'center', justifyContent: 'center' },
+  
+  switchRow: { flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 8 },
+  parentBtn: { alignItems: 'center', gap: 6 },
+  parentCircle: { width: 68, height: 68, borderRadius: 34, alignItems: 'center', justifyContent: 'center' },
+  parentCircleText: { color: 'white', fontSize: 24, fontFamily: 'Nunito_900Black' },
+  parentLabel: { fontSize: 12, fontFamily: 'Nunito_800ExtraBold', color: '#1A1A2E' },
+  activeLabel: { fontSize: 9, fontFamily: 'Nunito_700Bold', color: '#4DBFAA' },
+  
+  taskBadge: { backgroundColor: '#6366F1', borderRadius: 20, paddingHorizontal: 8, paddingVertical: 2 },
+  taskBadgeText: { color: 'white', fontSize: 10, fontFamily: 'Nunito_800ExtraBold' },
+  taskRow: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: 'white', padding: 10, borderRadius: 12, marginBottom: 8, borderWidth: 1, borderColor: '#F5EAD6', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2, elevation: 1 },
+  taskTitle: { fontSize: 13, fontFamily: 'Nunito_800ExtraBold', color: '#1A1A2E' },
+  taskTitleDone: { color: '#A0A0B0', textDecorationLine: 'line-through' },
+  taskMeta: { fontSize: 9, fontFamily: 'Nunito_700Bold', color: '#AAA', marginTop: 2 },
+  deleteBtn: { padding: 6, borderRadius: 8, backgroundColor: '#FFE4E4' },
+  
+  addTaskRow: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  taskInput: { flex: 1, backgroundColor: 'white', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 13, fontFamily: 'Nunito_700Bold' },
+  timeBtn: { height: 40, minWidth: 40, borderRadius: 12, backgroundColor: 'white', borderWidth: 1, borderColor: '#E0DDD8', alignItems: 'center', justifyContent: 'center' },
+  addTaskBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#6366F1', alignItems: 'center', justifyContent: 'center', shadowColor: '#6366F1', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 2 },
+  
+  timelineItem: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 },
+  timelineDot: { position: 'absolute', left: -24, width: 18, height: 18, borderRadius: 9, borderWidth: 2 },
+  timelineIcon: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  whoBadge: { borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2, alignSelf: 'flex-start', marginTop: 2 },
+});
 
 const enhance = withObservables([], () => ({
   feedings: database.collections.get('feedings').query(Q.sortBy('created_at', Q.desc)).observe(),
   sleeps: database.collections.get('sleeps').query(Q.sortBy('created_at', Q.desc)).observe(),
   diapers: database.collections.get('diapers').query(Q.sortBy('created_at', Q.desc)).observe(),
   tasks: database.collections.get('tasks').query(Q.sortBy('created_at', Q.asc)).observe(),
-  shiftsData: database.collections.get('shifts').query().observe(),
+  shiftsData: database.collections.get('shifts').query().observe(), // Get all shifts
 }));
 
 const ShiftsScreen = enhance(ShiftsScreenContent);
 export default ShiftsScreen;
+

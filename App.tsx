@@ -218,16 +218,10 @@ export default Sentry.wrap(function App() {
   };
 
   // Mutable ref for cached event data
-  let getLastEventsCached: {
-    lastFeedingMs: number | null;
-    lastDiaperMs: number | null;
-    lastSleepEndMs: number | null;
-    ageMo: number;
-    recentSleeps?: any[];
-  } = {
-    lastFeedingMs: null,
-    lastDiaperMs: null,
-    lastSleepEndMs: null,
+  let getLastEventsCached = {
+    lastFeedingMs: null as number | null,
+    lastDiaperMs: null as number | null,
+    lastSleepEndMs: null as number | null,
     ageMo: 4,
   };
 
@@ -241,7 +235,7 @@ export default Sentry.wrap(function App() {
       const [latestFeedings, latestDiapers, latestSleeps] = await Promise.all([
         database.get('feedings').query(Q.sortBy('created_at', Q.desc), Q.take(1)).fetch(),
         database.get('diapers').query(Q.sortBy('created_at', Q.desc), Q.take(1)).fetch(),
-        database.get('sleeps').query(Q.sortBy('created_at', Q.desc), Q.take(15)).fetch(),
+        database.get('sleeps').query(Q.sortBy('created_at', Q.desc), Q.take(1)).fetch(),
       ]);
 
       const lastFeeding = latestFeedings[0] as any;
@@ -257,13 +251,6 @@ export default Sentry.wrap(function App() {
               : new Date(lastSleep.created_at).getTime() + (lastSleep.duration_seconds || 0) * 1000)
           : null,
         ageMo,
-        // Pass recent sleeps for personalized wake window calculation
-        recentSleeps: latestSleeps.map((s: any) => ({
-          start_time: s.start_time,
-          end_time: s.end_time,
-          duration_seconds: s.duration_seconds,
-          created_at: s.created_at,
-        })),
       };
     } catch (e) {
       if (__DEV__) console.warn('[Notifications] Error refreshing event cache:', e);

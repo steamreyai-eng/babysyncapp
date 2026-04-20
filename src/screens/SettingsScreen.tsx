@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
-import { TouchableOpacity, ScrollView, Alert, TextInput, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, Switch, ScrollView, Alert, TextInput, StyleSheet, ActivityIndicator, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,16 +13,9 @@ import { supabase } from '../lib/supabase';
 import { exportDataAsJSON } from '../lib/exportData';
 import PrivacyPolicyScreen from './PrivacyPolicyScreen';
 import DateTimePickerModal from '../components/DateTimePickerModal';
-import { BellRing, Moon, Sun, Download, Shield, LogOut, Trash2 } from 'lucide-react-native';
+import { BellRing, Moon, Sun, Download, Shield, ChevronRight, LogOut, Edit3, Globe as GlobeIcon, CalendarDays, User, Trash2, Activity } from 'lucide-react-native';
+import AppleHealthKit, { HealthKitPermissions } from 'react-native-health';
 import { NotificationSettingsModal } from '../components/NotificationSettingsModal';
-
-import { Wrapper } from '../components/ui/Wrapper';
-import { Surface } from '../components/ui/Surface';
-import { Typography } from '../components/ui/Typography';
-import { SettingsRow } from '../components/SettingsRow';
-import { ToggleSwitch } from '../components/ToggleSwitch';
-import { SegmentedControl } from '../components/SegmentedControl';
-import { COLORS, FONTS, RADIUS } from '../lib/theme';
 
 export default function SettingsScreen() {
   const { baby, setSession, setBaby } = useAuthStore();
@@ -29,6 +23,7 @@ export default function SettingsScreen() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [healthEnabled, setHealthEnabled] = useState(false);
 
   // Profile Edit State
   const [editMode, setEditMode] = useState(false);
@@ -53,6 +48,9 @@ export default function SettingsScreen() {
     AsyncStorage.getItem('isDarkTheme').then(val => {
       if (val !== null) setIsDark(val === 'true');
     });
+    AsyncStorage.getItem('healthEnabled').then(val => {
+      if (val !== null) setHealthEnabled(val === 'true');
+    });
   }, []);
 
   useEffect(() => {
@@ -75,6 +73,34 @@ export default function SettingsScreen() {
   const toggleDarkTheme = (val: boolean) => {
     setIsDark(val);
     AsyncStorage.setItem('isDarkTheme', String(val));
+    // NOTE: Full native dark mode would require context/theme provider wrappers
+  };
+
+  const toggleHealth = (val: boolean) => {
+    if (Platform.OS !== 'ios') return;
+    
+    if (val) {
+      const permissions = {
+        permissions: {
+          read: [AppleHealthKit.Constants.Permissions.SleepAnalysis],
+          write: [AppleHealthKit.Constants.Permissions.SleepAnalysis]
+        },
+      } as HealthKitPermissions;
+
+      AppleHealthKit.initHealthKit(permissions, (error: string) => {
+        if (error) {
+          Alert.alert('Ошибка', 'Не удалось получить доступ к Apple Health');
+          setHealthEnabled(false);
+          return;
+        }
+        setHealthEnabled(true);
+        AsyncStorage.setItem('healthEnabled', 'true');
+        Alert.alert('Включено', 'Синхронизация с Apple Health активна.');
+      });
+    } else {
+      setHealthEnabled(false);
+      AsyncStorage.setItem('healthEnabled', 'false');
+    }
   };
 
   const handleSignOut = async () => {
@@ -135,7 +161,8 @@ export default function SettingsScreen() {
           ],
           'plain-text'
         )
-      : Alert.alert(
+      : // Android fallback (no Alert.prompt)
+        Alert.alert(
           'Последнее подтверждение',
           'Вы уверены? Все данные будут безвозвратно удалены. Это действие НЕЛЬЗЯ отменить.',
           [
@@ -148,6 +175,7 @@ export default function SettingsScreen() {
   const executeDeleteAccount = async () => {
     setDeleting(true);
     try {
+      // 1. Delete all user data from Supabase tables
       const tables = [
         'feedings', 'sleeps', 'diapers', 'walks', 'tasks',
         'growth_records', 'medications', 'vaccinations',
@@ -155,11 +183,14 @@ export default function SettingsScreen() {
       ];
 
       for (const table of tables) {
+        // RLS ensures only current user's data is deleted
         await supabase.from(table).delete().neq('id', '00000000-0000-0000-0000-000000000000');
       }
 
+      // 2. Delete baby profile
       await supabase.from('baby_profile').delete().neq('id', '00000000-0000-0000-0000-000000000000');
 
+      // 3. Clear local database
       try {
         useDataStore.getState().clearData();
         useTimerStore.getState().clearAllTimers();
@@ -171,10 +202,12 @@ export default function SettingsScreen() {
         if (__DEV__) console.warn('Local DB reset error:', e);
       }
 
+      // 4. Clear SecureStore cache
       try {
         await SecureStore.deleteItemAsync('babysync_baby_profile');
       } catch (e) {}
 
+      // 5. Sign out
       await supabase.auth.signOut();
       setSession(null);
       setBaby(null);
@@ -229,258 +262,288 @@ export default function SettingsScreen() {
     return new Date(iso).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" });
   };
 
-  // Reusable inline text input for profile editing
-  const ProfileInput = ({ value, onChangeText, placeholder }: { value: string; onChangeText: (t: string) => void; placeholder: string }) => (
-    <TextInput
-      style={{
-        width: '100%', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10,
-        backgroundColor: 'rgba(255,255,255,0.25)', color: 'white',
-        fontSize: 14, fontFamily: FONTS.extraBold,
-      }}
-      value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor="rgba(255,255,255,0.5)"
-    />
-  );
-
   if (showPrivacy) {
     return <PrivacyPolicyScreen onBack={() => setShowPrivacy(false)} />;
   }
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: '#FAFBFC', paddingHorizontal: 16, paddingTop: 16 }} contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
-      <Typography variant="h1" weight="black" letterSpacing={-0.5} size={32}>Настройки</Typography>
-      <Typography variant="body" weight="bold" color="#6B6B80" mb={20}>Профиль и управление</Typography>
+    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+      <Text style={styles.title}>Настройки</Text>
+      <Text style={styles.subtitle}>Профиль и управление</Text>
 
       {/* Baby profile card */}
-      <Wrapper mb={24} style={{ borderRadius: RADIUS.xxl, shadowColor: '#2563EB', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.25, shadowRadius: 32, elevation: 6 }}>
-        <LinearGradient
-          colors={['#2563EB', '#059669']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{ borderRadius: RADIUS.xxl, padding: 20 }}
-        >
-          {editMode ? (
-            <Wrapper zIndex={10}>
-              <Wrapper dir="row" align="center" mb={16} gap={8}>
-                 <Ionicons name="create" size={16} color="white" />
-                 <Typography variant="body" weight="black" color="white">Редактирование профиля</Typography>
-              </Wrapper>
+      <LinearGradient
+        colors={['#2563EB', '#059669']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.profileCard}
+      >
+        {editMode ? (
+          <View style={{ zIndex: 10 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+               <Ionicons name="create" size={16} color="white" />
+               <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 15, color: 'white' }}>Редактирование профиля</Text>
+            </View>
 
-              <Wrapper mb={8}>
-                 <Typography variant="tiny" weight="bold" color="rgba(255,255,255,0.75)" mb={4}>Имя ребёнка</Typography>
-                 <ProfileInput value={nameInput} onChangeText={setNameInput} placeholder="Имя малыша" />
-              </Wrapper>
+            <View style={styles.inputGroup}>
+               <Text style={styles.inputLabel}>Имя ребёнка</Text>
+               <TextInput style={styles.input} value={nameInput} onChangeText={setNameInput} placeholder="Имя малыша" placeholderTextColor="rgba(255,255,255,0.5)" />
+            </View>
 
-              <Wrapper mb={8}>
-                 <Typography variant="tiny" weight="bold" color="rgba(255,255,255,0.75)" mb={4}>Дата рождения</Typography>
-                 <TouchableOpacity onPress={() => setShowDatePicker(true)} style={{ width: '100%', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: 'rgba(255,255,255,0.25)', justifyContent: 'center' }}>
-                    <Typography variant="tiny" weight="extraBold" color="white">{birthdateInput || 'Выберите дату'}</Typography>
-                 </TouchableOpacity>
-                 <DateTimePickerModal
-                    visible={showDatePicker}
-                    value={birthdateInput ? new Date(birthdateInput) : new Date()}
-                    mode="date"
-                    onChange={(d) => { if (d) setBirthdateInput(d.toISOString().split('T')[0]); }}
-                    onClose={() => setShowDatePicker(false)}
-                 />
-              </Wrapper>
+            <View style={styles.inputGroup}>
+               <Text style={styles.inputLabel}>Дата рождения</Text>
+               <TouchableOpacity onPress={() => setShowDatePicker(true)} style={[styles.input, { justifyContent: 'center' }]}>
+                  <Text style={{ fontFamily: 'Nunito_800ExtraBold', color: 'white' }}>{birthdateInput || 'Выберите дату'}</Text>
+               </TouchableOpacity>
+               <DateTimePickerModal
+                  visible={showDatePicker}
+                  value={birthdateInput ? new Date(birthdateInput) : new Date()}
+                  mode="date"
+                  onChange={(d) => { if (d) setBirthdateInput(d.toISOString().split('T')[0]); }}
+                  onClose={() => setShowDatePicker(false)}
+               />
+            </View>
 
-              <Wrapper mb={8}>
-                 <Typography variant="tiny" weight="bold" color="rgba(255,255,255,0.75)" mb={4}>Пол малыша</Typography>
-                 <Wrapper dir="row" gap={8}>
-                    {[
-                      { key: 'boy', label: 'Мальчик', activeColor: '#2563EB' },
-                      { key: 'girl', label: 'Девочка', activeColor: '#8B5CF6' },
-                    ].map(g => {
-                      const active = genderInput === g.key;
-                      return (
-                        <TouchableOpacity key={g.key} onPress={() => setGenderInput(g.key as any)}
-                          style={{ flex: 1, paddingVertical: 10, borderRadius: RADIUS.lg, alignItems: 'center',
-                            backgroundColor: active ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.2)' }}
-                          activeOpacity={0.8}>
-                          <Typography variant="tiny" weight="extraBold" color={active ? g.activeColor : 'white'}>{g.label}</Typography>
-                        </TouchableOpacity>
-                      );
-                    })}
-                 </Wrapper>
-              </Wrapper>
+            <View style={styles.inputGroup}>
+               <Text style={styles.inputLabel}>Пол малыша</Text>
+               <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <TouchableOpacity onPress={() => setGenderInput('boy')} style={[styles.genderBtn, { backgroundColor: genderInput === 'boy' ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.2)' }]}>
+                     <Text style={[styles.genderBtnText, { color: genderInput === 'boy' ? '#2563EB' : 'white' }]}>Мальчик</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setGenderInput('girl')} style={[styles.genderBtn, { backgroundColor: genderInput === 'girl' ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.2)' }]}>
+                     <Text style={[styles.genderBtnText, { color: genderInput === 'girl' ? '#8B5CF6' : 'white' }]}>Девочка</Text>
+                  </TouchableOpacity>
+               </View>
+            </View>
 
-              <Wrapper mb={8}>
-                 <Wrapper dir="row" align="center" mb={6} gap={6}>
-                    <Ionicons name="globe" size={14} color="white" />
-                    <Typography variant="tiny" weight="bold" color="rgba(255,255,255,0.75)">Регион</Typography>
-                 </Wrapper>
-                 <Wrapper dir="row" gap={8}>
-                    <ProfileInput value={countryInput} onChangeText={setCountryInput} placeholder="Страна" />
-                    <ProfileInput value={cityInput} onChangeText={setCityInput} placeholder="Город" />
-                 </Wrapper>
-              </Wrapper>
+            <View style={styles.inputGroup}>
+               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                  <Ionicons name="globe" size={14} color="white" />
+                  <Text style={styles.inputLabel}>Регион</Text>
+               </View>
+               <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <TextInput style={[styles.input, { flex: 1 }]} value={countryInput} onChangeText={setCountryInput} placeholder="Страна" placeholderTextColor="rgba(255,255,255,0.5)" />
+                  <TextInput style={[styles.input, { flex: 1 }]} value={cityInput} onChangeText={setCityInput} placeholder="Город" placeholderTextColor="rgba(255,255,255,0.5)" />
+               </View>
+            </View>
 
-              <Wrapper dir="row" gap={12} mt={8}>
-                 <Wrapper flex={1}>
-                    <Wrapper dir="row" align="center" mb={6} gap={6}>
-                       <Ionicons name="person" size={14} color="white" />
-                       <Typography variant="tiny" weight="bold" color="rgba(255,255,255,0.75)">Имя мамы</Typography>
-                    </Wrapper>
-                    <ProfileInput value={momNameInput} onChangeText={setMomNameInput} placeholder="Мама" />
-                 </Wrapper>
-                 <Wrapper flex={1}>
-                    <Wrapper dir="row" align="center" mb={6} gap={6}>
-                       <Ionicons name="person" size={14} color="white" />
-                       <Typography variant="tiny" weight="bold" color="rgba(255,255,255,0.75)">Имя папы</Typography>
-                    </Wrapper>
-                    <ProfileInput value={dadNameInput} onChangeText={setDadNameInput} placeholder="Папа" />
-                 </Wrapper>
-              </Wrapper>
+            <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
+               <View style={[styles.inputGroup, { flex: 1 }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                     <Ionicons name="person" size={14} color="white" />
+                     <Text style={styles.inputLabel}>Имя мамы</Text>
+                  </View>
+                  <TextInput style={styles.input} value={momNameInput} onChangeText={setMomNameInput} placeholder="Мама" placeholderTextColor="rgba(255,255,255,0.5)" />
+               </View>
+               <View style={[styles.inputGroup, { flex: 1 }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                     <Ionicons name="person" size={14} color="white" />
+                     <Text style={styles.inputLabel}>Имя папы</Text>
+                  </View>
+                  <TextInput style={styles.input} value={dadNameInput} onChangeText={setDadNameInput} placeholder="Папа" placeholderTextColor="rgba(255,255,255,0.5)" />
+               </View>
+            </View>
 
-              <Wrapper dir="row" gap={12} mt={12}>
-                 <TouchableOpacity onPress={() => setEditMode(false)}
-                   style={{ flex: 1, paddingVertical: 12, borderRadius: RADIUS.lg, alignItems: 'center',
-                     backgroundColor: 'rgba(255,255,255,0.1)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }}
-                   activeOpacity={0.8}>
-                    <Typography variant="tiny" weight="extraBold" color="white">Отмена</Typography>
-                 </TouchableOpacity>
-                 <TouchableOpacity onPress={handleSaveProfile} disabled={saving}
-                   style={{ flex: 2, paddingVertical: 12, borderRadius: RADIUS.lg, backgroundColor: 'white',
-                     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}
-                   activeOpacity={0.8}>
-                    {saving ? (
-                       <Typography variant="tiny" weight="black" color="#2563EB">Сохраняем...</Typography>
-                    ) : (
-                       <>
-                          <Ionicons name="checkmark-circle" size={16} color="#2563EB" />
-                          <Typography variant="tiny" weight="black" color="#2563EB">Сохранить</Typography>
-                       </>
-                    )}
-                 </TouchableOpacity>
-              </Wrapper>
-            </Wrapper>
-          ) : (
-            <Wrapper zIndex={10}>
-              <Wrapper dir="row" align="center" mb={8}>
-                 <Wrapper width={72} height={72} mr={16} align="center" justify="center"
-                   style={{ borderRadius: 36, backgroundColor: 'rgba(255,255,255,0.2)', borderWidth: 2, borderColor: 'rgba(255,255,255,0.4)' }}>
-                    <Typography variant="h1" weight="black" color="white" size={30}>{(baby?.name || "М")[0].toUpperCase()}</Typography>
-                 </Wrapper>
-                 <Wrapper flex={1}>
-                    <Typography variant="h2" weight="black" color="white" letterSpacing={-0.5} size={24}>{baby?.name || "—"}</Typography>
-                    <Typography variant="tiny" weight="extraBold" color="rgba(255,255,255,0.9)">{ageLabel}</Typography>
-                    <Wrapper mt={6} gap={2}>
-                       <Wrapper dir="row" align="center" gap={6}>
-                          <Ionicons name="calendar" size={12} color="rgba(255,255,255,0.8)" />
-                          <Typography variant="tiny" weight="bold" color="rgba(255,255,255,0.8)">{fmtBirthdate(baby?.birthdate)}</Typography>
-                       </Wrapper>
-                       {(baby?.country || baby?.city) && (
-                          <Wrapper dir="row" align="center" gap={6}>
-                             <Ionicons name="globe" size={12} color="rgba(255,255,255,0.8)" />
-                             <Typography variant="tiny" weight="bold" color="rgba(255,255,255,0.8)">
-                                {[baby?.country, baby?.city].filter(Boolean).join(", ")}
-                             </Typography>
-                          </Wrapper>
-                       )}
-                    </Wrapper>
-                 </Wrapper>
-              </Wrapper>
-              <TouchableOpacity onPress={() => setEditMode(true)} activeOpacity={0.8}
-                style={{
-                  marginTop: 16, width: '100%', borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)',
-                  backgroundColor: 'rgba(255,255,255,0.1)', paddingVertical: 12, borderRadius: RADIUS.lg,
-                  flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-                }}>
-                 <Ionicons name="create-outline" size={16} color="white" />
-                 <Typography variant="tiny" weight="extraBold" color="white">Редактировать профиль</Typography>
-              </TouchableOpacity>
-            </Wrapper>
-          )}
-        </LinearGradient>
-      </Wrapper>
+            <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
+               <TouchableOpacity onPress={() => setEditMode(false)} style={styles.cancelBtn}>
+                  <Text style={{ fontFamily: 'Nunito_800ExtraBold', color: 'white', fontSize: 13 }}>Отмена</Text>
+               </TouchableOpacity>
+               <TouchableOpacity onPress={handleSaveProfile} disabled={saving} style={styles.saveBtn}>
+                  {saving ? (
+                     <Text style={{ fontFamily: 'Nunito_900Black', color: '#2563EB', fontSize: 13 }}>Сохраняем...</Text>
+                  ) : (
+                     <>
+                        <Ionicons name="checkmark-circle" size={16} color="#2563EB" />
+                        <Text style={{ fontFamily: 'Nunito_900Black', color: '#2563EB', fontSize: 13 }}>Сохранить</Text>
+                     </>
+                  )}
+               </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
+          <View style={{ zIndex: 10 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 8 }}>
+               <View style={styles.avatar}>
+                  <Text style={styles.avatarText}>{(baby?.name || "М")[0].toUpperCase()}</Text>
+               </View>
+               <View style={{ flex: 1 }}>
+                  <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 24, color: 'white', letterSpacing: -0.5 }}>{baby?.name || "—"}</Text>
+                  <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 13, color: 'rgba(255,255,255,0.9)' }}>{ageLabel}</Text>
+                  <View style={{ marginTop: 6, gap: 2 }}>
+                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Ionicons name="calendar" size={12} color="rgba(255,255,255,0.8)" />
+                        <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 11, color: 'rgba(255,255,255,0.8)' }}>{fmtBirthdate(baby?.birthdate)}</Text>
+                     </View>
+                     {(baby?.country || baby?.city) && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                           <Ionicons name="globe" size={12} color="rgba(255,255,255,0.8)" />
+                           <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 11, color: 'rgba(255,255,255,0.8)' }}>
+                              {[baby?.country, baby?.city].filter(Boolean).join(", ")}
+                           </Text>
+                        </View>
+                     )}
+                  </View>
+               </View>
+            </View>
+            <TouchableOpacity onPress={() => setEditMode(true)} style={styles.editBtn}>
+               <Ionicons name="create-outline" size={16} color="white" />
+               <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 13, color: 'white' }}>Редактировать профиль</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </LinearGradient>
 
       {/* Parents */}
       {!editMode && (
-         <Surface variant="flat" radius="xl" p={20} mb={20}>
-            <Wrapper dir="row" align="center" mb={16} gap={8}>
+         <View style={styles.parentsCard}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 }}>
                <Ionicons name="people" size={18} color="#64748B" />
-               <Typography variant="body" weight="black">Родители</Typography>
-            </Wrapper>
-            <Wrapper dir="row" gap={12}>
-               <Wrapper flex={1} p={16} align="center" style={{ borderRadius: RADIUS.xl, backgroundColor: '#DBEAFE' }}>
-                  <Typography variant="tiny" weight="extraBold" color="#2563EB" uppercase letterSpacing={0.5} mb={4}>Мама</Typography>
-                  <Typography variant="body" weight="black" color="#2563EB">{baby?.mom_name || "Мама"}</Typography>
-               </Wrapper>
-               <Wrapper flex={1} p={16} align="center" style={{ borderRadius: RADIUS.xl, backgroundColor: '#F3E8FF' }}>
-                  <Typography variant="tiny" weight="extraBold" color="#8B5CF6" uppercase letterSpacing={0.5} mb={4}>Папа</Typography>
-                  <Typography variant="body" weight="black" color="#8B5CF6">{baby?.dad_name || "Папа"}</Typography>
-               </Wrapper>
-            </Wrapper>
-         </Surface>
+               <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 16, color: '#0F172A' }}>Родители</Text>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+               <View style={[styles.parentBadge, { backgroundColor: '#DBEAFE' }]}>
+                  <Text style={[styles.parentBadgeLabel, { color: '#2563EB' }]}>Мама</Text>
+                  <Text style={[styles.parentBadgeName, { color: '#2563EB' }]}>{baby?.mom_name || "Мама"}</Text>
+               </View>
+               <View style={[styles.parentBadge, { backgroundColor: '#F3E8FF' }]}>
+                  <Text style={[styles.parentBadgeLabel, { color: '#8B5CF6' }]}>Папа</Text>
+                  <Text style={[styles.parentBadgeName, { color: '#8B5CF6' }]}>{baby?.dad_name || "Папа"}</Text>
+               </View>
+            </View>
+         </View>
       )}
 
       {/* App Settings */}
-      <Typography variant="tiny" weight="extraBold" color="#64748B" uppercase letterSpacing={1} mb={8} px={4}>Приложение</Typography>
-      <Wrapper gap={12} mb={24}>
+      <Text style={styles.sectionCaption}>Приложение</Text>
+      <View style={{ gap: 12, marginBottom: 24 }}>
          {/* Notifications */}
-         <SettingsRow
-           icon={<BellRing size={20} color="#059669" />}
-           iconBg="#D1FAE5"
-           title="Настройка уведомлений"
-           subtitle="Кормление, сон и подгузники"
-           onPress={() => setNotifModalOpen(true)}
-         />
+         <TouchableOpacity style={styles.settingItem} onPress={() => setNotifModalOpen(true)}>
+            <View style={[styles.settingIconWrap, { backgroundColor: '#D1FAE5' }]}>
+               <BellRing size={20} color="#059669" />
+            </View>
+            <View style={{ flex: 1 }}>
+               <Text style={styles.settingLabel}>Настройка уведомлений</Text>
+               <Text style={styles.settingSub}>Кормление, сон и подгузники</Text>
+            </View>
+            <ChevronRight size={20} color="#94A3B8" />
+         </TouchableOpacity>
 
          {/* Dark Theme */}
-         <SettingsRow
-           icon={isDark ? <Moon size={20} color="#8B5CF6" /> : <Sun size={20} color="#F97316" />}
-           iconBg={isDark ? '#F3E8FF' : '#FFEDD5'}
-           title="Тема оформления"
-           subtitle={isDark ? 'Тёмная тема' : 'Светлая тема'}
-           showChevron={false}
-           rightElement={<ToggleSwitch value={isDark} onToggle={toggleDarkTheme} tone="purple" />}
-         />
+         <View style={styles.settingItem}>
+            <View style={[styles.settingIconWrap, { backgroundColor: isDark ? '#F3E8FF' : '#FFEDD5' }]}>
+               {isDark ? <Moon size={20} color="#8B5CF6" /> : <Sun size={20} color="#F97316" />}
+            </View>
+            <View style={{ flex: 1 }}>
+               <Text style={styles.settingLabel}>Тема оформления</Text>
+               <Text style={styles.settingSub}>{isDark ? 'Тёмная тема' : 'Светлая тема'}</Text>
+            </View>
+            <TouchableOpacity onPress={() => toggleDarkTheme(!isDark)} style={{ width: 52, height: 30, borderRadius: 15, padding: 2, backgroundColor: isDark ? '#1A1A2E' : '#F4F4F8', borderWidth: 1, borderColor: '#E0DDD8' }}>
+               <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: 'white', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, transform: [{ translateX: isDark ? 22 : 0 }] }} />
+            </TouchableOpacity>
+         </View>
+
+         {/* Apple Health */}
+         {Platform.OS === 'ios' && (
+           <View style={styles.settingItem}>
+              <View style={[styles.settingIconWrap, { backgroundColor: '#FCE7F3' }]}>
+                 <Activity size={20} color="#BE185D" />
+              </View>
+              <View style={{ flex: 1 }}>
+                 <Text style={styles.settingLabel}>Apple Health</Text>
+                 <Text style={styles.settingSub}>Синхронизация здоровья родителя</Text>
+              </View>
+              <Switch 
+                value={healthEnabled} 
+                onValueChange={toggleHealth}
+                trackColor={{ false: '#E2E8F0', true: '#10B981' }}
+                thumbColor="#FFFFFF"
+              />
+           </View>
+         )}
 
          {/* Export */}
-         <SettingsRow
-           icon={<Download size={20} color="#2563EB" />}
-           iconBg="#DBEAFE"
-           title="Экспорт данных (PDF)"
-           subtitle="Сохранить и отправить врачу"
-           onPress={handleExport}
-         />
+         <TouchableOpacity style={styles.settingItem} onPress={handleExport}>
+            <View style={[styles.settingIconWrap, { backgroundColor: '#DBEAFE' }]}>
+               <Download size={20} color="#2563EB" />
+            </View>
+            <View style={{ flex: 1 }}>
+               <Text style={styles.settingLabel}>Экспорт данных (PDF)</Text>
+               <Text style={styles.settingSub}>Сохранить и отправить врачу</Text>
+            </View>
+            <ChevronRight size={20} color="#94A3B8" />
+         </TouchableOpacity>
 
          {/* Privacy */}
-         <SettingsRow
-           icon={<Shield size={20} color="#8B5CF6" />}
-           iconBg="#F3E8FF"
-           title="Политика конфиденциальности"
-           subtitle="Данные, безопасность, COPPA"
-           onPress={() => setShowPrivacy(true)}
-         />
-      </Wrapper>
+         <TouchableOpacity style={styles.settingItem} onPress={() => setShowPrivacy(true)}>
+            <View style={[styles.settingIconWrap, { backgroundColor: '#F3E8FF' }]}>
+               <Shield size={20} color="#8B5CF6" />
+            </View>
+            <View style={{ flex: 1 }}>
+               <Text style={styles.settingLabel}>Политика конфиденциальности</Text>
+               <Text style={styles.settingSub}>Данные, безопасность, COPPA</Text>
+            </View>
+            <ChevronRight size={20} color="#94A3B8" />
+         </TouchableOpacity>
+      </View>
 
       {/* Logout */}
-      <TouchableOpacity onPress={handleSignOut} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, marginBottom: 8 }} activeOpacity={0.8}>
-         <LogOut size={18} color="#EF4444" style={{ marginRight: 8 }} />
-         <Typography variant="body" weight="extraBold" color="#EF4444">Выйти из аккаунта</Typography>
+      <TouchableOpacity onPress={handleSignOut} style={styles.logoutBtn}>
+         <LogOut size={18} color="#EF4444" />
+         <Text style={styles.logoutBtnText}>Выйти из аккаунта</Text>
       </TouchableOpacity>
 
       {/* Delete Account */}
-      <TouchableOpacity onPress={handleDeleteAccount} disabled={deleting} activeOpacity={0.8}
-        style={{
-          flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-          paddingVertical: 14, marginBottom: 32, marginHorizontal: 32,
-          backgroundColor: '#991B1B', borderRadius: RADIUS.xl,
-        }}>
+      <TouchableOpacity onPress={handleDeleteAccount} disabled={deleting} style={styles.deleteAccountBtn}>
          {deleting ? (
            <ActivityIndicator size="small" color="#FFFFFF" />
          ) : (
            <>
-             <Trash2 size={16} color="#FFFFFF" style={{ marginRight: 8 }} />
-             <Typography variant="tiny" weight="extraBold" color="white">Удалить аккаунт и все данные</Typography>
+             <Trash2 size={16} color="#FFFFFF" />
+             <Text style={styles.deleteAccountBtnText}>Удалить аккаунт и все данные</Text>
            </>
          )}
       </TouchableOpacity>
 
-      <Typography variant="tiny" weight="bold" color="#6B6B80" align="center" mb={16}>BabySync v1.1.0 · Сделано с ❤️ для молодых родителей</Typography>
+      <Text style={styles.footerText}>BabySync v1.1.0 · Сделано с ❤️ для молодых родителей</Text>
       
       <NotificationSettingsModal isOpen={notifModalOpen} onClose={() => setNotifModalOpen(false)} />
     </ScrollView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#FAFBFC', paddingHorizontal: 16, paddingTop: 16 },
+  title: { fontSize: 32, fontFamily: 'Nunito_900Black', color: '#0F172A', letterSpacing: -0.5 },
+  subtitle: { fontSize: 15, fontFamily: 'Nunito_700Bold', color: '#6B6B80', marginBottom: 20 },
+  
+  profileCard: { borderRadius: 24, padding: 20, marginBottom: 24, shadowColor: '#2563EB', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.25, shadowRadius: 32, elevation: 6 },
+  avatar: { width: 72, height: 72, borderRadius: 36, backgroundColor: 'rgba(255,255,255,0.2)', borderWidth: 2, borderColor: 'rgba(255,255,255,0.4)', alignItems: 'center', justifyContent: 'center' },
+  avatarText: { fontSize: 30, fontFamily: 'Nunito_900Black', color: 'white' },
+  editBtn: { marginTop: 16, width: '100%', borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)', backgroundColor: 'rgba(255,255,255,0.1)', paddingVertical: 12, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  
+  inputGroup: { marginBottom: 8 },
+  inputLabel: { fontSize: 11, fontFamily: 'Nunito_700Bold', color: 'rgba(255,255,255,0.75)', marginBottom: 4 },
+  input: { width: '100%', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: 'rgba(255,255,255,0.25)', color: 'white', fontSize: 14, fontFamily: 'Nunito_800ExtraBold' },
+  genderBtn: { flex: 1, paddingVertical: 10, borderRadius: 12, alignItems: 'center' },
+  genderBtnText: { fontSize: 13, fontFamily: 'Nunito_800ExtraBold' },
+  cancelBtn: { flex: 1, paddingVertical: 12, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.1)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', alignItems: 'center' },
+  saveBtn: { flex: 2, paddingVertical: 12, borderRadius: 14, backgroundColor: 'white', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8 },
+
+  parentsCard: { backgroundColor: '#FFFFFF', borderRadius: 20, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: '#F0ECE8' },
+  parentBadge: { flex: 1, borderRadius: 16, padding: 16, alignItems: 'center' },
+  parentBadgeLabel: { fontSize: 11, fontFamily: 'Nunito_800ExtraBold', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4, opacity: 0.8 },
+  parentBadgeName: { fontSize: 16, fontFamily: 'Nunito_900Black' },
+
+  sectionCaption: { fontSize: 11, fontFamily: 'Nunito_800ExtraBold', color: '#64748B', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, paddingHorizontal: 4 },
+  settingItem: { flexDirection: 'row', alignItems: 'center', gap: 16, backgroundColor: 'white', padding: 16, borderRadius: 20, borderWidth: 1, borderColor: '#E2E8F0' },
+  settingIconWrap: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  settingLabel: { fontSize: 15, fontFamily: 'Nunito_800ExtraBold', color: '#0F172A', marginBottom: 2 },
+  settingSub: { fontSize: 12, fontFamily: 'Nunito_700Bold', color: '#64748B' },
+
+  logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 16, marginBottom: 8 },
+  logoutBtnText: { fontSize: 15, fontFamily: 'Nunito_800ExtraBold', color: '#EF4444' },
+  deleteAccountBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, marginBottom: 32, backgroundColor: '#991B1B', borderRadius: 16, marginHorizontal: 32 },
+  deleteAccountBtnText: { fontSize: 13, fontFamily: 'Nunito_800ExtraBold', color: '#FFFFFF' },
+  footerText: { textAlign: 'center', fontSize: 10, fontFamily: 'Nunito_700Bold', color: '#6B6B80', marginBottom: 16 },
+});
+
