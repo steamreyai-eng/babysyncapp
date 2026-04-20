@@ -118,12 +118,53 @@ const HomeScreenContent = ({ feedings, sleeps, diapers, walks, tasks, insights }
     neutral: { bg: "white", dot: "transparent", text: "#8A8A9E" },
   };
 
-  const nextSleepTimeMs = lastSleep ? getSleepEndMs(lastSleep) + wakeWindowMs : null;
+  const [mlPrediction, setMlPrediction] = React.useState<any>(null);
+
+  React.useEffect(() => {
+    async function fetchPrediction() {
+      if (!sleeps || sleeps.length === 0) return;
+      try {
+        const recentSleeps = sleeps.slice(0, 5).map((s:any) => {
+          const start = s.start_time ? (typeof s.start_time === 'string' ? new Date(s.start_time).getTime() : s.start_time) : new Date(s.created_at).getTime();
+          const duration = s.duration_seconds || 0;
+          return {
+            duration_seconds: duration,
+            start_time: start,
+            end_time: s.end_time ? (typeof s.end_time === 'string' ? new Date(s.end_time).getTime() : s.end_time) : (start + duration * 1000),
+            quality: s.quality || 3
+          };
+        });
+        
+        const response = await fetch('https://babysyncapp.onrender.com/predict_sleep', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            baby_age_months: ageMo,
+            recent_sleeps: recentSleeps,
+            current_time_ms: Date.now()
+          })
+        });
+        const data = await response.json();
+        if (data && data.next_sleep_time_ms) {
+          setMlPrediction(data);
+        }
+      } catch (e) {
+        if (__DEV__) console.warn('ML Predictor error:', e);
+      }
+    }
+    fetchPrediction();
+  }, [sleeps, ageMo]);
+
+  const nextSleepTimeMs = mlPrediction 
+    ? mlPrediction.next_sleep_time_ms 
+    : (lastSleep ? getSleepEndMs(lastSleep) + wakeWindowMs : null);
+    
   const nextSleepTimeStr = nextSleepTimeMs ? new Date(nextSleepTimeMs).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : null;
   const isNight = new Date().getHours() >= 20 || new Date().getHours() <= 6;
-  const showSleepAction = !lastSleep || (Date.now() - getSleepEndMs(lastSleep) > wakeWindowMs * 0.8);
-  const latestInsight = insights && insights.length > 0 ? insights[0] : null;
+  const timeToSleepMs = nextSleepTimeMs ? nextSleepTimeMs - Date.now() : wakeWindowMs;
+  const showSleepAction = !lastSleep || timeToSleepMs < 35 * 60000;
   
+  const latestInsight = insights && insights.length > 0 ? insights[0] : null;  
   const [bothActive24h, setBothActive24h] = React.useState(false);
   React.useEffect(() => {
      const ms24h = Date.now() - MS_IN_24H;
@@ -380,7 +421,7 @@ const HomeScreenContent = ({ feedings, sleeps, diapers, walks, tasks, insights }
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <View>
               <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 13, color: 'rgba(255,255,255,0.8)', textTransform: 'uppercase', marginBottom: 6 }}>
-                💡 Рекомендация
+                {mlPrediction && showSleepAction ? "🧠 ИИ-Анализ" : "💡 Рекомендация"}
               </Text>
               <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 20, color: '#FFFFFF' }}>
                 {showSleepAction ? (isNight ? "Пора укладывать в ночь" : "Время дневного сна") : "Пора предложить еду"}
@@ -388,7 +429,9 @@ const HomeScreenContent = ({ feedings, sleeps, diapers, walks, tasks, insights }
               {nextSleepTimeStr && showSleepAction && (
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, alignSelf: 'flex-start' }}>
                   <Moon size={14} color="#FFF" style={{ marginRight: 6 }} />
-                  <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 13, color: '#FFFFFF' }}>Сон в: {nextSleepTimeStr}</Text>
+                  <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 13, color: '#FFFFFF' }}>
+                    Сон в: {nextSleepTimeStr} {mlPrediction ? `(точн. ${Math.round(mlPrediction.confidence_score * 100)}%)` : ''}
+                  </Text>
                 </View>
               )}
             </View>
