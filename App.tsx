@@ -330,7 +330,12 @@ export default Sentry.wrap(function App() {
       if (nextAppState === 'active' && session) {
         import('./src/db/sync').then(({ syncWithSupabase }) =>
           syncWithSupabase()
-            .then(() => checkTodayShift())
+            .then(() => {
+              checkTodayShift();
+              import('./src/store/dataStore').then(({ useDataStore }) =>
+                useDataStore.getState().reload()
+              );
+            })
             .catch(e => __DEV__ && console.warn('Sync bg failed', e))
         );
       }
@@ -344,7 +349,12 @@ export default Sentry.wrap(function App() {
        interval = setInterval(() => {
           import('./src/db/sync').then(({ syncWithSupabase }) =>
             syncWithSupabase()
-              .then(() => checkTodayShift())
+              .then(() => {
+                checkTodayShift();
+                import('./src/store/dataStore').then(({ useDataStore }) =>
+                  useDataStore.getState().reload()
+                );
+              })
               .catch(() => {})
           );
        }, 300000);
@@ -376,7 +386,12 @@ export default Sentry.wrap(function App() {
                if (realtimeDebounceRef.current) clearTimeout(realtimeDebounceRef.current);
                realtimeDebounceRef.current = setTimeout(() => {
                  syncWithSupabase()
-                   .then(() => checkTodayShift())
+                   .then(() => {
+                     checkTodayShift();
+                     import('./src/store/dataStore').then(({ useDataStore }) =>
+                       useDataStore.getState().reload()
+                     );
+                   })
                    .catch(() => {});
                }, 800);
              });
