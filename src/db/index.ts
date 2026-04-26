@@ -1,5 +1,6 @@
 import { Database } from '@nozbe/watermelondb'
 import SQLiteAdapter from '@nozbe/watermelondb/adapters/sqlite'
+import { Platform } from 'react-native'
 
 import { schema } from './schema'
 import { migrations } from './migrations'
@@ -33,7 +34,7 @@ setGenerator(generateUUID);
 const adapter = new SQLiteAdapter({
   schema,
   migrations,
-  jsi: process.env.NODE_ENV !== 'test',
+  jsi: Platform.OS === 'ios' && process.env.NODE_ENV !== 'test',
   onSetUpError: error => {
     if (__DEV__) console.warn('WMDB setup error', error)
   }

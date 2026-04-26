@@ -655,11 +655,11 @@ const HomeScreenContent = ({ feedings, sleeps, diapers, walks, tasks, insights }
 };
 
 const enhance = withObservables([], () => ({
-  feedings: database.collections.get('feedings').query(Q.sortBy('created_at', Q.desc)).observe(),
-  sleeps: database.collections.get('sleeps').query(Q.sortBy('created_at', Q.desc)).observe(),
-  diapers: database.collections.get('diapers').query(Q.sortBy('created_at', Q.desc)).observe(),
-  walks: database.collections.get('walks').query(Q.sortBy('created_at', Q.desc)).observe(),
-  tasks: database.collections.get('tasks').query(Q.sortBy('created_at', Q.asc)).observe(),
+  feedings: database.collections.get('feedings').query(Q.sortBy('created_at', Q.desc), Q.take(50)).observe(),
+  sleeps: database.collections.get('sleeps').query(Q.sortBy('created_at', Q.desc), Q.take(50)).observe(),
+  diapers: database.collections.get('diapers').query(Q.sortBy('created_at', Q.desc), Q.take(50)).observe(),
+  walks: database.collections.get('walks').query(Q.sortBy('created_at', Q.desc), Q.take(50)).observe(),
+  tasks: database.collections.get('tasks').query(Q.sortBy('created_at', Q.asc), Q.take(20)).observe(),
   insights: database.collections.get('insight_cards').query(Q.sortBy('created_at', Q.desc), Q.take(1)).observe(),
 }));
 

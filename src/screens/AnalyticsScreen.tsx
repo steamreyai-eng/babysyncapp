@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator, StyleSheet, RefreshControl } from 'react-native';
 import {
   Milk, Moon, Baby, Footprints, Brain, TrendingUp,
@@ -12,6 +12,7 @@ import Svg, { Path, Defs, LinearGradient as SvgLinearGradient, Stop, Text as Svg
 import { useAuthStore } from '../store/authStore';
 import withObservables from '@nozbe/with-observables';
 import { database } from '../db';
+import { Q } from '@nozbe/watermelondb';
 import { BarChart, PieChart, LineChart } from 'react-native-gifted-charts';
 import Skeleton from '../components/Skeleton';
 const FileSystem = require('expo-file-system') as any;
@@ -842,10 +843,10 @@ const styles = StyleSheet.create({
 });
 
 const enhance = withObservables([], () => ({
-  feedingsAll: database.collections.get('feedings').query().observe(),
-  sleepsAll: database.collections.get('sleeps').query().observe(),
-  diapersAll: database.collections.get('diapers').query().observe(),
-  walksAll: database.collections.get('walks').query().observe(),
+  feedingsAll: database.collections.get('feedings').query(Q.sortBy('created_at', Q.desc), Q.take(500)).observe(),
+  sleepsAll: database.collections.get('sleeps').query(Q.sortBy('created_at', Q.desc), Q.take(500)).observe(),
+  diapersAll: database.collections.get('diapers').query(Q.sortBy('created_at', Q.desc), Q.take(500)).observe(),
+  walksAll: database.collections.get('walks').query(Q.sortBy('created_at', Q.desc), Q.take(500)).observe(),
 }));
 
 const EnhancedAnalytics = enhance(AnalyticsScreenContent);

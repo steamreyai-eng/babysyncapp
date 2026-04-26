@@ -1,6 +1,6 @@
 import 'react-native-url-polyfill/auto';
 import 'react-native-gesture-handler';
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import * as Sentry from '@sentry/react-native';
@@ -210,22 +210,16 @@ export default Sentry.wrap(function App() {
     }
   };
 
-  // ── Helper: Get latest events from WatermelonDB for notification poller ──
-  const getLastEventsFromDB = () => {
-    // This runs synchronously from cached data; the poller calls this every 60s
-    // We use a closure to cache the latest values
-    return getLastEventsCached;
-  };
 
-  // Mutable ref for cached event data
-  let getLastEventsCached = {
+  // Mutable ref for cached event data — survives re-renders
+  const lastEventsCacheRef = useRef({
     lastFeedingMs: null as number | null,
     lastDiaperMs: null as number | null,
     lastSleepEndMs: null as number | null,
     ageMo: 4,
-  };
+  });
 
-  const refreshLastEventsCache = async () => {
+  const refreshLastEventsCache = useCallback(async () => {
     try {
       const baby = useAuthStore.getState().baby;
       const ageMo = baby?.birthdate
@@ -242,7 +236,7 @@ export default Sentry.wrap(function App() {
       const lastDiaper = latestDiapers[0] as any;
       const lastSleep = latestSleeps[0] as any;
 
-      getLastEventsCached = {
+      lastEventsCacheRef.current = {
         lastFeedingMs: lastFeeding ? new Date(lastFeeding.created_at).getTime() : null,
         lastDiaperMs: lastDiaper ? new Date(lastDiaper.created_at).getTime() : null,
         lastSleepEndMs: lastSleep
@@ -255,7 +249,7 @@ export default Sentry.wrap(function App() {
     } catch (e) {
       if (__DEV__) console.warn('[Notifications] Error refreshing event cache:', e);
     }
-  };
+  }, []);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
@@ -269,7 +263,7 @@ export default Sentry.wrap(function App() {
         );
         // Start notification reminder poller
         refreshLastEventsCache().then(() => {
-          startNotifPoller(() => getLastEventsCached);
+          startNotifPoller(() => lastEventsCacheRef.current);
         });
         // Refresh event cache periodically (every 60s)
         const cacheInterval = setInterval(refreshLastEventsCache, 60_000);
@@ -295,7 +289,7 @@ export default Sentry.wrap(function App() {
         );
         // Re-start notification poller on re-auth
         refreshLastEventsCache().then(() => {
-          startNotifPoller(() => getLastEventsCached);
+          startNotifPoller(() => lastEventsCacheRef.current);
         });
       } else {
         import('./src/store/dataStore').then(({ useDataStore }) => useDataStore.getState().clearData());
@@ -328,6 +322,9 @@ export default Sentry.wrap(function App() {
     };
   }, []);
 
+  // Debounce ref for Realtime sync — prevents rapid-fire syncs
+  const realtimeDebounceRef = useRef<NodeJS.Timeout | null>(null);
+
   useEffect(() => {
     const subscription = AppState.addEventListener('change', nextAppState => {
       if (nextAppState === 'active' && session) {
@@ -343,14 +340,14 @@ export default Sentry.wrap(function App() {
     let channel: any;
 
     if (session) {
-       // Periodic background sync (every 2 min)
+       // Periodic background sync (every 5 min — reduced from 2 min)
        interval = setInterval(() => {
           import('./src/db/sync').then(({ syncWithSupabase }) =>
             syncWithSupabase()
               .then(() => checkTodayShift())
               .catch(() => {})
           );
-       }, 120000);
+       }, 300000);
 
        // Targeted realtime sync — listen to specific tables only
        const REALTIME_TABLES = [
@@ -366,11 +363,23 @@ export default Sentry.wrap(function App() {
            { event: '*', schema: 'public', table, filter: userId ? `user_id=eq.${userId}` : undefined },
            (payload: any) => {
              if (__DEV__) console.log(`[realtime] ${table}:`, payload.eventType);
-             import('./src/db/sync').then(({ syncWithSupabase }) =>
-               syncWithSupabase()
-                 .then(() => checkTodayShift())
-                 .catch(() => {})
-             );
+
+             // Feedback loop protection: ignore Realtime events triggered by our own push
+             import('./src/db/sync').then(({ syncWithSupabase, getLastPushTimestamp }) => {
+               const timeSincePush = Date.now() - getLastPushTimestamp();
+               if (timeSincePush < 5000) {
+                 if (__DEV__) console.log(`[realtime] Skipping sync — own push ${timeSincePush}ms ago`);
+                 return;
+               }
+
+               // Debounce: coalesce multiple rapid Realtime events into one sync
+               if (realtimeDebounceRef.current) clearTimeout(realtimeDebounceRef.current);
+               realtimeDebounceRef.current = setTimeout(() => {
+                 syncWithSupabase()
+                   .then(() => checkTodayShift())
+                   .catch(() => {});
+               }, 800);
+             });
            }
          );
        }
@@ -384,6 +393,7 @@ export default Sentry.wrap(function App() {
        subscription.remove();
        if (interval) clearInterval(interval);
        if (channel) supabase.removeChannel(channel);
+       if (realtimeDebounceRef.current) clearTimeout(realtimeDebounceRef.current);
     };
   }, [session]);
 
@@ -401,7 +411,58 @@ export default Sentry.wrap(function App() {
     return null;
   }
 
-// Pulled to top-level to prevent unmounting when App re-renders
+  const renderContent = () => {
+    if (!session) {
+      return <AuthScreen />;
+    }
+    if (onboardingNeeded) {
+      return <OnboardingScreen />;
+    }
+
+    const prefix = Linking.createURL('/');
+    const linking = {
+      prefixes: [prefix, 'babysync://'],
+      config: {
+        screens: {
+          Home: 'home',
+          Tracker: 'tracker',
+          Feeding: 'feeding',
+          Sleep: 'sleep',
+          Diaper: 'diaper',
+          Walk: 'walk',
+          Pump: 'pump',
+          Health: 'health',
+          Routine: 'routine',
+          Analytics: 'analytics',
+          Shifts: 'shifts',
+          Settings: 'settings'
+        }
+      }
+    };
+
+    return (
+      <DatabaseProvider database={database}>
+        <NavigationContainer linking={linking}>
+          <StatusBar barStyle="dark-content" backgroundColor="#FAFBFC" />
+          <MainAppContent />
+        </NavigationContainer>
+      </DatabaseProvider>
+    );
+  };
+
+  return (
+    <SafeAreaProvider>
+      <ErrorBoundary>
+        <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
+          {renderContent()}
+        </GestureHandlerRootView>
+      </ErrorBoundary>
+    </SafeAreaProvider>
+  );
+});
+
+
+// ── TabNavigator: defined OUTSIDE App to prevent unmounting on re-render ──
 const TabNavigator = () => {
   const insets = useSafeAreaInsets();
   return (
@@ -474,6 +535,7 @@ const TabNavigator = () => {
   );
 };
 
+// ── MainAppContent: defined OUTSIDE App to prevent remounting ──
 const MainAppContent = () => {
   return (
     <View style={{ flex: 1 }}>
@@ -495,53 +557,3 @@ const MainAppContent = () => {
     </View>
   );
 };
-
-  const renderContent = () => {
-    if (!session) {
-      return <AuthScreen />;
-    }
-    if (onboardingNeeded) {
-      return <OnboardingScreen />;
-    }
-
-    const prefix = Linking.createURL('/');
-    const linking = {
-      prefixes: [prefix, 'babysync://'],
-      config: {
-        screens: {
-          Home: 'home',
-          Tracker: 'tracker',
-          Feeding: 'feeding',
-          Sleep: 'sleep',
-          Diaper: 'diaper',
-          Walk: 'walk',
-          Pump: 'pump',
-          Health: 'health',
-          Routine: 'routine',
-          Analytics: 'analytics',
-          Shifts: 'shifts',
-          Settings: 'settings'
-        }
-      }
-    };
-
-    return (
-      <DatabaseProvider database={database}>
-        <NavigationContainer linking={linking}>
-          <StatusBar barStyle="dark-content" backgroundColor="#FAFBFC" />
-          <MainAppContent />
-        </NavigationContainer>
-      </DatabaseProvider>
-    );
-  };
-
-  return (
-    <SafeAreaProvider>
-      <ErrorBoundary>
-        <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
-          {renderContent()}
-        </GestureHandlerRootView>
-      </ErrorBoundary>
-    </SafeAreaProvider>
-  );
-});

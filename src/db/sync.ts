@@ -1,20 +1,22 @@
 /**
- * sync.ts — WatermelonDB ↔ Supabase sync adapter (v2).
+ * sync.ts — WatermelonDB ↔ Supabase sync adapter (v3).
  *
- * Improvements over v1:
+ * v3 improvements over v2:
+ * - FIXED: No longer loads ALL local records into RAM on every pull
+ *   → Uses point-lookups (find) instead of full-table scan
+ * - FIXED: Feedback loop protection — tracks last push time
+ * - FIXED: updated_at guaranteed on push for updated records
  * - Uses `updated_at` for detecting remote changes (catches edits)
- * - Parallel pull queries via Promise.all (5-8x faster)
- * - Cached local IDs via Set (no N+1 find() calls)
+ * - Parallel pull queries via Promise.all
  * - Soft-delete sync (deleted_at IS NOT NULL → delete locally)
- * - Batch push via upsert (no sequential updates)
- * - Dirty flag to skip unnecessary syncs
+ * - Batch push via upsert
+ * - Throttle + singleton promise for sync coalescing
  */
 
 import { synchronize } from '@nozbe/watermelondb/sync'
 import { database } from './index'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../store/authStore'
-import { RealtimeChannel } from '@supabase/supabase-js'
 
 const SYNC_TABLES = [
   'feedings',
@@ -45,11 +47,17 @@ export function isDirty() {
 let _syncPromise: Promise<void> | null = null;
 let _lastSyncTimestamp = 0;
 
+// Track when we last pushed to prevent feedback loops from Realtime
+let _lastPushTimestamp = 0;
+export function getLastPushTimestamp() {
+  return _lastPushTimestamp;
+}
+
 export async function syncWithSupabase(force = false) {
   if (_syncPromise) return _syncPromise;
   const now = Date.now();
-  // Prevent spamming sync within 3 seconds for automatic triggers
-  if (!force && now - _lastSyncTimestamp < 3000) return;
+  // Prevent spamming sync within 5 seconds for automatic triggers
+  if (!force && now - _lastSyncTimestamp < 5000) return;
 
   _syncPromise = (async () => {
     if (__DEV__) console.log('[sync] Starting sync...');
@@ -67,7 +75,6 @@ export async function syncWithSupabase(force = false) {
             SYNC_TABLES.map(async (table) => {
               try {
                 // Pull records where updated_at > lastPulled (catches creates AND edits)
-                // Also pull soft-deleted records to sync deletions
                 const { data: records, error } = await supabase
                   .from(table)
                   .select('*')
@@ -79,11 +86,12 @@ export async function syncWithSupabase(force = false) {
                   return { table, created: [], updated: [], deleted: [] as string[] };
                 }
 
-                // ── Cache local IDs in a Set and Map ──
-                const localCollection = database.get(table);
-                const localRecords = await localCollection.query().fetch();
-                const localMap = new Map(localRecords.map((r: any) => [r.id, r]));
+                // Skip if nothing changed remotely
+                if (!records || records.length === 0) {
+                  return { table, created: [], updated: [], deleted: [] as string[] };
+                }
 
+                const localCollection = database.get(table);
                 const validColumns = Object.keys(localCollection.schema.columns);
                 const allowedFields = ['id', 'created_at', ...validColumns];
 
@@ -91,14 +99,19 @@ export async function syncWithSupabase(force = false) {
                 const updated: any[] = [];
                 const deleted: string[] = [];
 
-                for (const r of (records || [])) {
+                // ── Point-lookup for each remote record instead of loading ALL local records ──
+                for (const r of records) {
                   // ── Validate required fields ──
                   if (!r.id || typeof r.id !== 'string') continue;
 
                   // ── Soft-delete detection ──
                   if (r.deleted_at) {
-                    if (localMap.has(r.id)) {
+                    try {
+                      await localCollection.find(r.id);
+                      // Record exists locally → mark for deletion
                       deleted.push(r.id);
+                    } catch {
+                      // Record doesn't exist locally → nothing to delete
                     }
                     continue;
                   }
@@ -118,14 +131,13 @@ export async function syncWithSupabase(force = false) {
                   if (r.created_at) mapped.created_at = new Date(r.created_at).getTime();
                   if (r.updated_at) mapped.updated_at = new Date(r.updated_at).getTime();
 
-                  const lr = localMap.get(mapped.id);
-                  if (lr) {
-                    // Check if there are actual diffs. If not, don't return as updated to prevent UI flashing
+                  try {
+                    const lr = await localCollection.find(mapped.id);
+                    // Record exists — check if there are actual diffs
                     let hasDiff = false;
                     for (const field of allowedFields) {
                        if (field === 'updated_at') continue;
-                       // Convert local field to comparable if needed (some may be null vs undefined)
-                       const localVal = lr[field] == null ? null : lr[field];
+                       const localVal = (lr as any)[field] == null ? null : (lr as any)[field];
                        const remoteVal = mapped[field] == null ? null : mapped[field];
                        if (localVal !== remoteVal) {
                           hasDiff = true;
@@ -135,7 +147,8 @@ export async function syncWithSupabase(force = false) {
                     if (hasDiff) {
                        updated.push(mapped);
                     }
-                  } else {
+                  } catch {
+                    // Record not found locally → it's new
                     created.push(mapped);
                   }
                 }
@@ -165,6 +178,8 @@ export async function syncWithSupabase(force = false) {
         },
 
         pushChanges: async ({ changes }: any) => {
+          const pushStartTime = Date.now();
+
           for (const table of SYNC_TABLES) {
             const tableChanges = (changes as any)[table];
             if (!tableChanges) continue;
@@ -190,7 +205,7 @@ export async function syncWithSupabase(force = false) {
                   ...rest,
                   user_id: rest.user_id || userId,
                   created_at: rest.created_at || new Date().toISOString(),
-                  updated_at: rest.updated_at || new Date().toISOString(),
+                  updated_at: new Date().toISOString(), // Always set fresh updated_at
                 };
               });
               const { error } = await supabase.from(table).upsert(cleaned);
@@ -214,6 +229,8 @@ export async function syncWithSupabase(force = false) {
                     }
                   }
                 }
+                // Guarantee fresh updated_at so other devices see the change
+                rest.updated_at = new Date().toISOString();
                 return rest;
               });
               const { error } = await supabase.from(table).upsert(cleaned);
@@ -237,6 +254,7 @@ export async function syncWithSupabase(force = false) {
           }
 
           _dirty = false;
+          _lastPushTimestamp = pushStartTime;
         },
       });
 

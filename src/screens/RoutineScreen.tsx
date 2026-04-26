@@ -10,6 +10,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Smile, Moon, CalendarDays, Baby, Zap, Sparkles } from 'lucide-react-native';
 import { useAuthStore } from '../store/authStore';
 import { database } from '../db';
+import { Q } from '@nozbe/watermelondb';
 import { useRoutineEngine, type ScheduleBlock, type LeapInfo, type AgeNorms } from '../hooks/useRoutineEngine';
 import { useRituals, STEP_PALETTE, type Ritual, type RitualStep, type RitualLog } from '../hooks/useRituals';
 import DateTimePickerModal from '../components/DateTimePickerModal';
@@ -610,7 +611,14 @@ const RoutineScreen = () => {
   const [sleeps, setSleeps] = useState<any[]>([]);
 
   useEffect(() => {
-    database.get('sleeps').query().fetch().then(setSleeps).catch(() => setSleeps([]));
+    const subscription = database.get('sleeps')
+      .query(Q.sortBy('created_at', Q.desc), Q.take(100))
+      .observe()
+      .subscribe({
+        next: (records) => setSleeps(records),
+        error: () => setSleeps([]),
+      });
+    return () => subscription.unsubscribe();
   }, []);
   const {
     rituals, logs, addRitual, updateRitual, deleteRitual,
