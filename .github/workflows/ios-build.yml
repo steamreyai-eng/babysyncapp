@@ -38,6 +38,9 @@ jobs:
           cd ios
           # Убираем дубликат simdjson от плагина WatermelonDB, так как Expo делает автолинк сам
           sed -i '' '/pod .simdjson./d' Podfile || true
+          # RCT-Folly больше не существует в RN 0.81+ (заменён на ReactNativeDependencies)
+          # react-native-live-activities ссылается на него в New Architecture блоке
+          sed -i '' '/RCT-Folly/d' ../node_modules/react-native-live-activities/react-native-live-activities.podspec || true
           pod install --repo-update
         
       - name: Build Unsigned App
