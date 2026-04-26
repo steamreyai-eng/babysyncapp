@@ -42,6 +42,13 @@ export async function callAI(input: string | any[], contextData: any) {
   const anonymized = anonymizeContext(contextData);
 
   try {
+    // Verify user is authenticated before calling Edge Function
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      if (__DEV__) console.warn('AI: No active session — cannot call Edge Function');
+      return null;
+    }
+
     // Call Supabase Edge Function (API keys stay on server)
     const { data, error } = await supabase.functions.invoke('ai-chat', {
       body: {
@@ -51,7 +58,16 @@ export async function callAI(input: string | any[], contextData: any) {
     });
 
     if (error) {
-      if (__DEV__) console.warn('AI Edge Function error:', error.message);
+      if (__DEV__) {
+        console.warn('AI Edge Function error:', error.name, error.message);
+        // FunctionsHttpError contains the response body
+        if ('context' in error) {
+          try {
+            const errBody = await (error as any).context?.json?.();
+            console.warn('AI error body:', JSON.stringify(errBody));
+          } catch {}
+        }
+      }
       return null;
     }
 

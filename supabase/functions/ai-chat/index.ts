@@ -4,8 +4,10 @@
 
 import { corsHeaders } from '../_shared/cors.ts'
 
-const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY')!
+const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY') || ''
 const TAVILY_API_KEY = Deno.env.get('TAVILY_API_KEY')
+
+console.log('[ai-chat] OPENAI_API_KEY present:', !!OPENAI_API_KEY, 'prefix:', OPENAI_API_KEY.substring(0, 7))
 
 Deno.serve(async (req) => {
   // Handle CORS preflight
@@ -63,6 +65,7 @@ ${JSON.stringify(contextData || {})}
 
     if (!openaiRes.ok) {
       const errText = await openaiRes.text()
+      console.error('[ai-chat] OpenAI error:', openaiRes.status, errText)
       return new Response(JSON.stringify({ error: 'OpenAI API error', details: errText }), {
         status: openaiRes.status,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -76,7 +79,8 @@ ${JSON.stringify(contextData || {})}
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (err) {
-    return new Response(JSON.stringify({ error: 'Internal error' }), {
+    console.error('[ai-chat] CATCH error:', err?.message || err, err?.stack)
+    return new Response(JSON.stringify({ error: 'Internal error', details: String(err) }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
