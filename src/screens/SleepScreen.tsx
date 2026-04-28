@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import EditRecordModal from '../components/EditRecordModal';
 import { useTimerStore } from '../store/timerStore';
 import { startSleepTimerNotification, cancelSleepTimerNotification } from '../lib/timerNotifications';
+import { pushNow } from '../db/sync';
 
 const LOCATIONS = [
   { id: 'crib', label: 'Кроватка', icon: 'bed', color: '#8B5CF6' },
@@ -89,6 +90,7 @@ function SleepScreenContent({ sleeps }: { sleeps: Sleep[] }) {
     cancelSleepTimerNotification();
     clearSleepTimer();
     setSeconds(0);
+    pushNow();
   };
 
   const handleManualSave = async () => {
@@ -111,6 +113,7 @@ function SleepScreenContent({ sleeps }: { sleeps: Sleep[] }) {
       setQuality(0);
       setManualStart(new Date());
       setManualEnd(new Date());
+      pushNow();
     } catch (error) {
       Alert.alert("Ошибка", "Не удалось сохранить сон.");
     }
@@ -128,6 +131,7 @@ function SleepScreenContent({ sleeps }: { sleeps: Sleep[] }) {
                 await record.markAsDeleted();
               });
               triggerHaptic('success');
+              pushNow();
             } catch (error) {
               Alert.alert("Ошибка", "Не удалось удалить запись");
             }

@@ -56,8 +56,8 @@ export function getLastPushTimestamp() {
 export async function syncWithSupabase(force = false) {
   if (_syncPromise) return _syncPromise;
   const now = Date.now();
-  // Prevent spamming sync within 5 seconds for automatic triggers
-  if (!force && now - _lastSyncTimestamp < 5000) return;
+  // Prevent spamming sync within 2 seconds for automatic triggers
+  if (!force && now - _lastSyncTimestamp < 2000) return;
 
   _syncPromise = (async () => {
     if (__DEV__) console.log('[sync] Starting sync...');
@@ -180,13 +180,26 @@ export async function syncWithSupabase(force = false) {
         pushChanges: async ({ changes }: any) => {
           const pushStartTime = Date.now();
 
+          // Resolve baby_id once for the entire push cycle
+          const userId = useAuthStore.getState().session?.user?.id;
+          let babyId: string | null = null;
+          try {
+            const { data: profile } = await supabase
+              .from('baby_profile')
+              .select('baby_id')
+              .eq('user_id', userId)
+              .limit(1)
+              .single();
+            babyId = profile?.baby_id || null;
+          } catch {
+            // baby_id column may not exist yet — graceful fallback
+          }
           for (const table of SYNC_TABLES) {
             const tableChanges = (changes as any)[table];
             if (!tableChanges) continue;
 
             // ── Push created records (batch upsert) ──
             if (tableChanges.created?.length > 0) {
-              const userId = useAuthStore.getState().session?.user?.id;
               const cleaned = tableChanges.created.map((r: any) => {
                 const { _status, _changed, deleted_at, ...rest } = r;
 
@@ -204,6 +217,7 @@ export async function syncWithSupabase(force = false) {
                 return {
                   ...rest,
                   user_id: rest.user_id || userId,
+                  baby_id: rest.baby_id || babyId,
                   created_at: rest.created_at || new Date().toISOString(),
                   updated_at: new Date().toISOString(), // Always set fresh updated_at
                 };
@@ -231,6 +245,8 @@ export async function syncWithSupabase(force = false) {
                 }
                 // Guarantee fresh updated_at so other devices see the change
                 rest.updated_at = new Date().toISOString();
+                // Attach baby_id if not already set
+                if (!rest.baby_id && babyId) rest.baby_id = babyId;
                 return rest;
               });
               const { error } = await supabase.from(table).upsert(cleaned);
@@ -273,4 +289,18 @@ export async function syncWithSupabase(force = false) {
 
 export function getLastSyncedAt() {
   return lastSyncedAt;
+}
+
+/**
+ * pushNow() — Call after any database.write() to immediately
+ * push local changes to Supabase. This eliminates the 2-min
+ * wait for periodic sync and makes cross-device updates near-instant.
+ */
+export function pushNow() {
+  // Small delay to let WatermelonDB commit the transaction
+  setTimeout(() => {
+    syncWithSupabase(true).catch(e => {
+      if (__DEV__) console.warn('[sync] pushNow failed:', e);
+    });
+  }, 200);
 }

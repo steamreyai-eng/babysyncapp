@@ -19,6 +19,7 @@ import { Walk } from '../db/models/Walk';
 import { Feeding } from '../db/models/Feeding';
 import { useTimerStore } from '../store/timerStore';
 import { useAuthStore } from '../store/authStore';
+import { pushNow } from '../db/sync';
 
 const SLEEP_NOTIF_ID = 'babysync-sleep-timer';
 const WALK_NOTIF_ID = 'babysync-walk-timer';
@@ -267,6 +268,7 @@ export async function handleBackgroundStopSleep() {
   }
   store.clearSleepTimer();
   await cancelSleepTimerNotification();
+  pushNow();
 }
 
 export async function handleBackgroundStopWalk() {
@@ -293,6 +295,7 @@ export async function handleBackgroundStopWalk() {
   }
   store.clearWalkTimer();
   await cancelWalkTimerNotification();
+  pushNow();
 }
 
 export async function handleBackgroundStopFeedingLeft() {

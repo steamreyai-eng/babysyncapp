@@ -1,7 +1,7 @@
 import { appSchema, tableSchema } from '@nozbe/watermelondb'
 
 export const schema = appSchema({
-  version: 7,
+  version: 8,
   tables: [
     tableSchema({
       name: 'feedings',
@@ -22,6 +22,7 @@ export const schema = appSchema({
         { name: 'created_at', type: 'number' },
         { name: 'updated_at', type: 'number' },
         { name: 'deleted_at', type: 'number', isOptional: true },
+        { name: 'baby_id', type: 'string', isOptional: true },
       ]
     }),
     tableSchema({
@@ -37,6 +38,7 @@ export const schema = appSchema({
         { name: 'updated_at', type: 'number' },
         { name: 'deleted_at', type: 'number', isOptional: true },
         { name: 'is_synthetic', type: 'boolean', isOptional: true },
+        { name: 'baby_id', type: 'string', isOptional: true },
       ]
     }),
     tableSchema({
@@ -49,6 +51,7 @@ export const schema = appSchema({
         { name: 'created_at', type: 'number' },
         { name: 'updated_at', type: 'number' },
         { name: 'deleted_at', type: 'number', isOptional: true },
+        { name: 'baby_id', type: 'string', isOptional: true },
       ]
     }),
     tableSchema({
@@ -63,6 +66,7 @@ export const schema = appSchema({
         { name: 'created_at', type: 'number' },
         { name: 'updated_at', type: 'number' },
         { name: 'deleted_at', type: 'number', isOptional: true },
+        { name: 'baby_id', type: 'string', isOptional: true },
       ]
     }),
     tableSchema({
@@ -75,6 +79,7 @@ export const schema = appSchema({
         { name: 'created_at', type: 'number' },
         { name: 'updated_at', type: 'number' },
         { name: 'deleted_at', type: 'number', isOptional: true },
+        { name: 'baby_id', type: 'string', isOptional: true },
       ]
     }),
     tableSchema({
@@ -87,6 +92,7 @@ export const schema = appSchema({
         { name: 'created_at', type: 'number' },
         { name: 'updated_at', type: 'number' },
         { name: 'deleted_at', type: 'number', isOptional: true },
+        { name: 'baby_id', type: 'string', isOptional: true },
       ]
     }),
     tableSchema({
@@ -100,6 +106,7 @@ export const schema = appSchema({
         { name: 'created_at', type: 'number' },
         { name: 'updated_at', type: 'number' },
         { name: 'deleted_at', type: 'number', isOptional: true },
+        { name: 'baby_id', type: 'string', isOptional: true },
       ]
     }),
     tableSchema({
@@ -111,6 +118,7 @@ export const schema = appSchema({
         { name: 'created_at', type: 'number' },
         { name: 'updated_at', type: 'number' },
         { name: 'deleted_at', type: 'number', isOptional: true },
+        { name: 'baby_id', type: 'string', isOptional: true },
       ]
     }),
     tableSchema({
@@ -125,6 +133,7 @@ export const schema = appSchema({
         { name: 'created_at', type: 'number' },
         { name: 'updated_at', type: 'number' },
         { name: 'deleted_at', type: 'number', isOptional: true },
+        { name: 'baby_id', type: 'string', isOptional: true },
       ]
     }),
     tableSchema({
@@ -136,6 +145,7 @@ export const schema = appSchema({
         { name: 'assigned_to', type: 'string', isOptional: true },
         { name: 'updated_at', type: 'number' },
         { name: 'deleted_at', type: 'number', isOptional: true },
+        { name: 'baby_id', type: 'string', isOptional: true },
       ]
     }),
     tableSchema({
@@ -148,6 +158,7 @@ export const schema = appSchema({
         { name: 'created_at', type: 'number' },
         { name: 'updated_at', type: 'number' },
         { name: 'deleted_at', type: 'number', isOptional: true },
+        { name: 'baby_id', type: 'string', isOptional: true },
       ]
     }),
   ]

@@ -21,6 +21,7 @@ import { Sleep } from '../db/models/Sleep';
 import { Walk } from '../db/models/Walk';
 import { useAuthStore } from '../store/authStore';
 import { cancelSleepTimerNotification, cancelWalkTimerNotification } from '../lib/timerNotifications';
+import { pushNow } from '../db/sync';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -278,6 +279,7 @@ export default function LiveActivityBanner() {
     }
     clearSleepTimer();
     cancelSleepTimerNotification();
+    pushNow();
   };
 
   const handleWalkStop = async () => {
@@ -303,6 +305,7 @@ export default function LiveActivityBanner() {
     }
     clearWalkTimer();
     cancelWalkTimerNotification();
+    pushNow();
   };
 
   const handleSleepPress = () => {

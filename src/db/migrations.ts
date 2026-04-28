@@ -86,5 +86,60 @@ export const migrations = schemaMigrations({
         ),
       ],
     },
+    {
+      // v5 → v6: Add insight_cards table + is_synthetic to sleeps
+      toVersion: 6,
+      steps: [
+        createTable({
+          name: 'insight_cards',
+          columns: [
+            { name: 'user_id', type: 'string' },
+            { name: 'insight_title', type: 'string' },
+            { name: 'short_text', type: 'string' },
+            { name: 'type', type: 'string' },
+            { name: 'created_at', type: 'number' },
+            { name: 'updated_at', type: 'number' },
+            { name: 'deleted_at', type: 'number', isOptional: true },
+          ],
+        }),
+        addColumns({
+          table: 'sleeps',
+          columns: [
+            { name: 'is_synthetic', type: 'boolean', isOptional: true },
+          ],
+        }),
+      ],
+    },
+    {
+      // v6 → v7: Add extended feeding columns
+      toVersion: 7,
+      steps: [
+        addColumns({
+          table: 'feedings',
+          columns: [
+            { name: 'left_duration', type: 'number', isOptional: true },
+            { name: 'right_duration', type: 'number', isOptional: true },
+            { name: 'formula_temp_c', type: 'number', isOptional: true },
+            { name: 'solid_reaction', type: 'string', isOptional: true },
+          ],
+        }),
+      ],
+    },
+    {
+      // v7 → v8: Add baby_id to ALL tables for multi-parent data sharing
+      toVersion: 8,
+      steps: [
+        ...['feedings', 'sleeps', 'diapers', 'walks', 'tasks',
+            'growth_records', 'medications', 'vaccinations',
+            'doctor_visits', 'shifts', 'insight_cards'].map(table =>
+          addColumns({
+            table,
+            columns: [
+              { name: 'baby_id', type: 'string', isOptional: true },
+            ],
+          })
+        ),
+      ],
+    },
   ],
 })

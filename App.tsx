@@ -1,6 +1,6 @@
 import 'react-native-url-polyfill/auto';
 import 'react-native-gesture-handler';
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import * as Sentry from '@sentry/react-native';
@@ -251,24 +251,42 @@ export default Sentry.wrap(function App() {
     }
   }, []);
 
+  // Refs to hold interval IDs — survives re-renders, cleaned up properly
+  const cacheIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Cached sync module ref — avoids repeated dynamic imports
+  const syncModuleRef = useRef<{ syncWithSupabase: (force?: boolean) => Promise<void>; getLastPushTimestamp: () => number } | null>(null);
+  const getSyncModule = useCallback(async () => {
+    if (!syncModuleRef.current) {
+      syncModuleRef.current = await import('./src/db/sync');
+    }
+    return syncModuleRef.current;
+  }, []);
+
+  // Helper: run sync + post-sync tasks
+  const runSync = useCallback(async (force?: boolean) => {
+    try {
+      const { syncWithSupabase } = await getSyncModule();
+      await syncWithSupabase(force);
+      checkTodayShift();
+    } catch (e) {
+      if (__DEV__) console.warn('Sync failed', e);
+    }
+  }, [getSyncModule]);
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
       setSession(initialSession);
       checkProfile(initialSession);
       if (initialSession) {
-        import('./src/db/sync').then(({ syncWithSupabase }) =>
-          syncWithSupabase()
-            .then(() => checkTodayShift())
-            .catch(e => __DEV__ && console.warn('Sync failed', e))
-        );
+        runSync();
         // Start notification reminder poller
         refreshLastEventsCache().then(() => {
           startNotifPoller(() => lastEventsCacheRef.current);
         });
-        // Refresh event cache periodically (every 60s)
-        const cacheInterval = setInterval(refreshLastEventsCache, 60_000);
-        // Store cleanup ref
-        (globalThis as any).__notifCacheInterval = cacheInterval;
+        // Refresh event cache periodically (every 60s) — stored in ref for proper cleanup
+        if (cacheIntervalRef.current) clearInterval(cacheIntervalRef.current);
+        cacheIntervalRef.current = setInterval(refreshLastEventsCache, 60_000);
       } else {
         import('./src/store/dataStore').then(({ useDataStore }) => useDataStore.getState().clearData());
         import('./src/store/timerStore').then(({ useTimerStore }) => useTimerStore.getState().clearAllTimers());
@@ -282,11 +300,7 @@ export default Sentry.wrap(function App() {
       setSession(newSession);
       checkProfile(newSession);
       if (newSession) {
-        import('./src/db/sync').then(({ syncWithSupabase }) =>
-          syncWithSupabase()
-            .then(() => checkTodayShift())
-            .catch(e => __DEV__ && console.warn('Sync failed', e))
-        );
+        runSync();
         // Re-start notification poller on re-auth
         refreshLastEventsCache().then(() => {
           startNotifPoller(() => lastEventsCacheRef.current);
@@ -316,8 +330,9 @@ export default Sentry.wrap(function App() {
       subscription.unsubscribe();
       unsubscribeForeground();
       stopNotifPoller();
-      if ((globalThis as any).__notifCacheInterval) {
-        clearInterval((globalThis as any).__notifCacheInterval);
+      if (cacheIntervalRef.current) {
+        clearInterval(cacheIntervalRef.current);
+        cacheIntervalRef.current = null;
       }
     };
   }, []);
@@ -328,16 +343,7 @@ export default Sentry.wrap(function App() {
   useEffect(() => {
     const subscription = AppState.addEventListener('change', nextAppState => {
       if (nextAppState === 'active' && session) {
-        import('./src/db/sync').then(({ syncWithSupabase }) =>
-          syncWithSupabase()
-            .then(() => {
-              checkTodayShift();
-              import('./src/store/dataStore').then(({ useDataStore }) =>
-                useDataStore.getState().reload()
-              );
-            })
-            .catch(e => __DEV__ && console.warn('Sync bg failed', e))
-        );
+        runSync(true); // Force sync on return from background
       }
     });
 
@@ -345,39 +351,30 @@ export default Sentry.wrap(function App() {
     let channel: any;
 
     if (session) {
-       // Periodic background sync (every 5 min — reduced from 2 min)
+       // Periodic background sync (every 2 min for responsive cross-device updates)
        interval = setInterval(() => {
-          import('./src/db/sync').then(({ syncWithSupabase }) =>
-            syncWithSupabase()
-              .then(() => {
-                checkTodayShift();
-                import('./src/store/dataStore').then(({ useDataStore }) =>
-                  useDataStore.getState().reload()
-                );
-              })
-              .catch(() => {})
-          );
-       }, 300000);
+          runSync();
+       }, 120_000);
 
-       // Targeted realtime sync — listen to specific tables only
+       // Targeted realtime sync — listen to ALL changes (no user_id filter)
+       // so both parents see each other's data immediately
        const REALTIME_TABLES = [
          'feedings', 'sleeps', 'diapers', 'walks', 'tasks',
          'growth_records', 'medications', 'vaccinations',
          'doctor_visits', 'shifts',
        ];
-       const userId = session?.user?.id;
        channel = supabase.channel('baby-sync');
        for (const table of REALTIME_TABLES) {
          channel = channel.on(
            'postgres_changes',
-           { event: '*', schema: 'public', table, filter: userId ? `user_id=eq.${userId}` : undefined },
+           { event: '*', schema: 'public', table },
            (payload: any) => {
              if (__DEV__) console.log(`[realtime] ${table}:`, payload.eventType);
 
              // Feedback loop protection: ignore Realtime events triggered by our own push
-             import('./src/db/sync').then(({ syncWithSupabase, getLastPushTimestamp }) => {
+             getSyncModule().then(({ getLastPushTimestamp }) => {
                const timeSincePush = Date.now() - getLastPushTimestamp();
-               if (timeSincePush < 5000) {
+               if (timeSincePush < 2000) {
                  if (__DEV__) console.log(`[realtime] Skipping sync — own push ${timeSincePush}ms ago`);
                  return;
                }
@@ -385,15 +382,8 @@ export default Sentry.wrap(function App() {
                // Debounce: coalesce multiple rapid Realtime events into one sync
                if (realtimeDebounceRef.current) clearTimeout(realtimeDebounceRef.current);
                realtimeDebounceRef.current = setTimeout(() => {
-                 syncWithSupabase()
-                   .then(() => {
-                     checkTodayShift();
-                     import('./src/store/dataStore').then(({ useDataStore }) =>
-                       useDataStore.getState().reload()
-                     );
-                   })
-                   .catch(() => {});
-               }, 800);
+                 runSync();
+               }, 300);
              });
            }
          );
@@ -410,7 +400,7 @@ export default Sentry.wrap(function App() {
        if (channel) supabase.removeChannel(channel);
        if (realtimeDebounceRef.current) clearTimeout(realtimeDebounceRef.current);
     };
-  }, [session]);
+  }, [session, runSync, getSyncModule]);
 
   const onLayoutRootView = useCallback(async () => {
     if (appIsReady && !loading) {

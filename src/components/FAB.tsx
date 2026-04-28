@@ -27,6 +27,7 @@ import { useAuthStore } from '../store/authStore';
 import { useTimerStore } from '../store/timerStore';
 import { startFeedingTimerNotification, cancelFeedingTimerNotification } from '../lib/timerNotifications';
 import { triggerHaptic } from '../utils/haptics';
+import { pushNow } from '../db/sync';
 
 type ActiveSheet = 'feeding' | 'diaper' | 'sleep' | null;
 
@@ -244,6 +245,7 @@ const FAB = () => {
       await cancelFeedingTimerNotification();
       closeSheet();
       triggerHaptic('success');
+      pushNow();
     } catch (e) {
       if (__DEV__) console.warn("handleSaveFeeding error:", e);
     }
@@ -265,6 +267,7 @@ const FAB = () => {
       setDiaperColor('');
       closeSheet();
       triggerHaptic('success');
+      pushNow();
     } catch (e) {
       if (__DEV__) console.warn("handleSaveDiaper error:", e);
     }
@@ -290,6 +293,7 @@ const FAB = () => {
       setShowManualSleep(false);
       closeSheet();
       triggerHaptic('success');
+      pushNow();
     } catch (e) {
       if (__DEV__) console.warn("handleSaveSleep error:", e);
     }

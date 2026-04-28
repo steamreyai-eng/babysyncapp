@@ -18,6 +18,7 @@ import { NotificationSettingsModal } from '../components/NotificationSettingsMod
 // FAB is rendered globally in App.tsx — no need to import here
 import { COLORS, FONTS } from '../lib/theme';
 import { useRoutineEngine } from '../hooks/useRoutineEngine';
+import { pushNow } from '../db/sync';
 
 const MS_IN_24H = 24 * 3600 * 1000;
 const { width } = Dimensions.get('window');
@@ -121,6 +122,10 @@ const HomeScreenContent = ({ feedings, sleeps, diapers, walks, tasks, insights }
   const [mlPrediction, setMlPrediction] = React.useState<any>(null);
 
   React.useEffect(() => {
+    const abortController = new AbortController();
+    // Auto-abort after 10 seconds to prevent hanging on cold starts
+    const timeout = setTimeout(() => abortController.abort(), 10_000);
+
     async function fetchPrediction() {
       if (!sleeps || sleeps.length === 0) return;
       try {
@@ -142,17 +147,24 @@ const HomeScreenContent = ({ feedings, sleeps, diapers, walks, tasks, insights }
             baby_age_months: ageMo,
             recent_sleeps: recentSleeps,
             current_time_ms: Date.now()
-          })
+          }),
+          signal: abortController.signal,
         });
+        if (abortController.signal.aborted) return;
         const data = await response.json();
         if (data && data.next_sleep_time_ms) {
           setMlPrediction(data);
         }
       } catch (e) {
+        if (abortController.signal.aborted) return; // Don't warn on intentional abort
         if (__DEV__) console.warn('ML Predictor error:', e);
       }
     }
     fetchPrediction();
+    return () => {
+      clearTimeout(timeout);
+      abortController.abort();
+    };
   }, [sleeps, ageMo]);
 
   const nextSleepTimeMs = mlPrediction 
@@ -274,6 +286,7 @@ const HomeScreenContent = ({ feedings, sleeps, diapers, walks, tasks, insights }
       });
       setNewTaskTitle('');
       setNewTaskTime(null);
+      pushNow();
     } catch (e) {
       if (__DEV__) console.warn("Error adding task", e);
     }
@@ -286,6 +299,7 @@ const HomeScreenContent = ({ feedings, sleeps, diapers, walks, tasks, insights }
           t.is_completed = !t.is_completed;
         });
       });
+      pushNow();
     } catch (e) {
       if (__DEV__) console.warn("Error toggling task", e);
     }
@@ -310,6 +324,7 @@ const HomeScreenContent = ({ feedings, sleeps, diapers, walks, tasks, insights }
           sleep.created_at = now - avgDuration * 1000;
         });
       });
+      pushNow();
     } catch(e) {
       if (__DEV__) console.warn(e);
     }
@@ -320,6 +335,7 @@ const HomeScreenContent = ({ feedings, sleeps, diapers, walks, tasks, insights }
       await database.write(async () => {
         await task.markAsDeleted();
       });
+      pushNow();
     } catch (e) {
       if (__DEV__) console.warn("Error deleting task", e);
     }
