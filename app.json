@@ -57,7 +57,7 @@
           }
         }
       ],
-      "@morrowdigital/watermelondb-expo-plugin",
+      ["@morrowdigital/watermelondb-expo-plugin", { "disableJsi": true }],
       [
         "expo-notifications",
         {

@@ -22,6 +22,7 @@ import type {
 } from '../types';
 import { database } from '../db';
 import { Q } from '@nozbe/watermelondb';
+import { pushNow } from '../db/sync';
 
 // Helper: makes recorded_by optional since the store auto-fills it from getActiveParent()
 type AddInput<T> = Omit<T, 'id' | 'created_at' | 'recorded_by'> & { created_at?: string; recorded_by?: 'mom' | 'dad' };
@@ -385,6 +386,7 @@ export const useDataStore = create<DataState>((set, get) => ({
           s.updated_at = Date.now();
         });
       });
+      pushNow();
       useAuthStore.getState().setActiveParent(next);
     } catch (e) {
       if (__DEV__) console.warn('Error saving shift locally:', e);

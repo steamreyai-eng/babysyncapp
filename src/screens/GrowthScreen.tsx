@@ -10,6 +10,7 @@ import { useAuthStore } from '../store/authStore';
 import withObservables from '@nozbe/with-observables';
 import { Q } from '@nozbe/watermelondb';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { pushNow } from '../db/sync';
 
 const months = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 const P3 = [2.4, 3.2, 4.0, 4.7, 5.4, 5.9, 6.4, 6.8, 7.2, 7.5, 7.9, 8.1, 8.4];
@@ -107,6 +108,7 @@ function GrowthScreenContent({ growthRecords }: { growthRecords: GrowthRecord[] 
           r.created_at = Date.now();
         });
       });
+      pushNow();
       setOpenPicker(null);
     } catch (e) {
       Alert.alert("Ошибка", "Не удалось сохранить");

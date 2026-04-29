@@ -12,6 +12,7 @@ import { triggerHaptic } from '../utils/haptics';
 import withObservables from '@nozbe/with-observables';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import EditRecordModal from '../components/EditRecordModal';
+import { pushNow } from '../db/sync';
 
 const COLOR_OPTIONS = [
   { label: 'Жёлтый – жидкий', tag: 'норма', dotColor: '#F5D63D' },
@@ -49,6 +50,7 @@ function DiaperScreenContent({ diapers }: { diapers: Diaper[] }) {
           diaper.recorded_by = activeParent;
         });
       });
+      pushNow();
       triggerHaptic('success');
       setSaved(true);
       setNotes('');
@@ -71,6 +73,7 @@ function DiaperScreenContent({ diapers }: { diapers: Diaper[] }) {
               await database.write(async () => {
                 await record.markAsDeleted();
               });
+              pushNow();
               triggerHaptic('success');
             } catch (error) {
               Alert.alert("Ошибка", "Не удалось удалить запись");

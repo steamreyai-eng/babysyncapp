@@ -11,6 +11,7 @@ import { useAuthStore } from '../store/authStore';
 import withObservables from '@nozbe/with-observables';
 import { Q } from '@nozbe/watermelondb';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { pushNow } from '../db/sync';
 
 type HealthTab = 'vitals' | 'meds' | 'symptoms';
 
@@ -83,6 +84,7 @@ function HealthScreenContent({ medications, growthRecords }: { medications: Medi
           m.recorded_by = activeParent;
         });
       });
+      pushNow();
       setMedName(""); setMedDose(""); setMedTime(new Date()); setShowAddMed(false);
     } catch (error) {
       Alert.alert("Ошибка", "Не удалось сохранить лекарство.");
@@ -97,6 +99,7 @@ function HealthScreenContent({ medications, growthRecords }: { medications: Medi
           m.taken = taken;
         });
       });
+      pushNow();
     } catch (err) {}
   };
 

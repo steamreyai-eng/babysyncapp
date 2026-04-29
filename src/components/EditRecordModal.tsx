@@ -12,6 +12,7 @@ import { Feeding } from '../db/models/Feeding';
 import { Sleep } from '../db/models/Sleep';
 import { Diaper } from '../db/models/Diaper';
 import { Walk } from '../db/models/Walk';
+import { pushNow } from '../db/sync';
 
 /* ── Types ── */
 export type EditTarget =
@@ -43,6 +44,7 @@ const FeedingEdit = ({ record, onClose }: { record: any; onClose: () => void }) 
           r.created_at = time.getTime();
         });
       });
+      pushNow();
       onClose();
     } catch { Alert.alert('Ошибка', 'Не удалось сохранить'); }
     setSaving(false);
@@ -53,6 +55,7 @@ const FeedingEdit = ({ record, onClose }: { record: any; onClose: () => void }) 
       { text: 'Отмена', style: 'cancel' },
       { text: 'Удалить', style: 'destructive', onPress: async () => {
         await database.write(async () => { await record.markAsDeleted(); });
+        pushNow();
         onClose();
       }},
     ]);
@@ -120,6 +123,7 @@ const DiaperEdit = ({ record, onClose }: { record: any; onClose: () => void }) =
           r.created_at = time.getTime();
         });
       });
+      pushNow();
       onClose();
     } catch { Alert.alert('Ошибка', 'Не удалось сохранить'); }
     setSaving(false);
@@ -130,6 +134,7 @@ const DiaperEdit = ({ record, onClose }: { record: any; onClose: () => void }) =
       { text: 'Отмена', style: 'cancel' },
       { text: 'Удалить', style: 'destructive', onPress: async () => {
         await database.write(async () => { await record.markAsDeleted(); });
+        pushNow();
         onClose();
       }},
     ]);
@@ -227,6 +232,7 @@ const SleepEdit = ({ record, onClose }: { record: any; onClose: () => void }) =>
           r.created_at = start.getTime();
         });
       });
+      pushNow();
       onClose();
     } catch { Alert.alert('Ошибка', 'Не удалось сохранить'); }
     setSaving(false);
@@ -237,6 +243,7 @@ const SleepEdit = ({ record, onClose }: { record: any; onClose: () => void }) =>
       { text: 'Отмена', style: 'cancel' },
       { text: 'Удалить', style: 'destructive', onPress: async () => {
         await database.write(async () => { await record.markAsDeleted(); });
+        pushNow();
         onClose();
       }},
     ]);
@@ -315,6 +322,7 @@ const WalkEdit = ({ record, onClose }: { record: any; onClose: () => void }) => 
           r.location = loc;
         });
       });
+      pushNow();
       onClose();
     } catch { Alert.alert('Ошибка', 'Не удалось сохранить'); }
     setSaving(false);
@@ -325,6 +333,7 @@ const WalkEdit = ({ record, onClose }: { record: any; onClose: () => void }) => 
       { text: 'Отмена', style: 'cancel' },
       { text: 'Удалить', style: 'destructive', onPress: async () => {
         await database.write(async () => { await record.markAsDeleted(); });
+        pushNow();
         onClose();
       }},
     ]);

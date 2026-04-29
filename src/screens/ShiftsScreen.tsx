@@ -12,6 +12,7 @@ import { Q } from '@nozbe/watermelondb';
 import DateTimePickerModal from '../components/DateTimePickerModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import { pushNow } from '../db/sync';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -66,11 +67,7 @@ const ShiftsScreenContent = ({ feedings, sleeps, diapers, tasks, shiftsData }: a
   };
 
   // Helper: trigger immediate sync to propagate changes to other devices
-  const triggerSync = () => {
-    import('../db/sync').then(({ syncWithSupabase }) =>
-      syncWithSupabase().catch(e => { if (__DEV__) console.warn('Sync failed', e); })
-    );
-  };
+  const triggerSync = () => pushNow();
 
   const assignShift = async (dateStr: string, currentAssigned: string | undefined) => {
     // Prevent rapid double-clicks causing stale data

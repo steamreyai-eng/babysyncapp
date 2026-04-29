@@ -15,6 +15,7 @@ import { useAuthStore } from '../store/authStore';
 import { callAI } from '../lib/ai';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import { pushNow } from '../db/sync';
 
 type DocTab = 'visits' | 'vaccines';
 
@@ -130,6 +131,7 @@ const DoctorScreenContent = ({ doctorVisits, vaccinations }: { doctorVisits: Doc
           v.recorded_by = activeParent;
          });
       });
+      pushNow();
       setNewDoctor(''); setNewType(''); setNewNotes('');
       setShowAddForm(false);
       Alert.alert('✓', 'Визит добавлен');
@@ -158,6 +160,7 @@ const DoctorScreenContent = ({ doctorVisits, vaccinations }: { doctorVisits: Doc
           }
         }
       });
+      pushNow();
     } catch (err) {
       if (__DEV__) console.warn("handleToggleVaccination error:", err);
     }

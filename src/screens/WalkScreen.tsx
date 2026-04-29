@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import EditRecordModal from '../components/EditRecordModal';
 import { useTimerStore } from '../store/timerStore';
 import { startWalkTimerNotification, cancelWalkTimerNotification } from '../lib/timerNotifications';
+import { pushNow } from '../db/sync';
 
 const LOCATIONS = [
   { id: 'park', label: 'Парк', icon: 'leaf', color: '#059669' },
@@ -87,6 +88,7 @@ function WalkScreenContent({ walks }: { walks: Walk[] }) {
              walk.recorded_by = activeParent;
            });
          });
+         pushNow();
        } catch (error) {
          Alert.alert("Ошибка", "Не удалось сохранить запись.");
        }
@@ -114,6 +116,7 @@ function WalkScreenContent({ walks }: { walks: Walk[] }) {
           walk.recorded_by = activeParent;
         });
       });
+      pushNow();
       triggerHaptic('success');
       setNotes('');
       setManualStart(new Date());
@@ -134,6 +137,7 @@ function WalkScreenContent({ walks }: { walks: Walk[] }) {
               await database.write(async () => {
                 await record.markAsDeleted();
               });
+              pushNow();
               triggerHaptic('success');
             } catch (error) {
               Alert.alert("Ошибка", "Не удалось удалить запись");

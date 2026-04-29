@@ -12,6 +12,7 @@ import { useAuthStore } from '../store/authStore';
 import { triggerHaptic } from '../utils/haptics';
 import withObservables from '@nozbe/with-observables';
 import EditRecordModal from '../components/EditRecordModal';
+import { pushNow } from '../db/sync';
 
 const { width } = Dimensions.get('window');
 
@@ -67,6 +68,7 @@ function FeedingScreenContent({ feedings }: { feedings: Feeding[] }) {
           f.description = `Грудь (${breastSide === 'Л' ? 'лев.' : 'прав.'}, ${m > 0 ? m + ' мин' : s + ' сек'})`;
         });
       });
+      pushNow();
       triggerHaptic('success');
       navigation.goBack();
     } catch (error) { Alert.alert("Ошибка", "Не удалось сохранить"); }
@@ -86,6 +88,7 @@ function FeedingScreenContent({ feedings }: { feedings: Feeding[] }) {
           f.description = `Смесь (${formulaVolume}мл, ${brandStr}, ${temperature}°C)`;
         });
       });
+      pushNow();
       triggerHaptic('success');
       navigation.goBack();
     } catch (error) { Alert.alert("Ошибка", "Не удалось сохранить"); }
@@ -106,6 +109,7 @@ function FeedingScreenContent({ feedings }: { feedings: Feeding[] }) {
           f.description = `${prodStr} (${weaningVolume}г, ${reactionStr})`;
         });
       });
+      pushNow();
       triggerHaptic('success');
       navigation.goBack();
     } catch (error) { Alert.alert("Ошибка", "Не удалось сохранить"); }
@@ -122,6 +126,7 @@ function FeedingScreenContent({ feedings }: { feedings: Feeding[] }) {
               await database.write(async () => {
                 await record.markAsDeleted();
               });
+              pushNow();
               triggerHaptic('success');
             } catch (error) {
               Alert.alert("Ошибка", "Не удалось удалить запись");
