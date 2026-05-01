@@ -12,6 +12,7 @@ import withObservables from '@nozbe/with-observables';
 import { Q } from '@nozbe/watermelondb';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { pushNow } from '../db/sync';
+import { resolveBabyId, getCurrentUserId } from '../db/syncHelpers';
 
 type HealthTab = 'vitals' | 'meds' | 'symptoms';
 
@@ -72,6 +73,8 @@ function HealthScreenContent({ medications, growthRecords }: { medications: Medi
     if (!medName || !medDose) return;
     const timeStr = `${medTime.getHours().toString().padStart(2, '0')}:${medTime.getMinutes().toString().padStart(2, '0')}`;
     try {
+      const babyId = await resolveBabyId();
+      const userId = getCurrentUserId();
       await database.write(async () => {
         await database.get<MedicationModel>('medications').create(m => {
           m.name = medName;
@@ -82,6 +85,8 @@ function HealthScreenContent({ medications, growthRecords }: { medications: Medi
           dt.setHours(medTime.getHours(), medTime.getMinutes(), 0, 0);
           m.created_at = dt.getTime();
           m.recorded_by = activeParent;
+          if (babyId) m.baby_id = babyId;
+          if (userId) m.user_id = userId;
         });
       });
       pushNow();

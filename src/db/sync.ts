@@ -70,19 +70,58 @@ export async function syncWithSupabase(force = false) {
             ? new Date(lastPulledAt).toISOString()
             : new Date(0).toISOString();
 
+          // ── Resolve baby_id for cross-parent data sharing ──
+          const userId = useAuthStore.getState().session?.user?.id;
+          let babyId: string | null = null;
+          try {
+            const { data: profile } = await supabase
+              .from('baby_profile')
+              .select('id, baby_id')
+              .eq('user_id', userId)
+              .limit(1)
+              .single();
+            // baby_id column may not exist — fall back to profile.id
+            babyId = profile?.baby_id || profile?.id || null;
+          } catch {
+            // Graceful fallback — pull without baby_id filter
+          }
+
+          if (__DEV__) console.log(`[sync] Pull: baby_id=${babyId}, since=${timestamp}`);
+
           // ── Parallel pull: all tables at once ──
           const pullResults = await Promise.all(
             SYNC_TABLES.map(async (table) => {
               try {
-                // Pull records where updated_at > lastPulled (catches creates AND edits)
-                const { data: records, error } = await supabase
+                // Build query: pull records where updated_at > lastPulled
+                let query = supabase
                   .from(table)
                   .select('*')
                   .gt('updated_at', timestamp)
                   .order('updated_at', { ascending: true });
 
+                // Filter by baby_id to get BOTH parents' data for the same baby
+                // This bypasses RLS user_id scoping issues
+                if (babyId) {
+                  query = query.eq('baby_id', babyId);
+                }
+
+                const { data: records, error } = await query;
+
                 if (error) {
                   if (__DEV__) console.warn(`[sync] Pull error for ${table}:`, error.message);
+                  // If baby_id filter fails (column doesn't exist), retry without it
+                  if (error.message?.includes('baby_id')) {
+                    const { data: fallbackRecords, error: fallbackError } = await supabase
+                      .from(table)
+                      .select('*')
+                      .gt('updated_at', timestamp)
+                      .order('updated_at', { ascending: true });
+                    if (fallbackError || !fallbackRecords?.length) {
+                      return { table, created: [], updated: [], deleted: [] as string[] };
+                    }
+                    // Continue with fallback records below
+                    return await processPullRecords(table, fallbackRecords);
+                  }
                   return { table, created: [], updated: [], deleted: [] as string[] };
                 }
 
@@ -91,6 +130,15 @@ export async function syncWithSupabase(force = false) {
                   return { table, created: [], updated: [], deleted: [] as string[] };
                 }
 
+                return await processPullRecords(table, records);
+              } catch (e) {
+                if (__DEV__) console.warn(`[sync] Pull exception for ${table}:`, e);
+                return { table, created: [], updated: [], deleted: [] as string[] };
+              }
+            })
+          );
+
+          async function processPullRecords(table: string, records: any[]) {
                 const localCollection = database.get(table);
                 const validColumns = Object.keys(localCollection.schema.columns);
                 const allowedFields = ['id', 'created_at', ...validColumns];
@@ -154,12 +202,8 @@ export async function syncWithSupabase(force = false) {
                 }
 
                 return { table, created, updated, deleted };
-              } catch (e) {
-                if (__DEV__) console.warn(`[sync] Pull exception for ${table}:`, e);
-                return { table, created: [], updated: [], deleted: [] as string[] };
-              }
-            })
-          );
+          }
+
 
           // Build changes object
           const changes: Record<string, { created: any[]; updated: any[]; deleted: string[] }> = {};
@@ -186,14 +230,16 @@ export async function syncWithSupabase(force = false) {
           try {
             const { data: profile } = await supabase
               .from('baby_profile')
-              .select('baby_id')
+              .select('id, baby_id')
               .eq('user_id', userId)
               .limit(1)
               .single();
-            babyId = profile?.baby_id || null;
+            // baby_id column may not exist — fall back to profile.id
+            babyId = profile?.baby_id || profile?.id || null;
           } catch {
             // baby_id column may not exist yet — graceful fallback
           }
+          if (__DEV__) console.log(`[sync] Push: baby_id=${babyId}, user_id=${userId}`);
           for (const table of SYNC_TABLES) {
             const tableChanges = (changes as any)[table];
             if (!tableChanges) continue;

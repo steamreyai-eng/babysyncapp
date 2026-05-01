@@ -16,6 +16,7 @@ import { callAI } from '../lib/ai';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { pushNow } from '../db/sync';
+import { resolveBabyId, getCurrentUserId } from '../db/syncHelpers';
 
 type DocTab = 'visits' | 'vaccines';
 
@@ -121,6 +122,8 @@ const DoctorScreenContent = ({ doctorVisits, vaccinations }: { doctorVisits: Doc
     if (!session?.user.id) return;
     
     try {
+      const babyId = await resolveBabyId();
+      const userId = getCurrentUserId();
       await database.write(async () => {
          await database.get<DoctorVisitModel>('doctor_visits').create(v => {
            v.visit_date = new Date().toISOString();
@@ -129,6 +132,8 @@ const DoctorScreenContent = ({ doctorVisits, vaccinations }: { doctorVisits: Doc
           v.notes = newNotes;
           v.created_at = Date.now();
           v.recorded_by = activeParent;
+          if (babyId) v.baby_id = babyId;
+          if (userId) v.user_id = userId;
          });
       });
       pushNow();
@@ -145,6 +150,8 @@ const DoctorScreenContent = ({ doctorVisits, vaccinations }: { doctorVisits: Doc
     if (!session?.user.id) return;
 
     try {
+      const babyId = await resolveBabyId();
+      const userId = getCurrentUserId();
       await database.write(async () => {
         if (isDone) {
           await database.get<VaccinationModel>('vaccinations').create(v => {
@@ -152,6 +159,8 @@ const DoctorScreenContent = ({ doctorVisits, vaccinations }: { doctorVisits: Doc
             v.date_given = new Date().toISOString();
             v.created_at = Date.now();
              v.recorded_by = activeParent;
+            if (babyId) v.baby_id = babyId;
+            if (userId) v.user_id = userId;
           });
         } else {
           const existing = await database.get<VaccinationModel>('vaccinations').query(Q.where('vaccine_name', vaccineName)).fetch();

@@ -13,6 +13,7 @@ import { triggerHaptic } from '../utils/haptics';
 import withObservables from '@nozbe/with-observables';
 import EditRecordModal from '../components/EditRecordModal';
 import { pushNow } from '../db/sync';
+import { resolveBabyId, getCurrentUserId } from '../db/syncHelpers';
 
 const { width } = Dimensions.get('window');
 
@@ -57,6 +58,8 @@ function FeedingScreenContent({ feedings }: { feedings: Feeding[] }) {
   const handleSaveBreast = async () => {
     try {
       if (seconds === 0) return Alert.alert("Ошибка", "Запустите таймер или укажите время");
+      const babyId = await resolveBabyId();
+      const userId = getCurrentUserId();
       await database.write(async () => {
         await database.get<Feeding>('feedings').create(f => {
           f.type = 'breast';
@@ -64,6 +67,8 @@ function FeedingScreenContent({ feedings }: { feedings: Feeding[] }) {
           f.created_at = eventTime.getTime();
           f.duration_seconds = seconds;
           f.breast_side = breastSide;
+          if (babyId) f.baby_id = babyId;
+          if (userId) f.user_id = userId;
           const m = Math.floor(seconds / 60); const s = seconds % 60;
           f.description = `Грудь (${breastSide === 'Л' ? 'лев.' : 'прав.'}, ${m > 0 ? m + ' мин' : s + ' сек'})`;
         });
@@ -77,6 +82,8 @@ function FeedingScreenContent({ feedings }: { feedings: Feeding[] }) {
   const handleSaveFormula = async () => {
     try {
       const brandStr = formulaBrand.trim() || 'Смесь';
+      const babyId = await resolveBabyId();
+      const userId = getCurrentUserId();
       await database.write(async () => {
         await database.get<Feeding>('feedings').create(f => {
           f.type = 'formula';
@@ -85,6 +92,8 @@ function FeedingScreenContent({ feedings }: { feedings: Feeding[] }) {
           f.formula_brand = brandStr;
           f.formula_volume_ml = parseInt(formulaVolume) || 0;
           f.formula_temp_c = parseInt(temperature) || 37;
+          if (babyId) f.baby_id = babyId;
+          if (userId) f.user_id = userId;
           f.description = `Смесь (${formulaVolume}мл, ${brandStr}, ${temperature}°C)`;
         });
       });
@@ -98,6 +107,8 @@ function FeedingScreenContent({ feedings }: { feedings: Feeding[] }) {
     try {
       const prodStr = weaningProduct.trim() || 'Прикорм';
       const reactionStr = reaction === 'happy' ? 'рад' : reaction === 'neutral' ? 'норм' : 'плач';
+      const babyId = await resolveBabyId();
+      const userId = getCurrentUserId();
       await database.write(async () => {
         await database.get<Feeding>('feedings').create(f => {
           f.type = 'solid';
@@ -106,6 +117,8 @@ function FeedingScreenContent({ feedings }: { feedings: Feeding[] }) {
           f.solid_product = weaningProduct;
           f.solid_volume_g = parseInt(weaningVolume) || 0;
           f.solid_reaction = reaction;
+          if (babyId) f.baby_id = babyId;
+          if (userId) f.user_id = userId;
           f.description = `${prodStr} (${weaningVolume}г, ${reactionStr})`;
         });
       });

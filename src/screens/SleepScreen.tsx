@@ -15,6 +15,7 @@ import EditRecordModal from '../components/EditRecordModal';
 import { useTimerStore } from '../store/timerStore';
 import { startSleepTimerNotification, cancelSleepTimerNotification } from '../lib/timerNotifications';
 import { pushNow } from '../db/sync';
+import { resolveBabyId, getCurrentUserId } from '../db/syncHelpers';
 
 const LOCATIONS = [
   { id: 'crib', label: 'Кроватка', icon: 'bed', color: '#8B5CF6' },
@@ -71,6 +72,8 @@ function SleepScreenContent({ sleeps }: { sleeps: Sleep[] }) {
     setSleepConfig({ isRunning: false });
     if (seconds > 0) {
        try {
+         const babyId = await resolveBabyId();
+         const userId = getCurrentUserId();
          await database.write(async () => {
            await database.get<Sleep>('sleeps').create(sleep => {
              sleep.duration_seconds = seconds;
@@ -80,6 +83,8 @@ function SleepScreenContent({ sleeps }: { sleeps: Sleep[] }) {
              sleep.end_time = Date.now();
              sleep.created_at = startTime || Date.now() - (seconds * 1000);
              sleep.recorded_by = activeParent;
+             if (babyId) sleep.baby_id = babyId;
+             if (userId) sleep.user_id = userId;
            });
          });
        } catch (error) {
@@ -98,6 +103,8 @@ function SleepScreenContent({ sleeps }: { sleeps: Sleep[] }) {
     const durationSeconds = Math.floor((manualEnd.getTime() - manualStart.getTime()) / 1000);
     
     try {
+      const babyId = await resolveBabyId();
+      const userId = getCurrentUserId();
       await database.write(async () => {
         await database.get<Sleep>('sleeps').create(sleep => {
           sleep.duration_seconds = durationSeconds;
@@ -107,6 +114,8 @@ function SleepScreenContent({ sleeps }: { sleeps: Sleep[] }) {
           sleep.end_time = manualEnd.getTime();
           sleep.created_at = manualStart.getTime();
           sleep.recorded_by = activeParent;
+          if (babyId) sleep.baby_id = babyId;
+          if (userId) sleep.user_id = userId;
         });
       });
       triggerHaptic('success');

@@ -13,6 +13,7 @@ import DateTimePickerModal from '../components/DateTimePickerModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { pushNow } from '../db/sync';
+import { resolveBabyId, getCurrentUserId } from '../db/syncHelpers';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -76,6 +77,8 @@ const ShiftsScreenContent = ({ feedings, sleeps, diapers, tasks, shiftsData }: a
 
     const next = currentAssigned === 'mom' ? 'dad' : currentAssigned === 'dad' ? null : 'mom';
     try {
+      const babyId = await resolveBabyId();
+      const userId = getCurrentUserId();
       await database.write(async () => {
          const existing = shiftsData.find((s: any) => s.shift_date === dateStr);
          if (existing) {
@@ -90,6 +93,8 @@ const ShiftsScreenContent = ({ feedings, sleeps, diapers, tasks, shiftsData }: a
                s.assigned_to = next;
                s.active_parent = next;
                s.started_at = Date.now();
+               if (babyId) s.baby_id = babyId;
+               if (userId) s.user_id = userId;
             });
          }
       });
@@ -155,6 +160,8 @@ const ShiftsScreenContent = ({ feedings, sleeps, diapers, tasks, shiftsData }: a
   const handleAddTask = async () => {
     if (!newTaskTitle.trim()) return;
     try {
+      const babyId = await resolveBabyId();
+      const userId = getCurrentUserId();
       await database.write(async () => {
         await database.get('tasks').create((task: any) => {
           task.title = newTaskTitle.trim();
@@ -164,6 +171,8 @@ const ShiftsScreenContent = ({ feedings, sleeps, diapers, tasks, shiftsData }: a
           if (newTaskTime) {
              task.due_time = newTaskTime.toISOString();
           }
+          if (babyId) task.baby_id = babyId;
+          if (userId) task.user_id = userId;
         });
       });
       setNewTaskTitle('');

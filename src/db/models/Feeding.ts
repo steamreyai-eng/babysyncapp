@@ -17,5 +17,7 @@ export class Feeding extends Model {
   @field('solid_volume_g') solid_volume_g?: number
   @field('solid_reaction') solid_reaction?: string
   @field('recorded_by') recorded_by!: string
+  @field('baby_id') baby_id?: string
+  @field('user_id') user_id?: string
   @date('created_at') created_at!: number
 }

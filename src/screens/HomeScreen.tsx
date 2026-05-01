@@ -19,6 +19,7 @@ import { NotificationSettingsModal } from '../components/NotificationSettingsMod
 import { COLORS, FONTS } from '../lib/theme';
 import { useRoutineEngine } from '../hooks/useRoutineEngine';
 import { pushNow } from '../db/sync';
+import { resolveBabyId, getCurrentUserId } from '../db/syncHelpers';
 
 const MS_IN_24H = 24 * 3600 * 1000;
 const { width } = Dimensions.get('window');
@@ -274,6 +275,8 @@ const HomeScreenContent = ({ feedings, sleeps, diapers, walks, tasks, insights }
   const addTask = async () => {
     if (!newTaskTitle.trim()) return;
     try {
+      const babyId = await resolveBabyId();
+      const userId = getCurrentUserId();
       await database.write(async () => {
         await database.get('tasks').create((task: any) => {
           task.title = newTaskTitle.trim();
@@ -282,6 +285,8 @@ const HomeScreenContent = ({ feedings, sleeps, diapers, walks, tasks, insights }
           if (newTaskTime) {
             task.due_time = String(newTaskTime.getTime());
           }
+          if (babyId) task.baby_id = babyId;
+          if (userId) task.user_id = userId;
         });
       });
       setNewTaskTitle('');
@@ -312,6 +317,8 @@ const HomeScreenContent = ({ feedings, sleeps, diapers, walks, tasks, insights }
     
     const now = Date.now();
     try {
+      const babyId = await resolveBabyId();
+      const userId = getCurrentUserId();
       await database.write(async () => {
         await database.get('sleeps').create((sleep: any) => {
           sleep.duration_seconds = avgDuration;
@@ -322,6 +329,8 @@ const HomeScreenContent = ({ feedings, sleeps, diapers, walks, tasks, insights }
           sleep.recorded_by = activeParent;
           sleep.is_synthetic = true;
           sleep.created_at = now - avgDuration * 1000;
+          if (babyId) sleep.baby_id = babyId;
+          if (userId) sleep.user_id = userId;
         });
       });
       pushNow();

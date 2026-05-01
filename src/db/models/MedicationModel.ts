@@ -9,5 +9,7 @@ export class MedicationModel extends Model {
   @field('time_str') time_str!: string
   @field('taken') taken!: boolean
   @field('recorded_by') recorded_by!: string
+  @field('baby_id') baby_id?: string
+  @field('user_id') user_id?: string
   @date('created_at') created_at!: number
 }

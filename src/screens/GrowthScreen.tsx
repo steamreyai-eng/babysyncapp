@@ -11,6 +11,7 @@ import withObservables from '@nozbe/with-observables';
 import { Q } from '@nozbe/watermelondb';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { pushNow } from '../db/sync';
+import { resolveBabyId, getCurrentUserId } from '../db/syncHelpers';
 
 const months = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 const P3 = [2.4, 3.2, 4.0, 4.7, 5.4, 5.9, 6.4, 6.8, 7.2, 7.5, 7.9, 8.1, 8.4];
@@ -99,6 +100,8 @@ function GrowthScreenContent({ growthRecords }: { growthRecords: GrowthRecord[] 
     
     setSaving(cfg.key);
     try {
+      const babyId = await resolveBabyId();
+      const userId = getCurrentUserId();
       await database.write(async () => {
         await database.get<GrowthRecord>('growth_records').create(r => {
           if (cfg.field === 'weight_kg') r.weight_kg = val;
@@ -106,6 +109,8 @@ function GrowthScreenContent({ growthRecords }: { growthRecords: GrowthRecord[] 
           if (cfg.field === 'head_cm') r.head_cm = val; // Assuming headValue was meant to be val for head_cm
           r.recorded_by = 'user';
           r.created_at = Date.now();
+          if (babyId) r.baby_id = babyId;
+          if (userId) r.user_id = userId;
         });
       });
       pushNow();

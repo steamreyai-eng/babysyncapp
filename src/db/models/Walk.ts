@@ -10,5 +10,7 @@ export class Walk extends Model {
   @field('distance_m') distance_m?: number
   @field('notes') notes?: string
   @field('recorded_by') recorded_by!: string
+  @field('baby_id') baby_id?: string
+  @field('user_id') user_id?: string
   @date('created_at') created_at!: number
 }

@@ -15,6 +15,7 @@ import EditRecordModal from '../components/EditRecordModal';
 import { useTimerStore } from '../store/timerStore';
 import { startWalkTimerNotification, cancelWalkTimerNotification } from '../lib/timerNotifications';
 import { pushNow } from '../db/sync';
+import { resolveBabyId, getCurrentUserId } from '../db/syncHelpers';
 
 const LOCATIONS = [
   { id: 'park', label: 'Парк', icon: 'leaf', color: '#059669' },
@@ -78,6 +79,8 @@ function WalkScreenContent({ walks }: { walks: Walk[] }) {
     setWalkConfig({ isRunning: false });
     if (seconds > 0) {
        try {
+         const babyId = await resolveBabyId();
+         const userId = getCurrentUserId();
          await database.write(async () => {
            await database.get<Walk>('walks').create(walk => {
              walk.duration_seconds = seconds;
@@ -86,6 +89,8 @@ function WalkScreenContent({ walks }: { walks: Walk[] }) {
              walk.notes = notes.trim() || undefined;
              walk.created_at = startTime || Date.now() - (seconds * 1000);
              walk.recorded_by = activeParent;
+             if (babyId) walk.baby_id = babyId;
+             if (userId) walk.user_id = userId;
            });
          });
          pushNow();
@@ -106,6 +111,8 @@ function WalkScreenContent({ walks }: { walks: Walk[] }) {
     const durationSeconds = Math.floor((manualEnd.getTime() - manualStart.getTime()) / 1000);
     
     try {
+      const babyId = await resolveBabyId();
+      const userId = getCurrentUserId();
       await database.write(async () => {
         await database.get<Walk>('walks').create(walk => {
           walk.duration_seconds = durationSeconds;
@@ -114,6 +121,8 @@ function WalkScreenContent({ walks }: { walks: Walk[] }) {
           walk.notes = notes.trim() || undefined;
           walk.created_at = manualStart.getTime();
           walk.recorded_by = activeParent;
+          if (babyId) walk.baby_id = babyId;
+          if (userId) walk.user_id = userId;
         });
       });
       pushNow();

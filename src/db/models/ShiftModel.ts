@@ -8,4 +8,5 @@ export class ShiftModel extends Model {
   @date('started_at') started_at!: Date
   @field('shift_date') shift_date?: string
   @field('assigned_to') assigned_to?: string
+  @field('baby_id') baby_id?: string
 }

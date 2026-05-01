@@ -13,6 +13,7 @@ import withObservables from '@nozbe/with-observables';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import EditRecordModal from '../components/EditRecordModal';
 import { pushNow } from '../db/sync';
+import { resolveBabyId, getCurrentUserId } from '../db/syncHelpers';
 
 const COLOR_OPTIONS = [
   { label: 'Жёлтый – жидкий', tag: 'норма', dotColor: '#F5D63D' },
@@ -41,6 +42,8 @@ function DiaperScreenContent({ diapers }: { diapers: Diaper[] }) {
 
   const handleSave = async () => {
     try {
+      const babyId = await resolveBabyId();
+      const userId = getCurrentUserId();
       await database.write(async () => {
         await database.get<Diaper>('diapers').create(diaper => {
           diaper.type = type;
@@ -48,6 +51,8 @@ function DiaperScreenContent({ diapers }: { diapers: Diaper[] }) {
           diaper.note = notes || undefined;
           diaper.created_at = manualTime.getTime();
           diaper.recorded_by = activeParent;
+          if (babyId) diaper.baby_id = babyId;
+          if (userId) diaper.user_id = userId;
         });
       });
       pushNow();

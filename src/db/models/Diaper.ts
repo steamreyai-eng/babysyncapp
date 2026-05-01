@@ -8,5 +8,7 @@ export class Diaper extends Model {
   @field('color') color?: string
   @field('note') note?: string
   @field('recorded_by') recorded_by!: string
+  @field('baby_id') baby_id?: string
+  @field('user_id') user_id?: string
   @date('created_at') created_at!: number
 }

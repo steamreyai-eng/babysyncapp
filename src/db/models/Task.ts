@@ -8,6 +8,8 @@ export class Task extends Model {
   @field('is_completed') is_completed!: boolean
   @field('due_time') due_time!: string | null
   @field('recorded_by') recorded_by!: string
+  @field('baby_id') baby_id?: string
+  @field('user_id') user_id?: string
 
   @readonly @date('created_at') createdAt!: Date
 }
