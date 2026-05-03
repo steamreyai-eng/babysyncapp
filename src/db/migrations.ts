@@ -141,5 +141,21 @@ export const migrations = schemaMigrations({
         ),
       ],
     },
+    {
+      // v8 → v9: Add user_id to ALL tables
+      toVersion: 9,
+      steps: [
+        ...['feedings', 'sleeps', 'diapers', 'walks', 'tasks',
+            'growth_records', 'medications', 'vaccinations',
+            'doctor_visits', 'shifts'].map(table =>
+          addColumns({
+            table,
+            columns: [
+              { name: 'user_id', type: 'string', isOptional: true },
+            ],
+          })
+        ),
+      ],
+    },
   ],
 })

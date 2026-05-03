@@ -269,6 +269,9 @@ export default Sentry.wrap(function App() {
       const { syncWithSupabase } = await getSyncModule();
       await syncWithSupabase(force);
       checkTodayShift();
+      import('./src/store/dataStore').then(({ useDataStore }) =>
+        useDataStore.getState().reload()
+      );
     } catch (e) {
       if (__DEV__) console.warn('Sync failed', e);
     }
