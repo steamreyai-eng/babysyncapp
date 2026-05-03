@@ -247,7 +247,7 @@ export async function syncWithSupabase(force = false) {
             // ── Push created records (batch upsert) ──
             if (tableChanges.created?.length > 0) {
               const cleaned = tableChanges.created.map((r: any) => {
-                const { _status, _changed, deleted_at, ...rest } = r;
+                const { _status, _changed, deleted_at, is_synthetic, ...rest } = r;
 
                 // Convert all known timestamp/epoch fields to ISO strings for Supabase `timestampz` columns
                 const timeFields = ['created_at', 'updated_at', 'start_time', 'end_time', 'due_time', 'started_at'];
@@ -278,7 +278,7 @@ export async function syncWithSupabase(force = false) {
             // ── Push updated records (batch upsert instead of sequential update) ──
             if (tableChanges.updated?.length > 0) {
               const cleaned = tableChanges.updated.map((r: any) => {
-                const { _status, _changed, ...rest } = r;
+                const { _status, _changed, is_synthetic, ...rest } = r;
 
                 const timeFields = ['created_at', 'updated_at', 'deleted_at', 'start_time', 'end_time', 'due_time', 'started_at'];
                 for (const tf of timeFields) {
