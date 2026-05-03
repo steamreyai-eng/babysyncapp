@@ -130,7 +130,7 @@ const HomeScreenContent = ({ feedings, sleeps, diapers, walks, tasks, insights }
     async function fetchPrediction() {
       if (!sleeps || sleeps.length === 0) return;
       try {
-        const recentSleeps = sleeps.slice(0, 5).map((s:any) => {
+        const recentSleeps = sleeps.slice(0, 30).map((s:any) => {
           const start = s.start_time ? (typeof s.start_time === 'string' ? new Date(s.start_time).getTime() : s.start_time) : new Date(s.created_at).getTime();
           const duration = s.duration_seconds || 0;
           return {
