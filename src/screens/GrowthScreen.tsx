@@ -13,16 +13,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { pushNow } from '../db/sync';
 import { resolveBabyId, getCurrentUserId } from '../db/syncHelpers';
 
-const months = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
-const P3 = [2.4, 3.2, 4.0, 4.7, 5.4, 5.9, 6.4, 6.8, 7.2, 7.5, 7.9, 8.1, 8.4];
-const P50 = [3.2, 4.2, 5.1, 5.8, 6.4, 7.0, 7.5, 8.0, 8.5, 8.9, 9.2, 9.6, 9.9];
-const P97 = [4.2, 5.5, 6.6, 7.5, 8.3, 9.0, 9.7, 10.2, 10.8, 11.3, 11.7, 12.1, 12.6];
+import whoStandards from '../assets/who/growth_standards.json';
 
 const W = 280, H = 130;
-const minKg = 2, maxKg = 13;
-const toX = (m: number) => (m / 12) * W;
-const toY = (kg: number) => H - ((kg - minKg) / (maxKg - minKg)) * H;
-const pathD = (data: number[]) => data.map((v, i) => `${i === 0 ? 'M' : 'L'} ${toX(months[i]).toFixed(1)} ${toY(v).toFixed(1)}`).join(' ');
+const toX = (m: number) => (m / 24) * W; // Updated to 24 months
+const toY = (val: number, minY: number, maxY: number) => H - ((val - minY) / (maxY - minY)) * H;
+const pathD = (data: number[], monthsArr: number[], minY: number, maxY: number) => 
+  data.map((v, i) => `${i === 0 ? 'M' : 'L'} ${toX(monthsArr[i]).toFixed(1)} ${toY(v, minY, maxY).toFixed(1)}`).join(' ');
 
 const milestones = [
   { month: 1, text: 'Поднимает подбородок лёжа на животе' },
@@ -191,26 +188,41 @@ function GrowthScreenContent({ growthRecords }: { growthRecords: GrowthRecord[] 
           </View>
           <View style={{ borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: '#E0DDD8', backgroundColor: 'white', padding: 8 }}>
             <Svg viewBox={`0 0 ${W} ${H + 12}`} style={{ width: '100%', height: 150 }}>
-              {[3, 5, 7, 9, 11].map(kg => (
-                <Line key={kg} x1="0" y1={toY(kg)} x2={W} y2={toY(kg)} stroke="#E0DDD8" strokeWidth="0.5" />
-              ))}
-              <Path d={pathD(P3)} stroke="#EF4444" strokeWidth="1" fill="none" opacity={0.5} />
-              <Path d={pathD(P50)} stroke="#059669" strokeWidth="2" fill="none" />
-              <Path d={pathD(P97)} stroke="#8B5CF6" strokeWidth="1" fill="none" opacity={0.5} />
-              {[{ d: P3, label: 'P3', color: '#EF4444' }, { d: P50, label: 'P50', color: '#059669' }, { d: P97, label: 'P97', color: '#8B5CF6' }].map(({ d, label, color }) => (
-                <SvgText key={label} x={W - 2} y={toY(d[d.length - 1]) + 3} fontSize="7" fill={color} fontWeight="700" textAnchor="end">{label}</SvgText>
-              ))}
-              {growthRecords.slice(0, 3).map((r, i) => {
-                if (!baby?.birthdate) return null;
-                const recDate = new Date(r.created_at);
-                const monthAge = (recDate.getTime() - new Date(baby.birthdate).getTime()) / (30.44 * 24 * 3600 * 1000);
-                const val = activeChart === 'weight' ? r.weight_kg : activeChart === 'height' ? r.height_cm : r.head_cm;
-                if (!val || monthAge < 0 || monthAge > 12) return null;
-                return <SvgCircle key={r.id} cx={toX(monthAge)} cy={toY(val)} r={i === 0 ? 5 : 3.5} fill="#8B5CF6" stroke="white" strokeWidth="1.5" />;
-              })}
-              {[0, 3, 6, 9, 12].map(m => (
-                <SvgText key={m} x={toX(m)} y={H + 10} fontSize="6" fill="#6B6B80" textAnchor="middle">{m}мес</SvgText>
-              ))}
+              {(() => {
+                const chartData = whoStandards[activeChart];
+                const { minY, maxY, months: mArr, p3, p50, p97 } = chartData;
+                
+                // Helper to generate horizontal lines
+                const gridLines = [];
+                const step = (maxY - minY) / 5;
+                for (let i = 0; i <= 5; i++) {
+                   const val = minY + i * step;
+                   gridLines.push(<Line key={val} x1="0" y1={toY(val, minY, maxY)} x2={W} y2={toY(val, minY, maxY)} stroke="#E0DDD8" strokeWidth="0.5" />);
+                }
+
+                return (
+                  <>
+                    {gridLines}
+                    <Path d={pathD(p3, mArr, minY, maxY)} stroke="#EF4444" strokeWidth="1" fill="none" opacity={0.5} />
+                    <Path d={pathD(p50, mArr, minY, maxY)} stroke="#059669" strokeWidth="2" fill="none" />
+                    <Path d={pathD(p97, mArr, minY, maxY)} stroke="#8B5CF6" strokeWidth="1" fill="none" opacity={0.5} />
+                    {[{ d: p3, label: 'P3', color: '#EF4444' }, { d: p50, label: 'P50', color: '#059669' }, { d: p97, label: 'P97', color: '#8B5CF6' }].map(({ d, label, color }) => (
+                      <SvgText key={label} x={W - 2} y={toY(d[d.length - 1], minY, maxY) + 3} fontSize="7" fill={color} fontWeight="700" textAnchor="end">{label}</SvgText>
+                    ))}
+                    {growthRecords.slice(0, 10).map((r, i) => {
+                      if (!baby?.birthdate) return null;
+                      const recDate = new Date(r.created_at);
+                      const monthAge = (recDate.getTime() - new Date(baby.birthdate).getTime()) / (30.44 * 24 * 3600 * 1000);
+                      const val = activeChart === 'weight' ? r.weight_kg : activeChart === 'height' ? r.height_cm : r.head_cm;
+                      if (!val || monthAge < 0 || monthAge > 24) return null;
+                      return <SvgCircle key={r.id} cx={toX(monthAge)} cy={toY(val, minY, maxY)} r={i === 0 ? 5 : 3.5} fill="#8B5CF6" stroke="white" strokeWidth="1.5" />;
+                    })}
+                    {[0, 6, 12, 18, 24].map(m => (
+                      <SvgText key={m} x={toX(m)} y={H + 10} fontSize="6" fill="#6B6B80" textAnchor="middle">{m}мес</SvgText>
+                    ))}
+                  </>
+                );
+              })()}
             </Svg>
           </View>
         </View>

@@ -20,7 +20,7 @@ interface Message {
 
 const AI_CONSENT_KEY = '@babysync_ai_consent';
 
-const AIScreenContent = () => {
+const AIScreenContent = ({ initialPayload }: { initialPayload?: any }) => {
   const [messages, setMessages] = useState<Message[]>([
       { role: 'assistant', text: 'Привет! Я AI-ассистент. Могу анализировать паттерны, давать советы по нормам ВОЗ. Чем помочь?' }
   ]);
@@ -114,7 +114,8 @@ const AIScreenContent = () => {
       sleeps: sortedSleep.map(s => ({ start: new Date(s.created_at).toLocaleString(), end: new Date(s.end_time).toLocaleString(), durationMin: Math.round(s.duration_seconds / 60) })),
       diapers: sortedDiaper.map(d => ({ time: new Date(d.created_at).toLocaleString(), type: d.diaper_type })),
       walks: sortedWalk.map(w => ({ start: new Date(w.created_at).toLocaleString(), durationMin: Math.round(w.duration_seconds / 60) })),
-      growth: sortedGrowth.map(g => ({ date: new Date(g.date).toLocaleDateString(), weight_kg: g.weight_kg, height_cm: g.height_cm }))
+      growth: sortedGrowth.map(g => ({ date: new Date(g.date).toLocaleDateString(), weight_kg: g.weight_kg, height_cm: g.height_cm })),
+      sleepContext: initialPayload?.sleepContext
     };
   };
 
@@ -393,6 +394,6 @@ const styles = StyleSheet.create({
   consentDeclineText: { fontSize: 13, fontFamily: 'Nunito_700Bold', color: '#94A3B8' },
 });
 
-export default function AIScreen() {
-  return <AIScreenContent />;
+export default function AIScreen({ initialPayload }: { initialPayload?: any }) {
+  return <AIScreenContent initialPayload={initialPayload} />;
 }

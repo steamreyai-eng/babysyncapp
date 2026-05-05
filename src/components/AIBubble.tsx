@@ -7,10 +7,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const AIBubble = () => {
     const [open, setOpen] = useState(false);
+    const [payload, setPayload] = useState<any>(null);
     const insets = useSafeAreaInsets();
 
     React.useEffect(() => {
-        const listener = DeviceEventEmitter.addListener('openAIBubble', () => setOpen(true));
+        const listener = DeviceEventEmitter.addListener('openAIBubble', (p) => {
+            setPayload(p);
+            setOpen(true);
+        });
         return () => listener.remove();
     }, []);
 
@@ -42,7 +46,7 @@ const AIBubble = () => {
                              <X size={24} color="#1A1A2E" strokeWidth={1.5} />
                         </TouchableOpacity>
                         <View style={{ flex: 1, overflow: 'hidden', borderTopLeftRadius: 28, borderTopRightRadius: 28 }}>
-                            <AIScreen />
+                            <AIScreen initialPayload={payload} />
                         </View>
                     </View>
                 </View>

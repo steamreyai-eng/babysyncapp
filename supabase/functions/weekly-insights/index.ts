@@ -23,13 +23,17 @@ serve(async (req) => {
       apiKey: Deno.env.get("OPENAI_API_KEY"),
     });
 
-    // In a real cron job, you'd iterate over users or accept user_id = "all" in body.
-    // For this example, we assume we want to generate an insight for a specific user.
-    const { user_id } = await req.json();
-
-    if (!user_id) {
-       return new Response(JSON.stringify({ error: "Missing user_id" }), { status: 400 });
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
     }
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
+    
+    if (authError || !user) {
+       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+    }
+    const user_id = user.id;
 
     // 1. Gather weekly stats. E.g. get sleep logs for the last 7 days.
     const oneWeekAgo = new Date();

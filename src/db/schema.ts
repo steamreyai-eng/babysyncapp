@@ -1,7 +1,7 @@
 import { appSchema, tableSchema } from '@nozbe/watermelondb'
 
 export const schema = appSchema({
-  version: 9,
+  version: 10,
   tables: [
     tableSchema({
       name: 'feedings',
@@ -106,7 +106,13 @@ export const schema = appSchema({
       columns: [
         { name: 'name', type: 'string' },
         { name: 'dose', type: 'string' },
+        { name: 'unit', type: 'string', isOptional: true },
+        { name: 'frequency', type: 'string', isOptional: true },
         { name: 'time_str', type: 'string' },
+        { name: 'start_date', type: 'string', isOptional: true },
+        { name: 'end_date', type: 'string', isOptional: true },
+        { name: 'prescribing_doctor', type: 'string', isOptional: true },
+        { name: 'doctor_visit_id', type: 'string', isOptional: true },
         { name: 'taken', type: 'boolean' },
         { name: 'recorded_by', type: 'string' },
         { name: 'created_at', type: 'number' },
@@ -169,6 +175,21 @@ export const schema = appSchema({
         { name: 'updated_at', type: 'number' },
         { name: 'deleted_at', type: 'number', isOptional: true },
         { name: 'baby_id', type: 'string', isOptional: true },
+      ]
+    }),
+    tableSchema({
+      name: 'health_logs',
+      columns: [
+        { name: 'temperature', type: 'number', isOptional: true },
+        { name: 'symptoms', type: 'string', isOptional: true },
+        { name: 'notes', type: 'string', isOptional: true },
+        { name: 'recorded_by', type: 'string' },
+        { name: 'created_at', type: 'number' },
+        { name: 'updated_at', type: 'number' },
+        { name: 'deleted_at', type: 'number', isOptional: true },
+        { name: 'baby_id', type: 'string', isOptional: true },
+        { name: 'user_id', type: 'string', isOptional: true },
+        { name: 'is_sick', type: 'boolean', isOptional: true },
       ]
     }),
   ]

@@ -18,8 +18,10 @@ import { NotificationSettingsModal } from '../components/NotificationSettingsMod
 // FAB is rendered globally in App.tsx — no need to import here
 import { COLORS, FONTS } from '../lib/theme';
 import { useRoutineEngine } from '../hooks/useRoutineEngine';
+import { fetchSleepPrediction } from '../lib/sleepPrediction';
 import { pushNow } from '../db/sync';
 import { resolveBabyId, getCurrentUserId } from '../db/syncHelpers';
+import { supabase } from '../lib/supabase';
 
 const MS_IN_24H = 24 * 3600 * 1000;
 const { width } = Dimensions.get('window');
@@ -130,29 +132,17 @@ const HomeScreenContent = ({ feedings, sleeps, diapers, walks, tasks, insights }
     async function fetchPrediction() {
       if (!sleeps || sleeps.length === 0) return;
       try {
-        const recentSleeps = sleeps.slice(0, 30).map((s:any) => {
-          const start = s.start_time ? (typeof s.start_time === 'string' ? new Date(s.start_time).getTime() : s.start_time) : new Date(s.created_at).getTime();
-          const duration = s.duration_seconds || 0;
-          return {
-            duration_seconds: duration,
-            start_time: start,
-            end_time: s.end_time ? (typeof s.end_time === 'string' ? new Date(s.end_time).getTime() : s.end_time) : (start + duration * 1000),
-            quality: s.quality || 3
-          };
-        });
+        const babyId = await resolveBabyId();
+        const { data: { session } } = await supabase.auth.getSession();
         
-        const response = await fetch('https://babysyncapp.onrender.com/predict_sleep', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({
-            baby_age_months: ageMo,
-            recent_sleeps: recentSleeps,
-            current_time_ms: Date.now()
-          }),
-          signal: abortController.signal,
-        });
+        if (!babyId || !session?.access_token) {
+          if (__DEV__) console.warn('Missing babyId or access token for ML Predictor');
+          return;
+        }
+
+        const data = await fetchSleepPrediction(babyId, ageMo, sleeps);
         if (abortController.signal.aborted) return;
-        const data = await response.json();
+        
         if (data && data.next_sleep_time_ms) {
           setMlPrediction(data);
         }
@@ -458,6 +448,11 @@ const HomeScreenContent = ({ feedings, sleeps, diapers, walks, tasks, insights }
                     Сон в: {nextSleepTimeStr} {mlPrediction ? `(точн. ${Math.round(mlPrediction.confidence_score * 100)}%)` : ''}
                   </Text>
                 </View>
+              )}
+              {mlPrediction && mlPrediction.explanation && showSleepAction && (
+                <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 12, color: 'rgba(255,255,255,0.9)', marginTop: 8, fontStyle: 'italic', lineHeight: 16 }}>
+                  {mlPrediction.explanation}
+                </Text>
               )}
             </View>
             <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' }}>

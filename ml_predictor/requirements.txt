@@ -4,3 +4,7 @@ pydantic
 numpy
 xgboost
 scikit-learn
+python-jose[cryptography]
+supabase
+joblib
+openai

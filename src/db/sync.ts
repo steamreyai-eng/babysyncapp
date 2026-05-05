@@ -24,6 +24,7 @@ const SYNC_TABLES = [
   'diapers',
   'walks',
   'tasks',
+  'health_logs',
   'growth_records',
   'medications',
   'vaccinations',

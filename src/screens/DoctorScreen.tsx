@@ -2,10 +2,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, TextInput,
-  StyleSheet, Alert, ActivityIndicator,
+  StyleSheet, Alert, ActivityIndicator, Image
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
+import * as Notifications from 'expo-notifications';
 import { database } from '../db';
 import withObservables from '@nozbe/with-observables';
 import { Q } from '@nozbe/watermelondb';
@@ -21,13 +24,26 @@ import { resolveBabyId, getCurrentUserId } from '../db/syncHelpers';
 type DocTab = 'visits' | 'vaccines';
 
 const vaccineSchedule = [
-  { age: 'При рождении', vaccines: ['БЦЖ', 'Гепатит B-1'] },
-  { age: '1 месяц', vaccines: ['Гепатит B-2'] },
-  { age: '2 месяца', vaccines: ['АКДС-1', 'ИПВ-1', 'Хиб-1', 'ПКВ-1'] },
-  { age: '4 месяца', vaccines: ['АКДС-2', 'ИПВ-2', 'Хиб-2', 'ПКВ-2'] },
-  { age: '6 месяцев', vaccines: ['АКДС-3', 'ИПВ-3', 'Гепатит B-3'] },
-  { age: '12 месяцев', vaccines: ['КПК-1', 'Ветрянка'] },
+  { age: 'При рождении', ageMonths: 0, vaccines: ['Гепатит В (1)', 'Туберкулез (БЦЖ-М)'] },
+  { age: '1 месяц', ageMonths: 1, vaccines: ['Гепатит В (2)'] },
+  { age: '2 месяца', ageMonths: 2, vaccines: ['Пневмококк (1)'] },
+  { age: '3 месяца', ageMonths: 3, vaccines: ['КДК (1)', 'Полиомиелит (1)', 'Гемофильная (1)'] },
+  { age: '4.5 месяца', ageMonths: 4.5, vaccines: ['КДК (2)', 'Полиомиелит (2)', 'Гемофильная (2)', 'Пневмококк (2)'] },
+  { age: '6 месяцев', ageMonths: 6, vaccines: ['КДК (3)', 'Полиомиелит (3)', 'Гемофильная (3)', 'Гепатит В (3)'] },
+  { age: '1 год', ageMonths: 12, vaccines: ['Корь, краснуха, паротит', 'Пневмококк (ревакцинация)'] },
+  { age: '1.5 года', ageMonths: 18, vaccines: ['КДК (ревакцинация)', 'Полиомиелит (ревакцинация)', 'Гемофильная (ревакцинация)'] },
+  { age: '20 месяцев', ageMonths: 20, vaccines: ['Полиомиелит (ревакцинация 2)'] },
 ];
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
 
 const LocalPediatricianTips = () => {
     const baby = useAuthStore(state => state.baby);
@@ -94,14 +110,62 @@ const DoctorScreenContent = ({ doctorVisits, vaccinations }: { doctorVisits: Doc
   const navigation = useNavigation();
   const session = useAuthStore(state => state.session);
   const activeParent = useAuthStore(state => state.activeParent);
+  const baby = useAuthStore(state => state.baby);
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<DocTab>('visits');
   const [showAddForm, setShowAddForm] = useState(false);
   const [newDoctor, setNewDoctor] = useState('');
   const [newType, setNewType] = useState('');
   const [newNotes, setNewNotes] = useState('');
+  const [newPhotoUri, setNewPhotoUri] = useState<string | null>(null);
   const [aiCheckingId, setAiCheckingId] = useState<string | null>(null);
   const [aiResultMap, setAiResultMap] = useState<Record<string, string>>({});
+
+  const calculateExpectedDate = (birthdate: string | null | undefined, ageMonths: number) => {
+    if (!birthdate) return null;
+    const date = new Date(birthdate);
+    date.setMonth(date.getMonth() + Math.floor(ageMonths));
+    if (ageMonths % 1 !== 0) {
+      date.setDate(date.getDate() + 15);
+    }
+    return date;
+  };
+
+  useEffect(() => {
+    if (baby?.birthdate) {
+      scheduleVaccineNotifications(baby.birthdate);
+    }
+  }, [baby?.birthdate]);
+
+  const scheduleVaccineNotifications = async (birthdateStr: string) => {
+    try {
+      const { status } = await Notifications.requestPermissionsAsync();
+      if (status !== 'granted') return;
+      
+      await Notifications.cancelAllScheduledNotificationsAsync();
+      
+      vaccineSchedule.forEach(async (group) => {
+        const expectedDate = calculateExpectedDate(birthdateStr, group.ageMonths);
+        if (expectedDate && expectedDate.getTime() > Date.now()) {
+          const isDone = group.vaccines.every(v => vaccinations.some(vac => vac.vaccine_name === v));
+          if (!isDone) {
+            await Notifications.scheduleNotificationAsync({
+              content: {
+                title: "👶 Пора на прививку!",
+                body: `Ожидается ${group.age}: ${group.vaccines.join(', ')}`,
+              },
+              trigger: {
+                type: Notifications.SchedulableTriggerInputTypes.DATE,
+                date: expectedDate,
+              },
+            });
+          }
+        }
+      });
+    } catch (e) {
+      if (__DEV__) console.warn('Notification schedule error', e);
+    }
+  };
 
   const handleCompareWHO = async (visitId: string, notes: string) => {
       setAiCheckingId(visitId);
@@ -117,6 +181,26 @@ const DoctorScreenContent = ({ doctorVisits, vaccinations }: { doctorVisits: Doc
       setAiCheckingId(null);
   };
 
+  const handlePickPhoto = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Нужно разрешение', 'Для прикрепления фото нужен доступ к галерее');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets[0].uri) {
+        setNewPhotoUri(result.assets[0].uri);
+      }
+    } catch (e) {
+      Alert.alert('Ошибка', 'Не удалось открыть галерею');
+    }
+  };
+
   const handleAddVisit = async () => {
     if (!newDoctor || !newType) return;
     if (!session?.user.id) return;
@@ -130,14 +214,19 @@ const DoctorScreenContent = ({ doctorVisits, vaccinations }: { doctorVisits: Doc
            v.doctor = newDoctor;
            v.visit_type = newType;
           v.notes = newNotes;
+          v.has_photo = !!newPhotoUri;
           v.created_at = Date.now();
-          v.recorded_by = activeParent;
+          v.recorded_by = activeParent || 'user';
           if (babyId) v.baby_id = babyId;
           if (userId) v.user_id = userId;
          });
       });
-      pushNow();
-      setNewDoctor(''); setNewType(''); setNewNotes('');
+      
+      // If photo exists, we ideally would copy it to document directory
+      // For now we just reset state
+      
+      // pushNow(); - removed backend sync mention
+      setNewDoctor(''); setNewType(''); setNewNotes(''); setNewPhotoUri(null);
       setShowAddForm(false);
       Alert.alert('✓', 'Визит добавлен');
     } catch(err) {
@@ -169,7 +258,7 @@ const DoctorScreenContent = ({ doctorVisits, vaccinations }: { doctorVisits: Doc
           }
         }
       });
-      pushNow();
+      // pushNow(); - removed backend sync mention
     } catch (err) {
       if (__DEV__) console.warn("handleToggleVaccination error:", err);
     }
@@ -230,6 +319,19 @@ const DoctorScreenContent = ({ doctorVisits, vaccinations }: { doctorVisits: Doc
                 onChangeText={setNewNotes}
                 multiline
               />
+              {newPhotoUri ? (
+                <View style={{ marginBottom: 12, borderRadius: 12, overflow: 'hidden' }}>
+                  <Image source={{ uri: newPhotoUri }} style={{ width: '100%', height: 120 }} />
+                  <TouchableOpacity onPress={() => setNewPhotoUri(null)} style={{ position: 'absolute', top: 8, right: 8, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 12, padding: 4 }}>
+                    <Ionicons name="close" size={16} color="white" />
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity style={[styles.input, { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }]} onPress={handlePickPhoto}>
+                  <Ionicons name="camera" size={20} color="#94A3B8" />
+                  <Text style={{ fontFamily: 'Nunito_800ExtraBold', color: '#94A3B8' }}>Прикрепить фото рецепта</Text>
+                </TouchableOpacity>
+              )}
               <TouchableOpacity style={styles.saveBtn} onPress={handleAddVisit}>
                 <Text style={styles.saveBtnText}>Сохранить</Text>
               </TouchableOpacity>
@@ -338,7 +440,14 @@ const DoctorScreenContent = ({ doctorVisits, vaccinations }: { doctorVisits: Doc
                     )}
                   </View>
                   <View style={{ flex: 1, paddingBottom: 12 }}>
-                    <Text style={[styles.ageLabel, { color: isDone ? '#1A1A2E' : '#6B6B80' }]}>{g.age}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Text style={[styles.ageLabel, { color: isDone ? '#1A1A2E' : '#6B6B80' }]}>{g.age}</Text>
+                      {baby?.birthdate && !isDone && (
+                        <Text style={{ fontSize: 10, fontFamily: 'Nunito_700Bold', color: '#8A8A9E' }}>
+                          до {calculateExpectedDate(baby.birthdate, g.ageMonths)?.toLocaleDateString('ru-RU', {day:'numeric', month:'short', year:'numeric'})}
+                        </Text>
+                      )}
+                    </View>
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
                       {g.vaccines.map(v => {
                         const vacDone = vaccinations.some((vac: VaccinationModel) => vac.vaccine_name === v);

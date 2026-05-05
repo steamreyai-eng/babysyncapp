@@ -1,0 +1,74 @@
+import { supabase } from './supabase';
+import { database } from '../db';
+import { Q } from '@nozbe/watermelondb';
+
+export async function fetchSleepPrediction(babyId: string, ageMo: number, sleeps: any[]) {
+  if (!sleeps || sleeps.length === 0) return null;
+  
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!babyId || !session?.access_token) {
+      return null;
+    }
+
+    const recentSleeps = sleeps.slice(0, 30).map((s:any) => {
+      const start = s.start_time ? (typeof s.start_time === 'string' ? new Date(s.start_time).getTime() : s.start_time) : new Date(s.created_at).getTime();
+      const duration = s.duration_seconds || 0;
+      return {
+        duration_seconds: duration,
+        start_time: start,
+        end_time: s.end_time ? (typeof s.end_time === 'string' ? new Date(s.end_time).getTime() : s.end_time) : (start + duration * 1000),
+        quality: s.quality || 3
+      };
+    });
+    
+    const now = Date.now();
+    const oneDayAgo = now - 24 * 3600 * 1000;
+    
+    const recentFeedings = await database.get('feedings').query(
+      Q.where('created_at', Q.gt(oneDayAgo)),
+      Q.where('baby_id', babyId)
+    ).fetch();
+    const feedCount24h = recentFeedings.length;
+    
+    const recentWalks = await database.get('walks').query(
+      Q.where('created_at', Q.gt(oneDayAgo)),
+      Q.where('baby_id', babyId)
+    ).fetch();
+    const walkDuration24h = recentWalks.reduce((acc, w: any) => acc + (w.duration_seconds || 0), 0);
+    
+    const recentHealth = await database.get('health_logs').query(
+      Q.where('created_at', Q.gt(oneDayAgo)),
+      Q.where('baby_id', babyId),
+      Q.where('is_sick', true)
+    ).fetch();
+    const isSick = recentHealth.length > 0;
+    
+    const response = await fetch('https://babysyncapp.onrender.com/predict_sleep', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`
+      },
+      body: JSON.stringify({
+        baby_id: babyId,
+        baby_age_months: ageMo,
+        recent_sleeps: recentSleeps,
+        current_time_ms: now,
+        feed_count_24h: feedCount24h,
+        walk_duration_24h: walkDuration24h,
+        is_sick: isSick
+      })
+    });
+    
+    if (response.status === 401 || response.status === 403) {
+       return null;
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (e) {
+    if (__DEV__) console.warn('ML Predictor error:', e);
+    return null;
+  }
+}

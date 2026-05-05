@@ -3,6 +3,37 @@ import { createTable, addColumns, schemaMigrations } from '@nozbe/watermelondb/S
 export const migrations = schemaMigrations({
   migrations: [
     {
+      // v9 → v10: Add health_logs and update medications
+      toVersion: 10,
+      steps: [
+        createTable({
+          name: 'health_logs',
+          columns: [
+            { name: 'temperature', type: 'number', isOptional: true },
+            { name: 'symptoms', type: 'string', isOptional: true },
+            { name: 'notes', type: 'string', isOptional: true },
+            { name: 'recorded_by', type: 'string' },
+            { name: 'created_at', type: 'number' },
+            { name: 'updated_at', type: 'number' },
+            { name: 'deleted_at', type: 'number', isOptional: true },
+            { name: 'baby_id', type: 'string', isOptional: true },
+            { name: 'user_id', type: 'string', isOptional: true },
+          ],
+        }),
+        addColumns({
+          table: 'medications',
+          columns: [
+            { name: 'unit', type: 'string', isOptional: true },
+            { name: 'frequency', type: 'string', isOptional: true },
+            { name: 'start_date', type: 'string', isOptional: true },
+            { name: 'end_date', type: 'string', isOptional: true },
+            { name: 'prescribing_doctor', type: 'string', isOptional: true },
+            { name: 'doctor_visit_id', type: 'string', isOptional: true },
+          ],
+        }),
+      ],
+    },
+    {
       // v2 → v3: Add growth_records, medications, vaccinations, doctor_visits, shifts
       toVersion: 3,
       steps: [

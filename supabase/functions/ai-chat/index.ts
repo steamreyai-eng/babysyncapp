@@ -3,9 +3,9 @@
 // Set secrets: supabase secrets set OPENAI_API_KEY=sk-proj-... TAVILY_API_KEY=tvly-dev-...
 
 import { corsHeaders } from '../_shared/cors.ts'
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY') || ''
-const TAVILY_API_KEY = Deno.env.get('TAVILY_API_KEY')
 
 console.log('[ai-chat] OPENAI_API_KEY present:', !!OPENAI_API_KEY, 'prefix:', OPENAI_API_KEY.substring(0, 7))
 
@@ -24,6 +24,21 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
+    
+    const token = authHeader.replace('Bearer ', '');
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      { global: { headers: { Authorization: authHeader } } }
+    );
+    
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
 
     const { messages, contextData } = await req.json()
 
@@ -34,20 +49,27 @@ Deno.serve(async (req) => {
       })
     }
 
-    const systemMessage = {
-      role: 'system',
-      content: `Ты — высококвалифицированный педиатр-эксперт и персональный AI-ассистент в приложении BabySync. 
+    const systemPrompt = `Ты — высококвалифицированный педиатр-эксперт и персональный AI-ассистент в приложении BabySync. 
 Твоя экспертиза базируется на актуальных медицинских стандартах, нормах ВОЗ, AAP и принципах доказательной медицины.
 Текущая системная дата и время: ${new Date().toLocaleString('ru-RU')}.
+
 Контекст ребёнка (анонимизированный):
 ${JSON.stringify(contextData || {})}
 
+Контекст сна (SleepContext):
+ML Предиктор сна сообщает следующие данные (если есть):
+${contextData?.sleepContext ? JSON.stringify(contextData.sleepContext) : 'Нет данных ML предиктора'}
+
 Твоя задача:
 1. Анализировать предоставленные данные, выявлять паттерны и отклонения от норм.
-2. Давать максимально персонализированные и детальные ответы.
+2. Давать максимально персонализированные и детальные ответы. Учитывай данные ML предиктора сна, если пользователь спрашивает про сон.
 3. Формировать понятные аналитические сводки (в формате Markdown) по запросу.
-4. Быть эмпатичным. Всегда напоминать, что твои советы — не диагноз и не заменяют очную консультацию врача.`,
-    }
+4. Быть эмпатичным. Всегда напоминать, что твои советы — не диагноз и не заменяют очную консультацию врача.`;
+
+    const systemMessage = {
+      role: 'system',
+      content: systemPrompt
+    };
 
     const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',

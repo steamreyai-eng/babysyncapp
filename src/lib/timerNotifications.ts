@@ -20,6 +20,7 @@ import { Feeding } from '../db/models/Feeding';
 import { useTimerStore } from '../store/timerStore';
 import { useAuthStore } from '../store/authStore';
 import { pushNow } from '../db/sync';
+import { resolveBabyId, getCurrentUserId } from '../db/syncHelpers';
 
 const SLEEP_NOTIF_ID = 'babysync-sleep-timer';
 const WALK_NOTIF_ID = 'babysync-walk-timer';
@@ -251,6 +252,8 @@ export async function handleBackgroundStopSleep() {
   const seconds = Math.floor((Date.now() - startTime) / 1000);
   if (seconds > 0) {
      try {
+       const babyId = await resolveBabyId();
+       const userId = getCurrentUserId();
        await database.write(async () => {
          await database.get<Sleep>('sleeps').create(sleep => {
            sleep.duration_seconds = seconds;
@@ -260,6 +263,8 @@ export async function handleBackgroundStopSleep() {
            sleep.end_time = Date.now();
            sleep.created_at = startTime;
            sleep.recorded_by = useAuthStore.getState().activeParent || 'mom';
+           if (babyId) sleep.baby_id = babyId;
+           if (userId) sleep.user_id = userId;
          });
        });
      } catch (error) {
@@ -279,6 +284,8 @@ export async function handleBackgroundStopWalk() {
   const seconds = Math.floor((Date.now() - startTime) / 1000);
   if (seconds > 0) {
      try {
+       const babyId = await resolveBabyId();
+       const userId = getCurrentUserId();
        await database.write(async () => {
          await database.get<Walk>('walks').create(walk => {
            walk.duration_seconds = seconds;
@@ -287,6 +294,8 @@ export async function handleBackgroundStopWalk() {
            walk.notes = (notes || '').trim() || undefined;
            walk.created_at = startTime;
            walk.recorded_by = useAuthStore.getState().activeParent || 'mom';
+           if (babyId) walk.baby_id = babyId;
+           if (userId) walk.user_id = userId;
          });
        });
      } catch (error) {
