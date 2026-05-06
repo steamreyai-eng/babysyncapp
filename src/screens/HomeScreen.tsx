@@ -165,8 +165,68 @@ const HomeScreenContent = ({ feedings, sleeps, diapers, walks, tasks, insights }
   const nextSleepTimeStr = nextSleepTimeMs ? new Date(nextSleepTimeMs).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : null;
   const isNight = new Date().getHours() >= 20 || new Date().getHours() <= 6;
   const timeToSleepMs = nextSleepTimeMs ? nextSleepTimeMs - Date.now() : wakeWindowMs;
-  const showSleepAction = !lastSleep || timeToSleepMs < 35 * 60000;
   
+  const sleepUrgent = !lastSleep || timeToSleepMs < 20 * 60000;
+  
+  const lastFeedingMs = lastFeeding ? new Date(lastFeeding.created_at).getTime() : 0;
+  const timeSinceFeedingMs = Date.now() - lastFeedingMs;
+  const feedingIntervalMs = (() => {
+    if (ageMo < 1) return 120 * 60000;
+    if (ageMo < 6) return 180 * 60000;
+    if (ageMo < 12) return 210 * 60000;
+    return 240 * 60000;
+  })();
+  const showFeedAction = !lastFeeding || timeSinceFeedingMs >= feedingIntervalMs * 0.85;
+  const timeSinceFeedingH = Math.floor(timeSinceFeedingMs / 3600000);
+  const timeSinceFeedingM = Math.floor((timeSinceFeedingMs % 3600000) / 60000);
+  const timeSinceFeedingStr = timeSinceFeedingH > 0 
+    ? `${timeSinceFeedingH}ч ${timeSinceFeedingM}м`
+    : `${timeSinceFeedingM}м`;
+
+  let widgetType = 'none';
+  let widgetTitle = '';
+  let widgetSubtitle = '';
+  let widgetExplanation = '';
+  let widgetColor = '#4E8FD4';
+  let widgetRoute = 'Sleep';
+
+  if (sleepUrgent) {
+    widgetType = 'sleep';
+    widgetTitle = isNight ? "Пора укладывать в ночь" : "Время дневного сна";
+    widgetSubtitle = mlPrediction ? "🧠 ИИ-Анализ" : "💡 Рекомендация";
+    widgetExplanation = mlPrediction?.explanation || "Подходит время сна по расписанию.";
+    widgetColor = isNight ? '#1E1B4B' : '#4E8FD4';
+    widgetRoute = 'Sleep';
+  } else if (showFeedAction) {
+    widgetType = 'feed';
+    widgetTitle = "Пора предложить еду";
+    widgetSubtitle = "💡 Рекомендация";
+    let feedTypeStr = lastFeeding?.type === 'breast' ? 'грудью' : lastFeeding?.type === 'formula' ? 'смесью' : 'едой';
+    if (!lastFeeding) {
+       widgetExplanation = "Нет данных о последнем кормлении. Самое время покормить малыша.";
+    } else if (ageMo >= 6 && new Date().getHours() >= 12 && new Date().getHours() <= 16 && lastFeeding?.type !== 'solid') {
+       widgetExplanation = `Прошло ${timeSinceFeedingStr} с последнего кормления. Сейчас отличное время для прикорма.`;
+    } else {
+       widgetExplanation = `Прошло уже ${timeSinceFeedingStr} с последнего кормления ${feedTypeStr}.`;
+    }
+    widgetColor = COLORS.feeding.icon || '#5B9BD5'; 
+    widgetRoute = 'Feeding';
+  } else if (timeToSleepMs < 45 * 60000 && timeToSleepMs >= 20 * 60000) {
+    widgetType = 'sleep_soon';
+    widgetTitle = "Скоро сон";
+    widgetSubtitle = mlPrediction ? "🧠 ИИ-Анализ" : "💡 Рекомендация";
+    widgetExplanation = mlPrediction?.explanation || "Пора начинать спокойные игры и готовиться ко сну.";
+    widgetColor = '#3A78C0';
+    widgetRoute = 'Sleep';
+  } else {
+    widgetType = 'play';
+    widgetTitle = "Время активности";
+    widgetSubtitle = "✨ Активное бодрствование";
+    widgetExplanation = "Малыш сыт и выспался. Идеальное время для игр, массажа или прогулки!";
+    widgetColor = COLORS.walk.icon || '#059669';
+    widgetRoute = 'Walk';
+  }
+
   const latestInsight = insights && insights.length > 0 ? insights[0] : null;  
   const [bothActive24h, setBothActive24h] = React.useState(false);
   React.useEffect(() => {
@@ -429,19 +489,19 @@ const HomeScreenContent = ({ feedings, sleeps, diapers, walks, tasks, insights }
 
         {/* Smart Action Widget / Next Sleep Info */}
         <TouchableOpacity 
-          onPress={() => navigation.navigate(showSleepAction ? 'Sleep' : 'Feeding')}
+          onPress={() => navigation.navigate(widgetRoute)}
           activeOpacity={0.9}
-          style={{ marginHorizontal: 16, marginBottom: 16, borderRadius: 20, padding: 20, backgroundColor: isNight ? '#1E1B4B' : '#4E8FD4', shadowColor: isNight ? '#000' : '#4E8FD4', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.38, shadowRadius: 28, elevation: 8, overflow: 'hidden' }}
+          style={{ marginHorizontal: 16, marginBottom: 16, borderRadius: 20, padding: 20, backgroundColor: widgetColor, shadowColor: widgetColor === '#1E1B4B' ? '#000' : widgetColor, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.38, shadowRadius: 28, elevation: 8, overflow: 'hidden' }}
         >
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <View>
+            <View style={{ flex: 1, paddingRight: 12 }}>
               <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 13, color: 'rgba(255,255,255,0.8)', textTransform: 'uppercase', marginBottom: 6 }}>
-                {mlPrediction && showSleepAction ? "🧠 ИИ-Анализ" : "💡 Рекомендация"}
+                {widgetSubtitle}
               </Text>
               <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 20, color: '#FFFFFF' }}>
-                {showSleepAction ? (isNight ? "Пора укладывать в ночь" : "Время дневного сна") : "Пора предложить еду"}
+                {widgetTitle}
               </Text>
-              {nextSleepTimeStr && showSleepAction && (
+              {(widgetType === 'sleep' || widgetType === 'sleep_soon') && nextSleepTimeStr && (
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, alignSelf: 'flex-start' }}>
                   <Moon size={14} color="#FFF" style={{ marginRight: 6 }} />
                   <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 13, color: '#FFFFFF' }}>
@@ -449,18 +509,18 @@ const HomeScreenContent = ({ feedings, sleeps, diapers, walks, tasks, insights }
                   </Text>
                 </View>
               )}
-              {mlPrediction && mlPrediction.explanation && showSleepAction && (
-                <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 12, color: 'rgba(255,255,255,0.9)', marginTop: 8, fontStyle: 'italic', lineHeight: 16 }}>
-                  {mlPrediction.explanation}
+              {widgetExplanation ? (
+                <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 13, color: 'rgba(255,255,255,0.95)', marginTop: 8, fontStyle: 'italic', lineHeight: 18 }}>
+                  {widgetExplanation}
                 </Text>
-              )}
+              ) : null}
             </View>
             <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' }}>
                <ChevronRight size={24} color="#FFF" />
             </View>
           </View>
           
-          {showSleepAction && lastSleep && (Date.now() - getSleepEndMs(lastSleep) > wakeWindowMs * 1.5) && (
+          {(widgetType === 'sleep' || widgetType === 'sleep_soon') && lastSleep && (Date.now() - getSleepEndMs(lastSleep) > wakeWindowMs * 1.5) && (
             <TouchableOpacity 
               onPress={addSyntheticSleep}
               style={{ marginTop: 12, backgroundColor: 'rgba(255,255,255,0.1)', paddingVertical: 8, paddingHorizontal: 16, borderRadius: 12, alignSelf: 'flex-start', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }}
