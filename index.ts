@@ -5,7 +5,7 @@ import { handleBackgroundStopSleep, handleBackgroundStopWalk, handleBackgroundSt
 
 import App from './App';
 
-// Setup background event listener for stop buttons
+// Setup background event listener for timer stop buttons.
 notifee.onBackgroundEvent(async ({ type, detail }) => {
   if (type === EventType.ACTION_PRESS) {
     if (detail.pressAction?.id === 'stop-sleep') {
@@ -18,13 +18,6 @@ notifee.onBackgroundEvent(async ({ type, detail }) => {
       await handleBackgroundStopFeedingRight();
     }
   }
-});
-
-notifee.registerForegroundService((notification) => {
-  return new Promise(() => {
-    // Keeps the process alive until the notification is cancelled programmatically
-    // For timers, we just want it to run indefinitely until the user hits Stop
-  });
 });
 
 // registerRootComponent calls AppRegistry.registerComponent('main', () => App);

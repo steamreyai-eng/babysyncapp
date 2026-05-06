@@ -83,7 +83,6 @@ export async function startSleepTimerNotification(startTimeMs: number) {
     android: {
       channelId: 'sleep-timer',
       color: '#8B6FD4',
-      asForegroundService: true, // Mark as foreground service to prevent OS from killing it
       ongoing: true,
       autoCancel: false,
       showChronometer: true,
@@ -132,7 +131,6 @@ export async function startWalkTimerNotification(startTimeMs: number) {
     android: {
       channelId: 'walk-timer',
       color: '#059669',
-      asForegroundService: true,
       ongoing: true,
       autoCancel: false,
       showChronometer: true,
@@ -200,7 +198,6 @@ export async function startFeedingTimerNotification(
     android: {
       channelId: 'feeding-timer',
       color: '#5B9BD5',
-      asForegroundService: true,
       ongoing: true,
       autoCancel: false,
       showChronometer: true,

@@ -13,7 +13,7 @@ export async function scheduleSleepPredictionNotification(nextSleepTimeMs: numbe
     if (timeUntilSleep < 15 * 60 * 1000) return;
     
     // Schedule notification 15 minutes before sleep
-    const trigger = new Date(nextSleepTimeMs - 15 * 60 * 1000);
+    const triggerDate = new Date(nextSleepTimeMs - 15 * 60 * 1000);
     
     await Notifications.scheduleNotificationAsync({
       content: {
@@ -22,7 +22,10 @@ export async function scheduleSleepPredictionNotification(nextSleepTimeMs: numbe
         sound: true,
         data: { type: 'sleep_prediction' }
       },
-      trigger,
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date: triggerDate,
+      },
     });
   } catch (e) {
     if (__DEV__) console.warn('Error scheduling sleep notification:', e);
