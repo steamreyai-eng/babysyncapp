@@ -68,24 +68,64 @@ function SleepScreenContent({ sleeps }: { sleeps: Sleep[] }) {
     startSleepTimerNotification(stime);
   };
 
+  const splitAndSaveSleep = async (startMs: number, endMs: number, location: string, quality: number, activeParent: any, babyId: any, userId: any, db: any) => {
+    const startDate = new Date(startMs);
+    const endDate = new Date(endMs);
+    
+    if (startDate.toDateString() !== endDate.toDateString() && endMs > startMs) {
+      // Split the record at midnight
+      const endOfDay1 = new Date(startDate);
+      endOfDay1.setHours(23, 59, 59, 999);
+      
+      await db.get('sleeps').create((sleep: any) => {
+        sleep.duration_seconds = Math.floor((endOfDay1.getTime() - startMs) / 1000);
+        sleep.location = location;
+        sleep.quality = quality;
+        sleep.start_time = startMs;
+        sleep.end_time = endOfDay1.getTime();
+        sleep.created_at = startMs;
+        sleep.recorded_by = activeParent;
+        if (babyId) sleep.baby_id = babyId;
+        if (userId) sleep.user_id = userId;
+      });
+      
+      const startOfDay2 = new Date(endDate);
+      startOfDay2.setHours(0, 0, 0, 0);
+      
+      await db.get('sleeps').create((sleep: any) => {
+        sleep.duration_seconds = Math.floor((endMs - startOfDay2.getTime()) / 1000);
+        sleep.location = location;
+        sleep.quality = quality;
+        sleep.start_time = startOfDay2.getTime();
+        sleep.end_time = endMs;
+        sleep.created_at = startOfDay2.getTime();
+        sleep.recorded_by = activeParent;
+        if (babyId) sleep.baby_id = babyId;
+        if (userId) sleep.user_id = userId;
+      });
+    } else {
+      await db.get('sleeps').create((sleep: any) => {
+        sleep.duration_seconds = Math.floor((endMs - startMs) / 1000);
+        sleep.location = location;
+        sleep.quality = quality;
+        sleep.start_time = startMs;
+        sleep.end_time = endMs;
+        sleep.created_at = startMs;
+        sleep.recorded_by = activeParent;
+        if (babyId) sleep.baby_id = babyId;
+        if (userId) sleep.user_id = userId;
+      });
+    }
+  };
+
   const handleStopSave = async () => {
     setSleepConfig({ isRunning: false });
     if (seconds > 0) {
        try {
-         const babyId = await resolveBabyId();
-         const userId = getCurrentUserId();
+         const actualStartMs = startTime || Date.now() - (seconds * 1000);
+         const actualEndMs = Date.now();
          await database.write(async () => {
-           await database.get<Sleep>('sleeps').create(sleep => {
-             sleep.duration_seconds = seconds;
-             sleep.location = location;
-             sleep.quality = quality;
-             sleep.start_time = startTime || Date.now() - (seconds * 1000);
-             sleep.end_time = Date.now();
-             sleep.created_at = startTime || Date.now() - (seconds * 1000);
-             sleep.recorded_by = activeParent;
-             if (babyId) sleep.baby_id = babyId;
-             if (userId) sleep.user_id = userId;
-           });
+           await splitAndSaveSleep(actualStartMs, actualEndMs, location, quality, activeParent, babyId, userId, database);
          });
        } catch (error) {
          Alert.alert("Ошибка", "Не удалось сохранить сон.");
@@ -106,17 +146,7 @@ function SleepScreenContent({ sleeps }: { sleeps: Sleep[] }) {
       const babyId = await resolveBabyId();
       const userId = getCurrentUserId();
       await database.write(async () => {
-        await database.get<Sleep>('sleeps').create(sleep => {
-          sleep.duration_seconds = durationSeconds;
-          sleep.location = location;
-          sleep.quality = quality;
-          sleep.start_time = manualStart.getTime();
-          sleep.end_time = manualEnd.getTime();
-          sleep.created_at = manualStart.getTime();
-          sleep.recorded_by = activeParent;
-          if (babyId) sleep.baby_id = babyId;
-          if (userId) sleep.user_id = userId;
-        });
+        await splitAndSaveSleep(manualStart.getTime(), manualEnd.getTime(), location, quality, activeParent, babyId, userId, database);
       });
       triggerHaptic('success');
       setQuality(0);
@@ -331,9 +361,9 @@ function SleepScreenContent({ sleeps }: { sleeps: Sleep[] }) {
                 <View style={{ marginTop: 16, alignItems: 'center', width: '100%' }}>
                   <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 11, color: '#8A8A9E', textTransform: 'uppercase', marginBottom: 6 }}>Начать с времени:</Text>
                   <TouchableOpacity onPress={() => setShowTimerStartPicker(true)} style={{ backgroundColor: '#F4F4F8', paddingVertical: 10, paddingHorizontal: 20, borderRadius: 12 }}>
-                    <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 16, color: '#1A1A2E' }}>{timerStartInput.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</Text>
+                    <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 16, color: '#1A1A2E' }}>{timerStartInput.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})} {timerStartInput.toLocaleDateString()}</Text>
                   </TouchableOpacity>
-                    <DateTimePickerModal visible={showTimerStartPicker} value={timerStartInput} mode="time" is24Hour onChange={(d) => { if(d) setTimerStartInput(d); }} onClose={() => setShowTimerStartPicker(false)} />
+                    <DateTimePickerModal visible={showTimerStartPicker} value={timerStartInput} mode="datetime" is24Hour onChange={(d) => { if(d) setTimerStartInput(d); }} onClose={() => setShowTimerStartPicker(false)} />
                 </View>
               )}
             </View>
@@ -342,16 +372,16 @@ function SleepScreenContent({ sleeps }: { sleeps: Sleep[] }) {
               <View style={{ flex: 1 }}>
                 <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 11, color: '#8B6FD4', textTransform: 'uppercase', marginBottom: 8 }}>Уснул(а)</Text>
                 <TouchableOpacity onPress={() => setShowStartPicker(true)} style={{ backgroundColor: '#F4F4F8', padding: 16, borderRadius: 16 }}>
-                  <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 16, color: '#1A1A2E' }}>{manualStart.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</Text>
+                  <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 16, color: '#1A1A2E' }}>{manualStart.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})} {manualStart.toLocaleDateString()}</Text>
                 </TouchableOpacity>
-                <DateTimePickerModal visible={showStartPicker} value={manualStart} mode="time" is24Hour onChange={(d) => { if(d) setManualStart(d); }} onClose={() => setShowStartPicker(false)} />
+                <DateTimePickerModal visible={showStartPicker} value={manualStart} mode="datetime" is24Hour onChange={(d) => { if(d) setManualStart(d); }} onClose={() => setShowStartPicker(false)} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 11, color: '#8B6FD4', textTransform: 'uppercase', marginBottom: 8 }}>Проснулся(ась)</Text>
                 <TouchableOpacity onPress={() => setShowEndPicker(true)} style={{ backgroundColor: '#F4F4F8', padding: 16, borderRadius: 16 }}>
-                  <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 16, color: '#1A1A2E' }}>{manualEnd.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</Text>
+                  <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 16, color: '#1A1A2E' }}>{manualEnd.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})} {manualEnd.toLocaleDateString()}</Text>
                 </TouchableOpacity>
-                <DateTimePickerModal visible={showEndPicker} value={manualEnd} mode="time" is24Hour onChange={(d) => { if(d) setManualEnd(d); }} onClose={() => setShowEndPicker(false)} />
+                <DateTimePickerModal visible={showEndPicker} value={manualEnd} mode="datetime" is24Hour onChange={(d) => { if(d) setManualEnd(d); }} onClose={() => setShowEndPicker(false)} />
               </View>
             </View>
           )}

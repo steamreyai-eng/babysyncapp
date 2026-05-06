@@ -171,7 +171,7 @@ function DiaperScreenContent({ diapers }: { diapers: Diaper[] }) {
           
           <Text style={{ fontSize: 11, fontFamily: 'Nunito_800ExtraBold', color: '#8A8A9E', textTransform: 'uppercase', marginBottom: 8, letterSpacing: 0.5 }}>Дата и время смены</Text>
           <TouchableOpacity onPress={() => setShowPicker(true)} style={{ backgroundColor: '#F9F8F6', padding: 16, borderRadius: 16, marginBottom: 20 }}>
-            <Text style={{ fontSize: 16, fontFamily: 'Nunito_700Bold', color: '#1A1A2E' }}>{manualTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</Text>
+            <Text style={{ fontSize: 16, fontFamily: 'Nunito_700Bold', color: '#1A1A2E' }}>{manualTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} {manualTime.toLocaleDateString()}</Text>
           </TouchableOpacity>
           
           <Text style={{ fontSize: 11, fontFamily: 'Nunito_800ExtraBold', color: '#8A8A9E', textTransform: 'uppercase', marginBottom: 8, letterSpacing: 0.5 }}>Тип подгузника</Text>
@@ -318,7 +318,7 @@ function DiaperScreenContent({ diapers }: { diapers: Diaper[] }) {
       <DateTimePickerModal
         visible={showPicker}
         value={manualTime}
-        mode="time"
+        mode="datetime"
         is24Hour={true}
         onChange={(date) => { if (date) setManualTime(date); }}
         onClose={() => setShowPicker(false)}

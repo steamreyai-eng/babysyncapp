@@ -31,7 +31,8 @@ const FeedingEdit = ({ record, onClose }: { record: any; onClose: () => void }) 
   const [desc, setDesc] = useState(record.description || '');
   const [vol, setVol] = useState(String(record.formula_volume_ml || 0));
   const [time, setTime] = useState(new Date(record.created_at));
-  const [showPicker, setShowPicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
@@ -75,13 +76,18 @@ const FeedingEdit = ({ record, onClose }: { record: any; onClose: () => void }) 
       )}
       <View>
         <Text style={s.label}>ДАТА И ВРЕМЯ</Text>
-        <TouchableOpacity onPress={() => setShowPicker(true)} style={s.input}>
-          <Text style={s.inputText}>
-            {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} {time.toLocaleDateString('ru-RU')}
-          </Text>
-        </TouchableOpacity>
-        <DateTimePickerModal visible={showPicker} value={time} mode="time" is24Hour
-            onChange={(d) => { if (d) setTime(d); }} onClose={() => setShowPicker(false)} />
+        <View style={{ flexDirection: 'row', gap: 12 }}>
+          <TouchableOpacity onPress={() => setShowDatePicker(true)} style={[s.input, { flex: 1 }]}>
+            <Text style={s.inputText}>{time.toLocaleDateString('ru-RU')}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setShowTimePicker(true)} style={[s.input, { flex: 1 }]}>
+            <Text style={s.inputText}>{time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+          </TouchableOpacity>
+        </View>
+        <DateTimePickerModal visible={showDatePicker} value={time} mode="date"
+            onChange={(d) => { if (d) setTime(d); }} onClose={() => setShowDatePicker(false)} />
+        <DateTimePickerModal visible={showTimePicker} value={time} mode="time" is24Hour
+            onChange={(d) => { if (d) setTime(d); }} onClose={() => setShowTimePicker(false)} />
       </View>
       <View style={s.actions}>
         <TouchableOpacity onPress={handleDelete} style={s.deleteBtn}>
@@ -103,7 +109,8 @@ const DiaperEdit = ({ record, onClose }: { record: any; onClose: () => void }) =
   const [color, setColor] = useState(record.color || '');
   const [note, setNote] = useState(record.note || '');
   const [time, setTime] = useState(new Date(record.created_at));
-  const [showPicker, setShowPicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const types = [
@@ -164,13 +171,18 @@ const DiaperEdit = ({ record, onClose }: { record: any; onClose: () => void }) =
       </View>
       <View>
         <Text style={s.label}>ДАТА И ВРЕМЯ</Text>
-        <TouchableOpacity onPress={() => setShowPicker(true)} style={s.input}>
-          <Text style={s.inputText}>
-            {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} {time.toLocaleDateString('ru-RU')}
-          </Text>
-        </TouchableOpacity>
-        <DateTimePickerModal visible={showPicker} value={time} mode="time" is24Hour
-            onChange={(d) => { if (d) setTime(d); }} onClose={() => setShowPicker(false)} />
+        <View style={{ flexDirection: 'row', gap: 12 }}>
+          <TouchableOpacity onPress={() => setShowDatePicker(true)} style={[s.input, { flex: 1 }]}>
+            <Text style={s.inputText}>{time.toLocaleDateString('ru-RU')}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setShowTimePicker(true)} style={[s.input, { flex: 1 }]}>
+            <Text style={s.inputText}>{time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+          </TouchableOpacity>
+        </View>
+        <DateTimePickerModal visible={showDatePicker} value={time} mode="date"
+            onChange={(d) => { if (d) setTime(d); }} onClose={() => setShowDatePicker(false)} />
+        <DateTimePickerModal visible={showTimePicker} value={time} mode="time" is24Hour
+            onChange={(d) => { if (d) setTime(d); }} onClose={() => setShowTimePicker(false)} />
       </View>
       <View style={s.actions}>
         <TouchableOpacity onPress={handleDelete} style={s.deleteBtn}>
@@ -204,8 +216,13 @@ const SleepEdit = ({ record, onClose }: { record: any; onClose: () => void }) =>
   const [start, setStart] = useState(new Date(startMs));
   const [end, setEnd] = useState(new Date(endMs));
   const [location, setLocation] = useState(record.location || 'crib');
-  const [showStartPicker, setShowStartPicker] = useState(false);
-  const [showEndPicker, setShowEndPicker] = useState(false);
+  
+  const [showStartTimePicker, setShowStartTimePicker] = useState(false);
+  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
+  
+  const [showEndTimePicker, setShowEndTimePicker] = useState(false);
+  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
+  
   const [saving, setSaving] = useState(false);
 
   const isInvalid = end.getTime() <= start.getTime();
@@ -251,22 +268,37 @@ const SleepEdit = ({ record, onClose }: { record: any; onClose: () => void }) =>
 
   return (
     <View style={{ gap: 16 }}>
-      <View style={{ flexDirection: 'row', gap: 12 }}>
-        <View style={{ flex: 1 }}>
+      <View style={{ gap: 12 }}>
+        <View>
           <Text style={s.label}>НАЧАЛО</Text>
-          <TouchableOpacity onPress={() => setShowStartPicker(true)} style={s.input}>
-            <Text style={s.inputText}>{start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
-          </TouchableOpacity>
-            <DateTimePickerModal visible={showStartPicker} value={start} mode="time" is24Hour
-              onChange={(d) => { if (d) setStart(d); }} onClose={() => setShowStartPicker(false)} />
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            <TouchableOpacity onPress={() => setShowStartDatePicker(true)} style={[s.input, { flex: 1 }]}>
+              <Text style={s.inputText}>{start.toLocaleDateString('ru-RU')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setShowStartTimePicker(true)} style={[s.input, { flex: 1 }]}>
+              <Text style={s.inputText}>{start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+            </TouchableOpacity>
+          </View>
+          <DateTimePickerModal visible={showStartDatePicker} value={start} mode="date"
+            onChange={(d) => { if (d) setStart(d); }} onClose={() => setShowStartDatePicker(false)} />
+          <DateTimePickerModal visible={showStartTimePicker} value={start} mode="time" is24Hour
+            onChange={(d) => { if (d) setStart(d); }} onClose={() => setShowStartTimePicker(false)} />
         </View>
-        <View style={{ flex: 1 }}>
+
+        <View>
           <Text style={s.label}>КОНЕЦ</Text>
-          <TouchableOpacity onPress={() => setShowEndPicker(true)} style={s.input}>
-            <Text style={s.inputText}>{end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
-          </TouchableOpacity>
-            <DateTimePickerModal visible={showEndPicker} value={end} mode="time" is24Hour
-              onChange={(d) => { if (d) setEnd(d); }} onClose={() => setShowEndPicker(false)} />
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            <TouchableOpacity onPress={() => setShowEndDatePicker(true)} style={[s.input, { flex: 1 }]}>
+              <Text style={s.inputText}>{end.toLocaleDateString('ru-RU')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setShowEndTimePicker(true)} style={[s.input, { flex: 1 }]}>
+              <Text style={s.inputText}>{end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+            </TouchableOpacity>
+          </View>
+          <DateTimePickerModal visible={showEndDatePicker} value={end} mode="date"
+            onChange={(d) => { if (d) setEnd(d); }} onClose={() => setShowEndDatePicker(false)} />
+          <DateTimePickerModal visible={showEndTimePicker} value={end} mode="time" is24Hour
+            onChange={(d) => { if (d) setEnd(d); }} onClose={() => setShowEndTimePicker(false)} />
         </View>
       </View>
       {isInvalid && <Text style={{ fontSize: 12, fontFamily: 'Nunito_700Bold', color: '#EF4444' }}>Конец должен быть после начала</Text>}
@@ -303,6 +335,9 @@ const SleepEdit = ({ record, onClose }: { record: any; onClose: () => void }) =>
 const WalkEdit = ({ record, onClose }: { record: any; onClose: () => void }) => {
   const [notes, setNotes] = useState(record.notes || '');
   const [loc, setLoc] = useState(record.location || 'park');
+  const [time, setTime] = useState(new Date(record.created_at));
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const locs = [
@@ -320,6 +355,7 @@ const WalkEdit = ({ record, onClose }: { record: any; onClose: () => void }) => 
         await record.update((r: any) => {
           r.notes = notes || undefined;
           r.location = loc;
+          r.created_at = time.getTime();
         });
       });
       pushNow();
@@ -356,6 +392,21 @@ const WalkEdit = ({ record, onClose }: { record: any; onClose: () => void }) => 
         <Text style={s.label}>ЗАМЕТКА</Text>
         <TextInput value={notes} onChangeText={setNotes} placeholder="Необязательно" placeholderTextColor="#A0A0B0"
           multiline style={[s.input, { minHeight: 80, textAlignVertical: 'top' }]} />
+      </View>
+      <View>
+        <Text style={s.label}>ДАТА И ВРЕМЯ</Text>
+        <View style={{ flexDirection: 'row', gap: 12 }}>
+          <TouchableOpacity onPress={() => setShowDatePicker(true)} style={[s.input, { flex: 1 }]}>
+            <Text style={s.inputText}>{time.toLocaleDateString('ru-RU')}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setShowTimePicker(true)} style={[s.input, { flex: 1 }]}>
+            <Text style={s.inputText}>{time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+          </TouchableOpacity>
+        </View>
+        <DateTimePickerModal visible={showDatePicker} value={time} mode="date"
+            onChange={(d) => { if (d) setTime(d); }} onClose={() => setShowDatePicker(false)} />
+        <DateTimePickerModal visible={showTimePicker} value={time} mode="time" is24Hour
+            onChange={(d) => { if (d) setTime(d); }} onClose={() => setShowTimePicker(false)} />
       </View>
       <View style={s.actions}>
         <TouchableOpacity onPress={handleDelete} style={s.deleteBtn}>

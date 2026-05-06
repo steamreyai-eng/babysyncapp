@@ -235,9 +235,9 @@ function WalkScreenContent({ walks }: { walks: Walk[] }) {
                 <View style={{ marginTop: 16, alignItems: 'center', width: '100%' }}>
                   <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 11, color: '#8A8A9E', textTransform: 'uppercase', marginBottom: 6 }}>Начать с времени:</Text>
                   <TouchableOpacity onPress={() => setShowTimerStartPicker(true)} style={{ backgroundColor: '#F4F4F8', paddingVertical: 10, paddingHorizontal: 20, borderRadius: 12 }}>
-                    <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 16, color: '#1A1A2E' }}>{timerStartInput.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</Text>
+                    <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 16, color: '#1A1A2E' }}>{timerStartInput.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})} {timerStartInput.toLocaleDateString()}</Text>
                   </TouchableOpacity>
-                    <DateTimePickerModal visible={showTimerStartPicker} value={timerStartInput} mode="time" is24Hour onChange={(d) => { if(d) setTimerStartInput(d); }} onClose={() => setShowTimerStartPicker(false)} />
+                    <DateTimePickerModal visible={showTimerStartPicker} value={timerStartInput} mode="datetime" is24Hour onChange={(d) => { if(d) setTimerStartInput(d); }} onClose={() => setShowTimerStartPicker(false)} />
                 </View>
               )}
             </View>
@@ -246,16 +246,16 @@ function WalkScreenContent({ walks }: { walks: Walk[] }) {
               <View style={{ flex: 1 }}>
                 <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 11, color: '#059669', textTransform: 'uppercase', marginBottom: 8 }}>Начали</Text>
                 <TouchableOpacity onPress={() => setShowStartPicker(true)} style={{ backgroundColor: '#F4F4F8', padding: 16, borderRadius: 16 }}>
-                  <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 16, color: '#1A1A2E' }}>{manualStart.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</Text>
+                  <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 16, color: '#1A1A2E' }}>{manualStart.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})} {manualStart.toLocaleDateString()}</Text>
                 </TouchableOpacity>
-                <DateTimePickerModal visible={showStartPicker} value={manualStart} mode="time" is24Hour onChange={(d) => { if(d) setManualStart(d); }} onClose={() => setShowStartPicker(false)} />
+                <DateTimePickerModal visible={showStartPicker} value={manualStart} mode="datetime" is24Hour onChange={(d) => { if(d) setManualStart(d); }} onClose={() => setShowStartPicker(false)} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 11, color: '#059669', textTransform: 'uppercase', marginBottom: 8 }}>Закончили</Text>
                 <TouchableOpacity onPress={() => setShowEndPicker(true)} style={{ backgroundColor: '#F4F4F8', padding: 16, borderRadius: 16 }}>
-                  <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 16, color: '#1A1A2E' }}>{manualEnd.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</Text>
+                  <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 16, color: '#1A1A2E' }}>{manualEnd.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})} {manualEnd.toLocaleDateString()}</Text>
                 </TouchableOpacity>
-                <DateTimePickerModal visible={showEndPicker} value={manualEnd} mode="time" is24Hour onChange={(d) => { if(d) setManualEnd(d); }} onClose={() => setShowEndPicker(false)} />
+                <DateTimePickerModal visible={showEndPicker} value={manualEnd} mode="datetime" is24Hour onChange={(d) => { if(d) setManualEnd(d); }} onClose={() => setShowEndPicker(false)} />
               </View>
             </View>
           )}

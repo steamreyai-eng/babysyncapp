@@ -171,6 +171,22 @@ function FeedingScreenContent({ feedings }: { feedings: Feeding[] }) {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: Math.max(insets.bottom, 120) }}>
+          {/* Date Selector */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'white', borderRadius: 14, padding: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 12, elevation: 2, marginBottom: 20 }}>
+            <TouchableOpacity onPress={() => { const d = new Date(selectedDate); d.setDate(d.getDate() - 1); setSelectedDate(d); }} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#F5F0E6', alignItems: 'center', justifyContent: 'center' }}>
+              <Ionicons name="chevron-back" size={20} color="#6B6B80" />
+            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Ionicons name="calendar" size={16} color="#2563EB" style={{ marginRight: 8 }} />
+              <Text style={{ fontSize: 14, fontFamily: 'Nunito_800ExtraBold', color: '#1A1A2E' }}>
+                {selectedDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
+              </Text>
+            </View>
+            <TouchableOpacity onPress={() => { const d = new Date(selectedDate); d.setDate(d.getDate() + 1); setSelectedDate(d); }} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#F5F0E6', alignItems: 'center', justifyContent: 'center' }}>
+              <Ionicons name="chevron-forward" size={20} color="#6B6B80" />
+            </TouchableOpacity>
+          </View>
+
           {/* Tabs */}
           <View style={{ backgroundColor: 'rgba(255,255,255,0.6)', borderWidth: 1, borderColor: 'rgba(0,0,0,0.05)', borderRadius: 18, padding: 4, flexDirection: 'row', marginBottom: 20 }}>
             <TouchableOpacity onPress={() => handleTabPress(0)} style={{ flex: 1, height: 46, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: activeTab === 'breast' ? '#2563EB' : 'transparent', shadowColor: activeTab === 'breast' ? '#2563EB' : 'transparent', shadowOpacity: 0.2, shadowRadius: 8, elevation: activeTab === 'breast' ? 2 : 0 }}>
@@ -380,7 +396,7 @@ function FeedingScreenContent({ feedings }: { feedings: Feeding[] }) {
       <DateTimePickerModal
         visible={showPicker}
         value={eventTime}
-        mode="time"
+        mode="datetime"
         is24Hour={true}
         onChange={(date) => { if (date) setEventTime(date); }}
         onClose={() => setShowPicker(false)}
