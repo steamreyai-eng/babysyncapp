@@ -4,11 +4,19 @@ import { Alert } from 'react-native';
 import SleepScreen from './SleepScreen';
 import { database } from '../db';
 import { useAuthStore } from '../store/authStore';
+import { useTimerStore } from '../store/timerStore';
+import { saveSleepInterval } from '../lib/recordMutations';
 
 const mockNavigation = { goBack: jest.fn() };
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => mockNavigation,
 }));
+
+jest.mock('@nozbe/with-observables', () => {
+  return () => (Component: any) => (props: any) => (
+    <Component {...props} sleeps={[]} />
+  );
+});
 
 jest.spyOn(Alert, 'alert');
 
@@ -17,9 +25,18 @@ jest.mock('../store/authStore', () => ({
   getAgeLabel: jest.fn().mockReturnValue('1 month'),
 }));
 
+jest.mock('../lib/recordMutations', () => ({
+  saveSleepInterval: jest.fn().mockResolvedValue([]),
+}));
+
+jest.mock('../db/sync', () => ({
+  pushNow: jest.fn(),
+}));
+
 describe('SleepScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    useTimerStore.getState().clearSleepTimer();
     (useAuthStore as unknown as jest.Mock).mockImplementation((selector: any) => {
       const state = {
         session: { user: { id: 'user-1' } },
@@ -33,10 +50,10 @@ describe('SleepScreen', () => {
     render(<SleepScreen />);
     
     expect(screen.getByText('Таймер')).toBeTruthy();
-    expect(screen.getByText('Начать')).toBeTruthy();
+    expect(screen.getByText('Начать сон')).toBeTruthy();
     
-    fireEvent.press(screen.getByText('Начать'));
-    expect(screen.getByText('Завершить')).toBeTruthy();
+    fireEvent.press(screen.getByText('Начать сон'));
+    expect(screen.getByText('Остановить')).toBeTruthy();
   });
 
   it('switches to manual mode and allows saving', async () => {
@@ -54,24 +71,19 @@ describe('SleepScreen', () => {
     // Select location (e.g., 'Коляска')
     fireEvent.press(screen.getByText('Коляска'));
 
-    // Try saving
+    // The manual form is guarded against zero-duration saves by default.
     fireEvent.press(screen.getByText('Сохранить'));
 
-    await waitFor(() => {
-      // It errors manually if start and end are exactly identical, 
-      // but in tests depending on Date.now() they might be identical.
-      // We are just verifying that interaction triggers the correct path.
-      expect(Alert.alert).toHaveBeenCalled();
-    });
+    expect(saveSleepInterval).not.toHaveBeenCalled();
   });
 
   it('resets timer when Сброс is clicked', () => {
     render(<SleepScreen />);
     
-    fireEvent.press(screen.getByText('Начать'));
-    expect(screen.getByText('Завершить')).toBeTruthy();
+    fireEvent.press(screen.getByText('Начать сон'));
+    expect(screen.getByText('Остановить')).toBeTruthy();
 
     fireEvent.press(screen.getByText('Сброс'));
-    expect(screen.getByText('Начать')).toBeTruthy();
+    expect(screen.getByText('Начать сон')).toBeTruthy();
   });
 });

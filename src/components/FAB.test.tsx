@@ -8,6 +8,10 @@ import { Alert } from 'react-native';
 // Mock Dependencies
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({ navigate: jest.fn() }),
+  useNavigationState: jest.fn((selector) => selector({
+    index: 0,
+    routes: [{ name: 'Home' }],
+  })),
 }));
 
 jest.mock('@expo/vector-icons', () => ({
@@ -48,10 +52,9 @@ describe('FAB Component UI & Interactions', () => {
     });
   });
 
-  it('renders main FAB button and AI button by default', () => {
+  it('renders main FAB button by default', () => {
     render(<FAB />);
-    // AI button text should be present
-    expect(screen.getByText('AI')).toBeTruthy();
+    expect(screen.getByTestId('fab-main-button')).toBeTruthy();
   });
 
   it('expands menu when FAB is pressed', () => {
@@ -65,6 +68,7 @@ describe('FAB Component UI & Interactions', () => {
     expect(getByText('Кормление')).toBeTruthy();
     expect(getByText('Подгузник')).toBeTruthy();
     expect(getByText('Сон')).toBeTruthy();
+    expect(getByText('Прогулка')).toBeTruthy();
   });
   
   it('opens Feeding sheet when Feeding quick-action is pressed', async () => {
@@ -76,7 +80,6 @@ describe('FAB Component UI & Interactions', () => {
     // Press feeding item
     fireEvent.press(getByTestId('fab-item-feeding'));
     
-    // Sheet should open (Новое кормление text should be visible)
     expect(getByText('Новое кормление')).toBeTruthy();
   });
 });

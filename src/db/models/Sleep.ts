@@ -11,6 +11,7 @@ export class Sleep extends Model {
   @field('end_time') end_time?: number
   @field('recorded_by') recorded_by!: string
   @field('is_synthetic') is_synthetic?: boolean
+  @field('group_id') group_id?: string
   @field('baby_id') baby_id?: string
   @field('user_id') user_id?: string
   @date('created_at') created_at!: number

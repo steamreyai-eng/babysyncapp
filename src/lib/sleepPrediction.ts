@@ -2,7 +2,25 @@ import { supabase } from './supabase';
 import { database } from '../db';
 import { Q } from '@nozbe/watermelondb';
 
-export async function fetchSleepPrediction(babyId: string, ageMo: number, sleeps: any[]) {
+export interface SleepPredictionResponse {
+  next_sleep_time_ms?: number;
+  predicted_duration_seconds?: number;
+  confidence_score?: number;
+  explanation?: string;
+  source?: string;
+  model_version?: string;
+}
+
+function safeTime(value: any) {
+  if (!value) return 0;
+  if (value instanceof Date) return value.getTime();
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string' && /^\d+$/.test(value)) return parseInt(value, 10);
+  const parsed = new Date(value).getTime();
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+export async function fetchSleepPrediction(babyId: string, ageMo: number, sleeps: any[]): Promise<SleepPredictionResponse | null> {
   if (!sleeps || sleeps.length === 0) return null;
   
   try {
@@ -11,13 +29,17 @@ export async function fetchSleepPrediction(babyId: string, ageMo: number, sleeps
       return null;
     }
 
-    const recentSleeps = sleeps.slice(0, 30).map((s:any) => {
-      const start = s.start_time ? (typeof s.start_time === 'string' ? new Date(s.start_time).getTime() : s.start_time) : new Date(s.created_at).getTime();
+    const recentSleeps = [...sleeps].sort((a: any, b: any) => {
+      const aStart = safeTime(a.start_time) || safeTime(a.created_at);
+      const bStart = safeTime(b.start_time) || safeTime(b.created_at);
+      return bStart - aStart;
+    }).slice(0, 30).map((s:any) => {
+      const start = safeTime(s.start_time) || safeTime(s.created_at);
       const duration = s.duration_seconds || 0;
       return {
         duration_seconds: duration,
         start_time: start,
-        end_time: s.end_time ? (typeof s.end_time === 'string' ? new Date(s.end_time).getTime() : s.end_time) : (start + duration * 1000),
+        end_time: safeTime(s.end_time) || (start + duration * 1000),
         quality: s.quality || 3
       };
     });
@@ -61,7 +83,7 @@ export async function fetchSleepPrediction(babyId: string, ageMo: number, sleeps
       })
     });
     
-    if (response.status === 401 || response.status === 403) {
+    if (response.status === 401 || response.status === 403 || !response.ok) {
        return null;
     }
 

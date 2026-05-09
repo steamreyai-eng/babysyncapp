@@ -15,7 +15,8 @@ import EditRecordModal from '../components/EditRecordModal';
 import { useTimerStore } from '../store/timerStore';
 import { startSleepTimerNotification, cancelSleepTimerNotification } from '../lib/timerNotifications';
 import { pushNow } from '../db/sync';
-import { resolveBabyId, getCurrentUserId } from '../db/syncHelpers';
+import { saveSleepInterval } from '../lib/recordMutations';
+import { formatSleepPredictionDuration, useSleepPrediction } from '../hooks/useSleepPrediction';
 
 const LOCATIONS = [
   { id: 'crib', label: 'Кроватка', icon: 'bed', color: '#8B5CF6' },
@@ -48,6 +49,12 @@ function SleepScreenContent({ sleeps }: { sleeps: Sleep[] }) {
 
   const [timerStartInput, setTimerStartInput] = useState(new Date());
   const [showTimerStartPicker, setShowTimerStartPicker] = useState(false);
+  const selectedDateIsToday = selectedDate.toDateString() === new Date().toDateString();
+  const { prediction: mlPrediction } = useSleepPrediction({
+    sleeps,
+    babyBirthdate,
+    enabled: selectedDateIsToday,
+  });
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -68,64 +75,18 @@ function SleepScreenContent({ sleeps }: { sleeps: Sleep[] }) {
     startSleepTimerNotification(stime);
   };
 
-  const splitAndSaveSleep = async (startMs: number, endMs: number, location: string, quality: number, activeParent: any, babyId: any, userId: any, db: any) => {
-    const startDate = new Date(startMs);
-    const endDate = new Date(endMs);
-    
-    if (startDate.toDateString() !== endDate.toDateString() && endMs > startMs) {
-      // Split the record at midnight
-      const endOfDay1 = new Date(startDate);
-      endOfDay1.setHours(23, 59, 59, 999);
-      
-      await db.get('sleeps').create((sleep: any) => {
-        sleep.duration_seconds = Math.floor((endOfDay1.getTime() - startMs) / 1000);
-        sleep.location = location;
-        sleep.quality = quality;
-        sleep.start_time = startMs;
-        sleep.end_time = endOfDay1.getTime();
-        sleep.created_at = startMs;
-        sleep.recorded_by = activeParent;
-        if (babyId) sleep.baby_id = babyId;
-        if (userId) sleep.user_id = userId;
-      });
-      
-      const startOfDay2 = new Date(endDate);
-      startOfDay2.setHours(0, 0, 0, 0);
-      
-      await db.get('sleeps').create((sleep: any) => {
-        sleep.duration_seconds = Math.floor((endMs - startOfDay2.getTime()) / 1000);
-        sleep.location = location;
-        sleep.quality = quality;
-        sleep.start_time = startOfDay2.getTime();
-        sleep.end_time = endMs;
-        sleep.created_at = startOfDay2.getTime();
-        sleep.recorded_by = activeParent;
-        if (babyId) sleep.baby_id = babyId;
-        if (userId) sleep.user_id = userId;
-      });
-    } else {
-      await db.get('sleeps').create((sleep: any) => {
-        sleep.duration_seconds = Math.floor((endMs - startMs) / 1000);
-        sleep.location = location;
-        sleep.quality = quality;
-        sleep.start_time = startMs;
-        sleep.end_time = endMs;
-        sleep.created_at = startMs;
-        sleep.recorded_by = activeParent;
-        if (babyId) sleep.baby_id = babyId;
-        if (userId) sleep.user_id = userId;
-      });
-    }
-  };
-
   const handleStopSave = async () => {
     setSleepConfig({ isRunning: false });
     if (seconds > 0) {
        try {
          const actualStartMs = startTime || Date.now() - (seconds * 1000);
          const actualEndMs = Date.now();
-         await database.write(async () => {
-           await splitAndSaveSleep(actualStartMs, actualEndMs, location, quality, activeParent, babyId, userId, database);
+         await saveSleepInterval({
+           startMs: actualStartMs,
+           endMs: actualEndMs,
+           location,
+           quality,
+           recordedBy: activeParent,
          });
        } catch (error) {
          Alert.alert("Ошибка", "Не удалось сохранить сон.");
@@ -140,13 +101,13 @@ function SleepScreenContent({ sleeps }: { sleeps: Sleep[] }) {
 
   const handleManualSave = async () => {
     if (manualEnd.getTime() <= manualStart.getTime()) return;
-    const durationSeconds = Math.floor((manualEnd.getTime() - manualStart.getTime()) / 1000);
-    
     try {
-      const babyId = await resolveBabyId();
-      const userId = getCurrentUserId();
-      await database.write(async () => {
-        await splitAndSaveSleep(manualStart.getTime(), manualEnd.getTime(), location, quality, activeParent, babyId, userId, database);
+      await saveSleepInterval({
+        startMs: manualStart.getTime(),
+        endMs: manualEnd.getTime(),
+        location,
+        quality,
+        recordedBy: activeParent,
       });
       triggerHaptic('success');
       setQuality(0);
@@ -218,7 +179,7 @@ function SleepScreenContent({ sleeps }: { sleeps: Sleep[] }) {
   const totalSecs = todaysSleeps.reduce((a, s) => a + s.duration_seconds, 0);
   const maxSecs = todaysSleeps.reduce((max, s) => Math.max(max, s.duration_seconds), 0);
 
-  // AI Logic
+  // Prediction Logic
   let wakeWindowH = 1; let wakeWindowM = 30;
   if (babyBirthdate) {
     const ageMo = (Date.now() - new Date(babyBirthdate).getTime()) / (1000 * 3600 * 24 * 30.44);
@@ -230,13 +191,20 @@ function SleepScreenContent({ sleeps }: { sleeps: Sleep[] }) {
     else { wakeWindowH = 4; wakeWindowM = 0; }
   }
 
-  let nextSleepMsg = "—";
-  let showAIPrediction = false;
+  const mlNextSleepMs = Number(mlPrediction?.next_sleep_time_ms);
+  const hasMlPrediction = selectedDateIsToday && Number.isFinite(mlNextSleepMs) && mlNextSleepMs > 0;
+  const predictedSleepDurationStr = hasMlPrediction ? formatSleepPredictionDuration(mlPrediction?.predicted_duration_seconds) : null;
+  const confidenceScore = Number(mlPrediction?.confidence_score);
+  const confidenceStr = hasMlPrediction && Number.isFinite(confidenceScore)
+    ? `${Math.round(confidenceScore * 100)}%`
+    : null;
+  let fallbackNextSleepMsg = "—";
+  let hasFallbackPrediction = false;
 
   const sortedSleeps = [...sleeps].sort((a,b) => b.created_at - a.created_at);
 
-  if (sortedSleeps.length >= 3 && selectedDate.toDateString() === new Date().toDateString()) {
-    showAIPrediction = true;
+  if (sortedSleeps.length >= 3 && selectedDateIsToday) {
+    hasFallbackPrediction = true;
     const recentSleeps = sortedSleeps.slice(0, 10);
     const wakeIntervals = [];
 
@@ -268,13 +236,20 @@ function SleepScreenContent({ sleeps }: { sleeps: Sleep[] }) {
         const overMs = Math.abs(diffMs);
         const oh = Math.floor(overMs / 3600000);
         const om = Math.floor((overMs % 3600000) / 60000);
-        nextSleepMsg = `Пора спать (прошло лишних ${oh > 0 ? `${oh}ч ` : ""}${om}м)`;
+        fallbackNextSleepMsg = `Пора спать (прошло лишних ${oh > 0 ? `${oh}ч ` : ""}${om}м)`;
     } else {
         const dh = Math.floor(diffMs / 3600000);
         const dm = Math.floor((diffMs % 3600000) / 60000);
-        nextSleepMsg = `Примерно через ${dh > 0 ? `${dh}ч ` : ""}${dm}м`;
+        fallbackNextSleepMsg = `Примерно через ${dh > 0 ? `${dh}ч ` : ""}${dm}м`;
     }
   }
+
+  const nextSleepMsg = hasMlPrediction ? fmtTime(mlNextSleepMs) : fallbackNextSleepMsg;
+  const predictionTitle = hasMlPrediction ? "AI-прогноз сна" : "Рекомендация по режиму";
+  const predictionMeta = hasMlPrediction
+    ? (confidenceStr ? `Точность ${confidenceStr}` : "ML-модель")
+    : `Окно бодрствования ~${wakeWindowH > 0 ? `${wakeWindowH}ч ` : ""}${wakeWindowM > 0 ? `${wakeWindowM}м` : ""}`;
+  const showSleepPrediction = hasMlPrediction || hasFallbackPrediction;
 
   const changeDate = (days: number) => {
     const d = new Date(selectedDate);
@@ -314,16 +289,19 @@ function SleepScreenContent({ sleeps }: { sleeps: Sleep[] }) {
 
           <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 15, color: '#8A8A9E', marginBottom: 16 }}>Сон и режим</Text>
 
-        {/* AI Prediction */}
-        {showAIPrediction && (
-          <View style={{ backgroundColor: '#FDF7E7', borderRadius: 24, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: '#F0DDB3', flexDirection: 'row', alignItems: 'center' }}>
+        {/* Sleep Prediction */}
+        {showSleepPrediction && (
+          <View style={{ backgroundColor: hasMlPrediction ? '#EEF2FF' : '#FDF7E7', borderRadius: 24, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: hasMlPrediction ? '#C7D2FE' : '#F0DDB3', flexDirection: 'row', alignItems: 'center' }}>
             <View style={{ width: 48, height: 48, borderRadius: 16, backgroundColor: 'white', alignItems: 'center', justifyContent: 'center', marginRight: 16 }}>
-              <Ionicons name="sparkles" size={24} color="#E69600" />
+              <Ionicons name={hasMlPrediction ? "sparkles" : "time"} size={24} color={hasMlPrediction ? "#6366F1" : "#E69600"} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 11, fontFamily: 'Nunito_800ExtraBold', color: '#E69600', textTransform: 'uppercase', marginBottom: 4 }}>AI-Прогноз режима</Text>
+              <Text style={{ fontSize: 11, fontFamily: 'Nunito_800ExtraBold', color: hasMlPrediction ? '#6366F1' : '#E69600', textTransform: 'uppercase', marginBottom: 4 }}>{predictionTitle}</Text>
               <Text style={{ fontSize: 15, fontFamily: 'Nunito_900Black', color: '#1A1A2E' }}>Следующий сон: {nextSleepMsg}</Text>
-              <Text style={{ fontSize: 12, fontFamily: 'Nunito_800ExtraBold', color: '#8A8A9E', marginTop: 4 }}>Окно бодрствования ~{wakeWindowH > 0 ? `${wakeWindowH}ч ` : ""}{wakeWindowM > 0 ? `${wakeWindowM}м` : ""}</Text>
+              {predictedSleepDurationStr ? (
+                <Text style={{ fontSize: 12, fontFamily: 'Nunito_800ExtraBold', color: '#4B5563', marginTop: 4 }}>Ожидаемо: {predictedSleepDurationStr}</Text>
+              ) : null}
+              <Text style={{ fontSize: 12, fontFamily: 'Nunito_800ExtraBold', color: '#8A8A9E', marginTop: 4 }}>{predictionMeta}</Text>
             </View>
           </View>
         )}

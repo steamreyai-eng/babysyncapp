@@ -6,6 +6,7 @@ import {
   Keyboard, Animated as RNAnimated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Q } from '@nozbe/watermelondb';
 import DateTimePickerModal from './DateTimePickerModal';
 import { database } from '../db';
 import { Feeding } from '../db/models/Feeding';
@@ -13,6 +14,7 @@ import { Sleep } from '../db/models/Sleep';
 import { Diaper } from '../db/models/Diaper';
 import { Walk } from '../db/models/Walk';
 import { pushNow } from '../db/sync';
+import { replaceSleepRecordWithInterval, replaceWalkRecordWithInterval } from '../lib/recordMutations';
 
 /* ── Types ── */
 export type EditTarget =
@@ -90,7 +92,7 @@ const FeedingEdit = ({ record, onClose }: { record: any; onClose: () => void }) 
             onChange={(d) => { if (d) setTime(d); }} onClose={() => setShowTimePicker(false)} />
       </View>
       <View style={s.actions}>
-        <TouchableOpacity onPress={handleDelete} style={s.deleteBtn}>
+        <TouchableOpacity onPress={handleDelete} accessibilityLabel="Удалить" style={s.deleteBtn}>
           <Ionicons name="trash" size={18} color="#E05A5A" />
         </TouchableOpacity>
         <TouchableOpacity onPress={handleSave} disabled={saving}
@@ -185,7 +187,7 @@ const DiaperEdit = ({ record, onClose }: { record: any; onClose: () => void }) =
             onChange={(d) => { if (d) setTime(d); }} onClose={() => setShowTimePicker(false)} />
       </View>
       <View style={s.actions}>
-        <TouchableOpacity onPress={handleDelete} style={s.deleteBtn}>
+        <TouchableOpacity onPress={handleDelete} accessibilityLabel="Удалить" style={s.deleteBtn}>
           <Ionicons name="trash" size={18} color="#E05A5A" />
         </TouchableOpacity>
         <TouchableOpacity onPress={handleSave} disabled={saving}
@@ -210,12 +212,25 @@ const safeTime = (val: any) => {
   return new Date(val).getTime() || 0;
 };
 
+const getSleepBounds = (item: any) => {
+  const start = safeTime(item.start_time) || safeTime(item.created_at);
+  const end = safeTime(item.end_time) || start + (item.duration_seconds || 0) * 1000;
+  return { start, end };
+};
+
+const getWalkBounds = (item: any) => {
+  const start = safeTime(item.created_at);
+  const end = start + (item.duration_seconds || 0) * 1000;
+  return { start, end };
+};
+
 const SleepEdit = ({ record, onClose }: { record: any; onClose: () => void }) => {
   const startMs = safeTime(record.start_time) || safeTime(record.created_at);
   const endMs = safeTime(record.end_time) || (startMs + (record.duration_seconds || 0) * 1000);
   const [start, setStart] = useState(new Date(startMs));
   const [end, setEnd] = useState(new Date(endMs));
   const [location, setLocation] = useState(record.location || 'crib');
+  const [quality, setQuality] = useState(record.quality || 0);
   
   const [showStartTimePicker, setShowStartTimePicker] = useState(false);
   const [showStartDatePicker, setShowStartDatePicker] = useState(false);
@@ -224,6 +239,24 @@ const SleepEdit = ({ record, onClose }: { record: any; onClose: () => void }) =>
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
   
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadGroupBounds = async () => {
+      if (!record.group_id) return;
+      try {
+        const group = await database.get<Sleep>('sleeps').query(Q.where('group_id', record.group_id)).fetch();
+        if (cancelled || group.length <= 1) return;
+        const bounds = group.map(getSleepBounds);
+        setStart(new Date(Math.min(...bounds.map(item => item.start))));
+        setEnd(new Date(Math.max(...bounds.map(item => item.end))));
+      } catch {
+        // Keep the current segment values if the group cannot be loaded.
+      }
+    };
+    loadGroupBounds();
+    return () => { cancelled = true; };
+  }, [record]);
 
   const isInvalid = end.getTime() <= start.getTime();
   const durationMin = isInvalid ? 0 : Math.floor((end.getTime() - start.getTime()) / 60000);
@@ -239,15 +272,15 @@ const SleepEdit = ({ record, onClose }: { record: any; onClose: () => void }) =>
     if (isInvalid) return;
     setSaving(true);
     try {
-      const durationSecs = Math.floor((end.getTime() - start.getTime()) / 1000);
-      await database.write(async () => {
-        await record.update((r: any) => {
-          r.duration_seconds = durationSecs;
-          r.location = location;
-          r.start_time = start.getTime();
-          r.end_time = end.getTime();
-          r.created_at = start.getTime();
-        });
+      await replaceSleepRecordWithInterval(record, {
+        startMs: start.getTime(),
+        endMs: end.getTime(),
+        location,
+        quality,
+        isSynthetic: record.is_synthetic,
+        recordedBy: record.recorded_by,
+        babyId: record.baby_id,
+        userId: record.user_id,
       });
       pushNow();
       onClose();
@@ -259,7 +292,14 @@ const SleepEdit = ({ record, onClose }: { record: any; onClose: () => void }) =>
     Alert.alert('Удалить?', 'Удалить эту запись навсегда?', [
       { text: 'Отмена', style: 'cancel' },
       { text: 'Удалить', style: 'destructive', onPress: async () => {
-        await database.write(async () => { await record.markAsDeleted(); });
+        const group = record.group_id
+          ? await database.get<Sleep>('sleeps').query(Q.where('group_id', record.group_id)).fetch()
+          : [record];
+        await database.write(async () => {
+          for (const item of group.length > 0 ? group : [record]) {
+            await item.markAsDeleted();
+          }
+        });
         pushNow();
         onClose();
       }},
@@ -317,8 +357,18 @@ const SleepEdit = ({ record, onClose }: { record: any; onClose: () => void }) =>
           ))}
         </View>
       </View>
+      <View>
+        <Text style={s.label}>КАЧЕСТВО</Text>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          {[1, 2, 3, 4, 5].map(star => (
+            <TouchableOpacity key={star} onPress={() => setQuality(star === quality ? 0 : star)}>
+              <Ionicons name={star <= quality ? 'star' : 'star-outline'} size={30} color={star <= quality ? '#F0A500' : '#E0DDD8'} />
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
       <View style={s.actions}>
-        <TouchableOpacity onPress={handleDelete} style={s.deleteBtn}>
+        <TouchableOpacity onPress={handleDelete} accessibilityLabel="Удалить" style={s.deleteBtn}>
           <Ionicons name="trash" size={18} color="#E05A5A" />
         </TouchableOpacity>
         <TouchableOpacity onPress={handleSave} disabled={saving || isInvalid}
@@ -333,30 +383,82 @@ const SleepEdit = ({ record, onClose }: { record: any; onClose: () => void }) =>
 
 /* ── Walk Edit ── */
 const WalkEdit = ({ record, onClose }: { record: any; onClose: () => void }) => {
+  const startMs = safeTime(record.created_at);
+  const endMs = startMs + (record.duration_seconds || 0) * 1000;
   const [notes, setNotes] = useState(record.notes || '');
   const [loc, setLoc] = useState(record.location || 'park');
-  const [time, setTime] = useState(new Date(record.created_at));
-  const [showTimePicker, setShowTimePicker] = useState(false);
-  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [weather, setWeather] = useState(record.weather || 'sunny');
+  const [distance, setDistance] = useState(record.distance_m ? String(Math.round(record.distance_m)) : '');
+  const [start, setStart] = useState(new Date(startMs));
+  const [end, setEnd] = useState(new Date(endMs));
+  const [showStartTimePicker, setShowStartTimePicker] = useState(false);
+  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
+  const [showEndTimePicker, setShowEndTimePicker] = useState(false);
+  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadGroupBounds = async () => {
+      if (!record.group_id) return;
+      try {
+        const group = await database.get<Walk>('walks').query(Q.where('group_id', record.group_id)).fetch();
+        if (cancelled || group.length <= 1) return;
+        const bounds = group.map(getWalkBounds);
+        const totalDistance = group.reduce((sum, item) => sum + (item.distance_m || 0), 0);
+        setStart(new Date(Math.min(...bounds.map(item => item.start))));
+        setEnd(new Date(Math.max(...bounds.map(item => item.end))));
+        if (totalDistance > 0) setDistance(String(Math.round(totalDistance)));
+      } catch {
+        // Keep the current segment values if the group cannot be loaded.
+      }
+    };
+    loadGroupBounds();
+    return () => { cancelled = true; };
+  }, [record]);
+
+  const isInvalid = end.getTime() <= start.getTime();
+  const durationMin = isInvalid ? 0 : Math.floor((end.getTime() - start.getTime()) / 60000);
 
   const locs = [
     { id: 'park', label: 'Парк' },
+    { id: 'yard', label: 'Двор' },
+    { id: 'forest', label: 'Лес' },
+    { id: 'outside', label: 'Улица' },
     { id: 'city', label: 'Город' },
     { id: 'playground', label: 'Площадка' },
     { id: 'nature', label: 'Природа' },
     { id: 'mall', label: 'ТЦ' },
   ];
 
+  const weathers = [
+    { id: 'sunny', label: 'Солнечно' },
+    { id: 'cloudy', label: 'Облачно' },
+    { id: 'windy', label: 'Ветрено' },
+    { id: 'rainy', label: 'Дождь' },
+  ];
+
   const handleSave = async () => {
+    if (isInvalid) return;
     setSaving(true);
     try {
-      await database.write(async () => {
-        await record.update((r: any) => {
-          r.notes = notes || undefined;
-          r.location = loc;
-          r.created_at = time.getTime();
-        });
+      const parsedDistance = distance.trim()
+        ? Number(distance.replace(',', '.'))
+        : null;
+      const distanceM = parsedDistance == null || !Number.isFinite(parsedDistance)
+        ? null
+        : parsedDistance;
+
+      await replaceWalkRecordWithInterval(record, {
+        startMs: start.getTime(),
+        endMs: end.getTime(),
+        location: loc,
+        weather,
+        notes,
+        distanceM,
+        recordedBy: record.recorded_by,
+        babyId: record.baby_id,
+        userId: record.user_id,
       });
       pushNow();
       onClose();
@@ -368,7 +470,14 @@ const WalkEdit = ({ record, onClose }: { record: any; onClose: () => void }) => 
     Alert.alert('Удалить?', 'Удалить эту запись навсегда?', [
       { text: 'Отмена', style: 'cancel' },
       { text: 'Удалить', style: 'destructive', onPress: async () => {
-        await database.write(async () => { await record.markAsDeleted(); });
+        const group = record.group_id
+          ? await database.get<Walk>('walks').query(Q.where('group_id', record.group_id)).fetch()
+          : [record];
+        await database.write(async () => {
+          for (const item of group.length > 0 ? group : [record]) {
+            await item.markAsDeleted();
+          }
+        });
         pushNow();
         onClose();
       }},
@@ -377,6 +486,43 @@ const WalkEdit = ({ record, onClose }: { record: any; onClose: () => void }) => 
 
   return (
     <View style={{ gap: 16 }}>
+      <View style={{ gap: 12 }}>
+        <View>
+          <Text style={s.label}>НАЧАЛО</Text>
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            <TouchableOpacity onPress={() => setShowStartDatePicker(true)} style={[s.input, { flex: 1 }]}>
+              <Text style={s.inputText}>{start.toLocaleDateString('ru-RU')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setShowStartTimePicker(true)} style={[s.input, { flex: 1 }]}>
+              <Text style={s.inputText}>{start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+            </TouchableOpacity>
+          </View>
+          <DateTimePickerModal visible={showStartDatePicker} value={start} mode="date"
+            onChange={(d) => { if (d) setStart(d); }} onClose={() => setShowStartDatePicker(false)} />
+          <DateTimePickerModal visible={showStartTimePicker} value={start} mode="time" is24Hour
+            onChange={(d) => { if (d) setStart(d); }} onClose={() => setShowStartTimePicker(false)} />
+        </View>
+
+        <View>
+          <Text style={s.label}>КОНЕЦ</Text>
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            <TouchableOpacity onPress={() => setShowEndDatePicker(true)} style={[s.input, { flex: 1 }]}>
+              <Text style={s.inputText}>{end.toLocaleDateString('ru-RU')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setShowEndTimePicker(true)} style={[s.input, { flex: 1 }]}>
+              <Text style={s.inputText}>{end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+            </TouchableOpacity>
+          </View>
+          <DateTimePickerModal visible={showEndDatePicker} value={end} mode="date"
+            onChange={(d) => { if (d) setEnd(d); }} onClose={() => setShowEndDatePicker(false)} />
+          <DateTimePickerModal visible={showEndTimePicker} value={end} mode="time" is24Hour
+            onChange={(d) => { if (d) setEnd(d); }} onClose={() => setShowEndTimePicker(false)} />
+        </View>
+      </View>
+      {isInvalid && <Text style={{ fontSize: 12, fontFamily: 'Nunito_700Bold', color: '#EF4444' }}>Конец должен быть после начала</Text>}
+      {!isInvalid && <Text style={{ fontSize: 12, fontFamily: 'Nunito_700Bold', color: '#8A8A9E' }}>
+        Длительность: {durationMin > 60 ? `${Math.floor(durationMin / 60)}ч ${durationMin % 60}м` : `${durationMin}м`}
+      </Text>}
       <View>
         <Text style={s.label}>МЕСТО</Text>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
@@ -389,31 +535,31 @@ const WalkEdit = ({ record, onClose }: { record: any; onClose: () => void }) => 
         </View>
       </View>
       <View>
+        <Text style={s.label}>ПОГОДА</Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          {weathers.map(w => (
+            <TouchableOpacity key={w.id} onPress={() => setWeather(w.id)}
+              style={{ paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, backgroundColor: weather === w.id ? '#F97316' : '#F5F0E6' }}>
+              <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 12, color: weather === w.id ? 'white' : '#6B6B80' }}>{w.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+      <View>
+        <Text style={s.label}>ДИСТАНЦИЯ (М)</Text>
+        <TextInput value={distance} onChangeText={setDistance} placeholder="Необязательно" placeholderTextColor="#A0A0B0" keyboardType="decimal-pad" style={s.input} />
+      </View>
+      <View>
         <Text style={s.label}>ЗАМЕТКА</Text>
         <TextInput value={notes} onChangeText={setNotes} placeholder="Необязательно" placeholderTextColor="#A0A0B0"
           multiline style={[s.input, { minHeight: 80, textAlignVertical: 'top' }]} />
       </View>
-      <View>
-        <Text style={s.label}>ДАТА И ВРЕМЯ</Text>
-        <View style={{ flexDirection: 'row', gap: 12 }}>
-          <TouchableOpacity onPress={() => setShowDatePicker(true)} style={[s.input, { flex: 1 }]}>
-            <Text style={s.inputText}>{time.toLocaleDateString('ru-RU')}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => setShowTimePicker(true)} style={[s.input, { flex: 1 }]}>
-            <Text style={s.inputText}>{time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
-          </TouchableOpacity>
-        </View>
-        <DateTimePickerModal visible={showDatePicker} value={time} mode="date"
-            onChange={(d) => { if (d) setTime(d); }} onClose={() => setShowDatePicker(false)} />
-        <DateTimePickerModal visible={showTimePicker} value={time} mode="time" is24Hour
-            onChange={(d) => { if (d) setTime(d); }} onClose={() => setShowTimePicker(false)} />
-      </View>
       <View style={s.actions}>
-        <TouchableOpacity onPress={handleDelete} style={s.deleteBtn}>
+        <TouchableOpacity onPress={handleDelete} accessibilityLabel="Удалить" style={s.deleteBtn}>
           <Ionicons name="trash" size={18} color="#E05A5A" />
         </TouchableOpacity>
-        <TouchableOpacity onPress={handleSave} disabled={saving}
-          style={[s.saveBtn, { backgroundColor: saving ? '#A8A8B6' : '#059669' }]}>
+        <TouchableOpacity onPress={handleSave} disabled={saving || isInvalid}
+          style={[s.saveBtn, { backgroundColor: saving || isInvalid ? '#A8A8B6' : '#059669' }]}>
           <Ionicons name="save" size={16} color="white" style={{ marginRight: 8 }} />
           <Text style={s.saveBtnText}>{saving ? 'Сохранение...' : 'Сохранить'}</Text>
         </TouchableOpacity>

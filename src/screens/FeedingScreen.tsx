@@ -47,6 +47,17 @@ function FeedingScreenContent({ feedings }: { feedings: Feeding[] }) {
   const [editTarget, setEditTarget] = useState<any>(null);
   const [selectedDate, setSelectedDate] = useState(new Date());
 
+  const changeSelectedDate = (days: number) => {
+    const d = new Date(selectedDate);
+    d.setDate(d.getDate() + days);
+    setSelectedDate(d);
+    setEventTime(prev => {
+      const next = new Date(prev);
+      next.setFullYear(d.getFullYear(), d.getMonth(), d.getDate());
+      return next;
+    });
+  };
+
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (timerRunning) {
@@ -173,7 +184,7 @@ function FeedingScreenContent({ feedings }: { feedings: Feeding[] }) {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: Math.max(insets.bottom, 120) }}>
           {/* Date Selector */}
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'white', borderRadius: 14, padding: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 12, elevation: 2, marginBottom: 20 }}>
-            <TouchableOpacity onPress={() => { const d = new Date(selectedDate); d.setDate(d.getDate() - 1); setSelectedDate(d); }} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#F5F0E6', alignItems: 'center', justifyContent: 'center' }}>
+            <TouchableOpacity onPress={() => changeSelectedDate(-1)} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#F5F0E6', alignItems: 'center', justifyContent: 'center' }}>
               <Ionicons name="chevron-back" size={20} color="#6B6B80" />
             </TouchableOpacity>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -182,7 +193,7 @@ function FeedingScreenContent({ feedings }: { feedings: Feeding[] }) {
                 {selectedDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
               </Text>
             </View>
-            <TouchableOpacity onPress={() => { const d = new Date(selectedDate); d.setDate(d.getDate() + 1); setSelectedDate(d); }} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#F5F0E6', alignItems: 'center', justifyContent: 'center' }}>
+            <TouchableOpacity onPress={() => changeSelectedDate(1)} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#F5F0E6', alignItems: 'center', justifyContent: 'center' }}>
               <Ionicons name="chevron-forward" size={20} color="#6B6B80" />
             </TouchableOpacity>
           </View>
@@ -228,7 +239,11 @@ function FeedingScreenContent({ feedings }: { feedings: Feeding[] }) {
                 <Text style={{ fontSize: 12, fontFamily: 'Nunito_800ExtraBold', color: '#8A8A9E', textTransform: 'uppercase', marginBottom: 4 }}>Длительность</Text>
                 <Text style={{ fontSize: 38, fontFamily: 'Nunito_900Black', color: '#1A1A2E' }}>{fmt(seconds)}</Text>
               </View>
-              <TouchableOpacity onPress={() => setTimerRunning(!timerRunning)} style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: timerRunning ? '#D94F4F' : '#4E8FD4', alignItems: 'center', justifyContent: 'center' }}>
+              <TouchableOpacity
+                accessibilityLabel={timerRunning ? "Остановить таймер кормления" : "Запустить таймер кормления"}
+                onPress={() => setTimerRunning(!timerRunning)}
+                style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: timerRunning ? '#D94F4F' : '#4E8FD4', alignItems: 'center', justifyContent: 'center' }}
+              >
                 <Ionicons name={timerRunning ? "stop" : "play"} size={26} color="white" />
               </TouchableOpacity>
             </View>

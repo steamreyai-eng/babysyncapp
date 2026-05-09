@@ -3,6 +3,24 @@ import { createTable, addColumns, schemaMigrations } from '@nozbe/watermelondb/S
 export const migrations = schemaMigrations({
   migrations: [
     {
+      // v10 -> v11: Link split sleep/walk day segments back to one original interval
+      toVersion: 11,
+      steps: [
+        addColumns({
+          table: 'sleeps',
+          columns: [
+            { name: 'group_id', type: 'string', isOptional: true },
+          ],
+        }),
+        addColumns({
+          table: 'walks',
+          columns: [
+            { name: 'group_id', type: 'string', isOptional: true },
+          ],
+        }),
+      ],
+    },
+    {
       // v9 → v10: Add health_logs and update medications
       toVersion: 10,
       steps: [

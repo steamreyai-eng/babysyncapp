@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Platform, Alert, KeyboardAvoidingView, TextInput, RefreshControl } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Platform, Alert, KeyboardAvoidingView, TextInput, RefreshControl, Modal } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -12,6 +12,7 @@ import { Q } from '@nozbe/watermelondb';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { pushNow } from '../db/sync';
 import { resolveBabyId, getCurrentUserId } from '../db/syncHelpers';
+import DateTimePickerModal from '../components/DateTimePickerModal';
 
 import whoStandards from '../assets/who/growth_standards.json';
 
@@ -58,7 +59,13 @@ function GrowthScreenContent({ growthRecords }: { growthRecords: GrowthRecord[] 
     height: '60.0',
     head: '40.0',
   });
+  const [measurementDate, setMeasurementDate] = useState(new Date());
+  const [showMeasurementDatePicker, setShowMeasurementDatePicker] = useState(false);
   const [saving, setSaving] = useState<Metric | null>(null);
+  const [editRecord, setEditRecord] = useState<GrowthRecord | null>(null);
+  const [editValues, setEditValues] = useState({ weight: '', height: '', head: '' });
+  const [editDate, setEditDate] = useState(new Date());
+  const [showEditDatePicker, setShowEditDatePicker] = useState(false);
 
   const [refreshing, setRefreshing] = useState(false);
   const onRefresh = React.useCallback(async () => {
@@ -104,8 +111,8 @@ function GrowthScreenContent({ growthRecords }: { growthRecords: GrowthRecord[] 
           if (cfg.field === 'weight_kg') r.weight_kg = val;
           if (cfg.field === 'height_cm') r.height_cm = val;
           if (cfg.field === 'head_cm') r.head_cm = val; // Assuming headValue was meant to be val for head_cm
-          r.recorded_by = 'user';
-          r.created_at = Date.now();
+          r.recorded_by = activeParent || 'user';
+          r.created_at = measurementDate.getTime();
           if (babyId) r.baby_id = babyId;
           if (userId) r.user_id = userId;
         });
@@ -117,6 +124,74 @@ function GrowthScreenContent({ growthRecords }: { growthRecords: GrowthRecord[] 
     } finally {
       setSaving(null);
     }
+  };
+
+  const parseOptionalNumber = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return undefined;
+    const parsed = parseFloat(trimmed.replace(',', '.'));
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+  };
+
+  const openEdit = (record: GrowthRecord) => {
+    setEditRecord(record);
+    setEditValues({
+      weight: record.weight_kg ? String(record.weight_kg) : '',
+      height: record.height_cm ? String(record.height_cm) : '',
+      head: record.head_cm ? String(record.head_cm) : '',
+    });
+    setEditDate(new Date(record.created_at));
+  };
+
+  const closeEdit = () => {
+    setEditRecord(null);
+    setShowEditDatePicker(false);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editRecord) return;
+    const weight = parseOptionalNumber(editValues.weight);
+    const height = parseOptionalNumber(editValues.height);
+    const head = parseOptionalNumber(editValues.head);
+
+    if (!weight && !height && !head) {
+      Alert.alert('Ошибка', 'Укажите хотя бы одно измерение');
+      return;
+    }
+
+    try {
+      await database.write(async () => {
+        await editRecord.update(r => {
+          r.weight_kg = weight;
+          r.height_cm = height;
+          r.head_cm = head;
+          r.created_at = editDate.getTime();
+          r.recorded_by = activeParent || r.recorded_by || 'user';
+        });
+      });
+      pushNow();
+      closeEdit();
+    } catch {
+      Alert.alert('Ошибка', 'Не удалось сохранить измерение');
+    }
+  };
+
+  const handleDeleteEdit = () => {
+    if (!editRecord) return;
+    Alert.alert('Удалить измерение?', 'Это действие нельзя отменить', [
+      { text: 'Отмена', style: 'cancel' },
+      { text: 'Удалить', style: 'destructive', onPress: async () => {
+        try {
+          await database.write(async () => {
+            await editRecord.markAsDeleted();
+          });
+          pushNow();
+          closeEdit();
+        } catch {
+          Alert.alert('Ошибка', 'Не удалось удалить измерение');
+        }
+      }},
+    ]);
   };
 
   const fmtDate = (iso: string | Date) => new Date(iso).toLocaleDateString("ru-RU", { day: "numeric", month: "short", year: "numeric" });
@@ -158,6 +233,9 @@ function GrowthScreenContent({ growthRecords }: { growthRecords: GrowthRecord[] 
 
                 {isOpen && (
                   <View style={{ width: '100%', marginTop: 8, backgroundColor: 'white', borderRadius: 14, padding: 8, shadowColor: m.color, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 12, elevation: 4 }}>
+                    <TouchableOpacity onPress={() => setShowMeasurementDatePicker(true)} style={{ backgroundColor: '#F9F8F6', borderRadius: 10, padding: 8, alignItems: 'center', marginBottom: 8, borderWidth: 1, borderColor: m.bg }}>
+                      <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 11, color: '#6B6B80' }}>{measurementDate.toLocaleDateString('ru-RU')}</Text>
+                    </TouchableOpacity>
                     <TextInput 
                       value={pickerValues[m.key]} 
                       onChangeText={(t) => setPickerValues(v => ({ ...v, [m.key]: t }))} 
@@ -265,7 +343,7 @@ function GrowthScreenContent({ growthRecords }: { growthRecords: GrowthRecord[] 
                       {[r.weight_kg && `${r.weight_kg} кг`, r.height_cm && `${r.height_cm} см`, r.head_cm && `${r.head_cm} см гол.`].filter(Boolean).join(' · ')}
                     </Text>
                   </View>
-                  <TouchableOpacity onPress={() => { /* setEditTarget({ kind: 'growth', record: r }) */ }} style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: '#F5F5F9', alignItems: 'center', justifyContent: 'center' }}>
+                  <TouchableOpacity onPress={() => openEdit(r)} style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: '#F5F5F9', alignItems: 'center', justifyContent: 'center' }}>
                     <Ionicons name="pencil" size={14} color="#8A8A9E" />
                   </TouchableOpacity>
                 </View>
@@ -275,6 +353,42 @@ function GrowthScreenContent({ growthRecords }: { growthRecords: GrowthRecord[] 
         </View>
 
       </ScrollView>
+      <DateTimePickerModal
+        visible={showMeasurementDatePicker}
+        value={measurementDate}
+        mode="datetime"
+        is24Hour
+        onChange={(date) => { if (date) setMeasurementDate(date); }}
+        onClose={() => setShowMeasurementDatePicker(false)}
+      />
+      <Modal visible={!!editRecord} transparent animationType="slide" onRequestClose={closeEdit}>
+        <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' }}>
+          <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={closeEdit} />
+          <View style={{ backgroundColor: 'white', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: Platform.OS === 'ios' ? 34 : 20 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 18, color: '#1A1A2E' }}>Редактировать измерение</Text>
+              <TouchableOpacity onPress={closeEdit} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#F5F0E6', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="close" size={18} color="#6B6B80" />
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity onPress={() => setShowEditDatePicker(true)} style={{ backgroundColor: '#F9F8F6', borderRadius: 14, padding: 14, marginBottom: 12 }}>
+              <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 15, color: '#1A1A2E' }}>{editDate.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</Text>
+            </TouchableOpacity>
+            <DateTimePickerModal visible={showEditDatePicker} value={editDate} mode="datetime" is24Hour onChange={(date) => { if (date) setEditDate(date); }} onClose={() => setShowEditDatePicker(false)} />
+            <TextInput value={editValues.weight} onChangeText={(text) => setEditValues(v => ({ ...v, weight: text }))} keyboardType="decimal-pad" placeholder="Вес, кг" placeholderTextColor="#A0A0B0" style={{ backgroundColor: '#F9F8F6', borderRadius: 14, padding: 14, marginBottom: 12, fontFamily: 'Nunito_800ExtraBold', fontSize: 15, color: '#1A1A2E' }} />
+            <TextInput value={editValues.height} onChangeText={(text) => setEditValues(v => ({ ...v, height: text }))} keyboardType="decimal-pad" placeholder="Рост, см" placeholderTextColor="#A0A0B0" style={{ backgroundColor: '#F9F8F6', borderRadius: 14, padding: 14, marginBottom: 12, fontFamily: 'Nunito_800ExtraBold', fontSize: 15, color: '#1A1A2E' }} />
+            <TextInput value={editValues.head} onChangeText={(text) => setEditValues(v => ({ ...v, head: text }))} keyboardType="decimal-pad" placeholder="Голова, см" placeholderTextColor="#A0A0B0" style={{ backgroundColor: '#F9F8F6', borderRadius: 14, padding: 14, marginBottom: 16, fontFamily: 'Nunito_800ExtraBold', fontSize: 15, color: '#1A1A2E' }} />
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <TouchableOpacity onPress={handleDeleteEdit} style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: '#E05A5A20', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="trash" size={18} color="#E05A5A" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleSaveEdit} style={{ flex: 1, height: 48, borderRadius: 14, backgroundColor: '#2563EB', alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 14, color: 'white' }}>Сохранить</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
       </KeyboardAvoidingView>
     </View>
   );

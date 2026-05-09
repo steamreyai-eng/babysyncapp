@@ -22,6 +22,15 @@ jest.mock('../store/authStore', () => ({
   getAgeLabel: jest.fn().mockReturnValue('1 month'),
 }));
 
+jest.mock('../db/syncHelpers', () => ({
+  resolveBabyId: jest.fn().mockResolvedValue('baby-1'),
+  getCurrentUserId: jest.fn().mockReturnValue('user-1'),
+}));
+
+jest.mock('../db/sync', () => ({
+  pushNow: jest.fn(),
+}));
+
 describe('DoctorScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();

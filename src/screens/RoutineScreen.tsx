@@ -30,6 +30,9 @@ const StatusDashboard = ({
   let m = Math.floor(ageMo);
   if (days >= 30) { m += 1; days = 0; }
   const ageLabel = ageMo < 1 ? `${ageWeeks} нед` : `${m} мес ${days} дн`;
+  const specificActions = norms.specificActions || [];
+  const alerts = norms.alerts || [];
+  const wakeWindowMin = norms.wakeWindowMin || [0, 0];
 
   return (
     <View style={{ gap: 16 }}>
@@ -138,7 +141,7 @@ const StatusDashboard = ({
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
           {[
             { label: 'СОН/СУТКИ', value: `${norms.totalSleepH} ч`, icon: '💤', bg: '#F3E8FF' },
-            { label: 'ОКНО БОДР.', value: `${norms.wakeWindowMin[0]}–${norms.wakeWindowMin[1]} мин`, icon: '⏱', bg: '#FEF3C7' },
+            { label: 'ОКНО БОДР.', value: `${wakeWindowMin[0]}–${wakeWindowMin[1]} мин`, icon: '⏱', bg: '#FEF3C7' },
             { label: 'СНОВ/ДЕНЬ', value: norms.napsCount, icon: '🛏', bg: '#DBEAFE' },
             { label: 'КОРМЛЕНИЙ', value: norms.feedsPerDay, icon: '🍼', bg: '#D1FAE5' },
           ].map((item, i) => (
@@ -152,16 +155,16 @@ const StatusDashboard = ({
         <Text style={{ fontSize: 11, fontFamily: 'Nunito_800ExtraBold', color: '#8A8A9E', textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 16, marginBottom: 8 }}>
           РЕКОМЕНДАЦИИ ДЛЯ ЭТОГО ВОЗРАСТА
         </Text>
-        {norms.specificActions.map((action, i) => (
+        {specificActions.map((action, i) => (
           <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, padding: 10, borderRadius: 12, backgroundColor: '#F8FAFC', marginBottom: 8 }}>
             <Text style={{ color: '#8B5CF6', fontSize: 12, fontFamily: 'Nunito_900Black' }}>•</Text>
             <Text style={{ fontSize: 13, fontFamily: 'Nunito_700Bold', color: '#334155', flex: 1 }}>{action}</Text>
           </View>
         ))}
 
-        {norms.alerts.length > 0 && (
+        {alerts.length > 0 && (
           <View style={{ gap: 8, marginTop: 12 }}>
-             {norms.alerts.map((alert, i) => (
+             {alerts.map((alert, i) => (
                 <View key={i} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8, padding: 12, borderRadius: 12, backgroundColor: '#FFF7ED', borderWidth: 1, borderColor: '#FDBA74' }}>
                    <Ionicons name="warning" size={16} color="#F97316" style={{ marginTop: 2 }} />
                    <Text style={{ fontSize: 12, fontFamily: 'Nunito_700Bold', color: '#9A3412', flex: 1, lineHeight: 18 }}>{alert}</Text>

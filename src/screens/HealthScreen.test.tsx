@@ -11,6 +11,8 @@ jest.mock('@nozbe/with-observables', () => {
       {...props} 
       medications={[]} 
       growthRecords={[]}
+      healthLogs={[]}
+      doctorVisits={[]}
     />
   );
 });
@@ -20,6 +22,15 @@ jest.spyOn(Alert, 'alert');
 jest.mock('../store/authStore', () => ({
   useAuthStore: jest.fn((selector) => { const state = { session: { user: { id: 'test-user' } }, activeParent: 'mom' }; return selector ? selector(state) : state; }),
   getAgeLabel: jest.fn().mockReturnValue('1 month'),
+}));
+
+jest.mock('../db/syncHelpers', () => ({
+  resolveBabyId: jest.fn().mockResolvedValue('baby-1'),
+  getCurrentUserId: jest.fn().mockReturnValue('user-1'),
+}));
+
+jest.mock('../db/sync', () => ({
+  pushNow: jest.fn(),
 }));
 
 describe('HealthScreen', () => {
@@ -68,11 +79,15 @@ describe('HealthScreen', () => {
     await waitFor(() => {
       expect(database.write).toHaveBeenCalled();
       expect(mockCreate).toHaveBeenCalled();
-      expect(Alert.alert).toHaveBeenCalledWith('✓', 'Лекарство добавлено');
+      expect(screen.queryByText('Добавить лекарство')).toBeNull();
     });
   });
 
-  it('switches to symptoms tab and selects symptoms', () => {
+  it('switches to symptoms tab and selects symptoms', async () => {
+    const mockCreate = jest.fn();
+    jest.spyOn(database, 'write').mockImplementation(async (callback: any) => await callback());
+    jest.spyOn(database, 'get').mockReturnValue({ create: mockCreate } as any);
+
     render(<HealthScreen />);
     
     fireEvent.press(screen.getByText('Симптомы'));
@@ -86,8 +101,12 @@ describe('HealthScreen', () => {
     
     fireEvent.changeText(screen.getByPlaceholderText('Подробности для педиатра...'), 'Red spots');
     
-    fireEvent.press(screen.getByText('Сохранить и уведомить'));
+    fireEvent.press(screen.getByText('Сохранить локально'));
     
-    expect(Alert.alert).toHaveBeenCalled();
+    await waitFor(() => {
+      expect(database.write).toHaveBeenCalled();
+      expect(mockCreate).toHaveBeenCalled();
+      expect(Alert.alert).toHaveBeenCalledWith('✓', 'Симптомы сохранены локально');
+    });
   });
 });

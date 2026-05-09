@@ -16,12 +16,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTimerStore } from '../store/timerStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { database } from '../db';
-import { Sleep } from '../db/models/Sleep';
-import { Walk } from '../db/models/Walk';
 import { useAuthStore } from '../store/authStore';
 import { cancelSleepTimerNotification, cancelWalkTimerNotification } from '../lib/timerNotifications';
 import { pushNow } from '../db/sync';
+import { saveSleepInterval, saveWalkInterval } from '../lib/recordMutations';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -261,16 +259,12 @@ export default function LiveActivityBanner() {
       const seconds = Math.floor((Date.now() - startTime) / 1000);
       if (seconds > 0) {
          try {
-           await database.write(async () => {
-             await database.get<Sleep>('sleeps').create(sleep => {
-               sleep.duration_seconds = seconds;
-               sleep.location = location || 'crib';
-               sleep.quality = quality || 0;
-               sleep.start_time = startTime;
-               sleep.end_time = Date.now();
-               sleep.created_at = startTime;
-               sleep.recorded_by = useAuthStore.getState().activeParent || 'mom';
-             });
+           await saveSleepInterval({
+             startMs: startTime,
+             endMs: Date.now(),
+             location: location || 'crib',
+             quality: quality || 0,
+             recordedBy: useAuthStore.getState().activeParent || 'mom',
            });
          } catch (error) {
            if (__DEV__) console.warn("Error saving sleep from banner", error);
@@ -288,15 +282,13 @@ export default function LiveActivityBanner() {
       const seconds = Math.floor((Date.now() - startTime) / 1000);
       if (seconds > 0) {
          try {
-           await database.write(async () => {
-             await database.get<Walk>('walks').create(walk => {
-               walk.duration_seconds = seconds;
-               walk.location = location || 'park';
-               walk.weather = weather || 'sunny';
-               walk.notes = (notes || '').trim() || undefined;
-               walk.created_at = startTime;
-               walk.recorded_by = useAuthStore.getState().activeParent || 'mom';
-             });
+           await saveWalkInterval({
+             startMs: startTime,
+             endMs: Date.now(),
+             location: location || 'park',
+             weather: weather || 'sunny',
+             notes,
+             recordedBy: useAuthStore.getState().activeParent || 'mom',
            });
          } catch (error) {
            if (__DEV__) console.warn("Error saving walk from banner", error);
@@ -328,13 +320,12 @@ export default function LiveActivityBanner() {
     <View
       pointerEvents="box-none"
       style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        zIndex: 9999,
+        zIndex: 20,
+        elevation: 20,
+        backgroundColor: '#FAFBFC',
         paddingTop: Math.max(insets.top, 16) + 4,
         paddingHorizontal: 12,
+        paddingBottom: 6,
       }}
     >
       {sleepRunning && (

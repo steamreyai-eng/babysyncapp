@@ -24,20 +24,19 @@ describe('AuthScreen', () => {
     render(<AuthScreen />);
     
     // Default is Login mode
-    expect(screen.getByText('Войти')).toBeTruthy();
-    expect(screen.getByText('Нет аккаунта? Зарегистрируйтесь')).toBeTruthy();
+    expect(screen.getAllByText('Войти').length).toBeGreaterThan(0);
+    expect(screen.getByText('Регистрация')).toBeTruthy();
     
     // Switch to Sign Up
-    fireEvent.press(screen.getByText('Нет аккаунта? Зарегистрируйтесь'));
+    fireEvent.press(screen.getByText('Регистрация'));
     
-    expect(screen.getByText('Создать аккаунт')).toBeTruthy();
-    expect(screen.getByText('Уже есть аккаунт? Войти')).toBeTruthy();
+    expect(screen.getByText('Зарегистрироваться')).toBeTruthy();
   });
 
   it('shows alert if fields are empty on submit', () => {
     render(<AuthScreen />);
     
-    fireEvent.press(screen.getByText('Войти'));
+    fireEvent.press(screen.getAllByText('Войти')[1]);
     
     expect(Alert.alert).toHaveBeenCalledWith('Ошибка', 'Введите email и пароль');
   });
@@ -47,12 +46,10 @@ describe('AuthScreen', () => {
     
     render(<AuthScreen />);
     
-    fireEvent.changeText(screen.getByPlaceholderText('Email'), 'test@example.com');
-    fireEvent.changeText(screen.getByPlaceholderText('Password'), 'password123');
+    fireEvent.changeText(screen.getByPlaceholderText('you@example.com'), 'test@example.com');
+    fireEvent.changeText(screen.getByPlaceholderText('Минимум 6 символов'), 'password123');
     
-    fireEvent.press(screen.getByText('Войти'));
-
-    expect(screen.getByText('Загрузка...')).toBeTruthy();
+    fireEvent.press(screen.getAllByText('Войти')[1]);
     
     await waitFor(() => {
       expect(supabase.auth.signInWithPassword).toHaveBeenCalledWith({
@@ -68,12 +65,12 @@ describe('AuthScreen', () => {
     render(<AuthScreen />);
     
     // Switch to Sign Up
-    fireEvent.press(screen.getByText('Нет аккаунта? Зарегистрируйтесь'));
+    fireEvent.press(screen.getByText('Регистрация'));
     
-    fireEvent.changeText(screen.getByPlaceholderText('Email'), 'test2@example.com');
-    fireEvent.changeText(screen.getByPlaceholderText('Password'), 'password1234');
+    fireEvent.changeText(screen.getByPlaceholderText('you@example.com'), 'test2@example.com');
+    fireEvent.changeText(screen.getByPlaceholderText('Минимум 6 символов'), 'password1234');
     
-    fireEvent.press(screen.getByText('Создать аккаунт'));
+    fireEvent.press(screen.getByText('Зарегистрироваться'));
 
     await waitFor(() => {
       expect(supabase.auth.signUp).toHaveBeenCalledWith({

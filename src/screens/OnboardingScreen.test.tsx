@@ -9,12 +9,25 @@ import { useAuthStore } from '../store/authStore';
 jest.mock('../lib/supabase', () => ({
   supabase: {
     from: jest.fn(),
+    auth: {
+      getUser: jest.fn().mockResolvedValue({ data: { user: { id: 'user-1' } } }),
+    },
   },
 }));
 
 jest.mock('../store/authStore', () => ({
   useAuthStore: jest.fn((selector) => { const state = { session: { user: { id: 'test-user' } }, activeParent: 'mom' }; return selector ? selector(state) : state; }),
 }));
+
+jest.mock('../components/DateTimePickerModal', () => {
+  const React = require('react');
+  const { Text } = require('react-native');
+  return ({ visible, onChange, onClose }: any) => visible ? (
+    <Text onPress={() => { onChange(new Date('2026-01-01T12:00:00Z')); onClose(); }}>
+      mock-date-picker
+    </Text>
+  ) : null;
+});
 
 jest.spyOn(Alert, 'alert');
 
@@ -54,13 +67,14 @@ describe('OnboardingScreen', () => {
     render(<OnboardingScreen />);
 
     // Step 1
-    fireEvent.changeText(screen.getByPlaceholderText('Имя ребёнка'), 'Alina');
+    fireEvent.changeText(screen.getByPlaceholderText('Например: Миша'), 'Alina');
     fireEvent.press(screen.getByText('Девочка'));
     fireEvent.press(screen.getByText('Далее'));
 
     // Step 2
     expect(screen.getByText('Шаг 2 из 4')).toBeTruthy();
-    fireEvent.changeText(screen.getByPlaceholderText('ГГГГ-ММ-ДД (например 2024-05-15)'), '2026-01-01');
+    fireEvent.press(screen.getByText('Выберите дату'));
+    fireEvent.press(screen.getByText('mock-date-picker'));
     fireEvent.press(screen.getByText('Далее'));
 
     // Step 3
@@ -79,15 +93,16 @@ describe('OnboardingScreen', () => {
 
     await waitFor(() => {
       expect(supabase.from).toHaveBeenCalledWith('baby_profile');
-      expect(mockSupabaseQuery.insert).toHaveBeenCalledWith([{
+      expect(mockSupabaseQuery.insert).toHaveBeenCalledWith([expect.objectContaining({
         name: 'Alina',
         birthdate: '2026-01-01',
         country: 'Russia',
         city: '',
         mom_name: 'Mom',
         dad_name: 'Dad',
-        gender: 'girl'
-      }]);
+        gender: 'girl',
+        user_id: 'user-1',
+      })]);
       expect(mockSetBaby).toHaveBeenCalledWith({ id: 'baby-id', name: 'Alina' });
       expect(mockSetOnboardingNeeded).toHaveBeenCalledWith(false);
     });

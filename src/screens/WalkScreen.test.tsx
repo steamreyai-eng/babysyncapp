@@ -4,11 +4,19 @@ import { Alert } from 'react-native';
 import WalkScreen from './WalkScreen';
 import { database } from '../db';
 import { useAuthStore } from '../store/authStore';
+import { useTimerStore } from '../store/timerStore';
+import { saveWalkInterval } from '../lib/recordMutations';
 
 const mockNavigation = { goBack: jest.fn() };
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => mockNavigation,
 }));
+
+jest.mock('@nozbe/with-observables', () => {
+  return () => (Component: any) => (props: any) => (
+    <Component {...props} walks={[]} />
+  );
+});
 
 jest.spyOn(Alert, 'alert');
 
@@ -17,9 +25,18 @@ jest.mock('../store/authStore', () => ({
   getAgeLabel: jest.fn().mockReturnValue('1 month'),
 }));
 
+jest.mock('../lib/recordMutations', () => ({
+  saveWalkInterval: jest.fn().mockResolvedValue([]),
+}));
+
+jest.mock('../db/sync', () => ({
+  pushNow: jest.fn(),
+}));
+
 describe('WalkScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    useTimerStore.getState().clearWalkTimer();
     (useAuthStore as unknown as jest.Mock).mockImplementation((selector: any) => {
       const state = {
         session: { user: { id: 'user-1' } },
@@ -33,13 +50,13 @@ describe('WalkScreen', () => {
     render(<WalkScreen />);
     
     expect(screen.getByText('Прогулка')).toBeTruthy();
-    expect(screen.getByText('Время на улице')).toBeTruthy();
+    expect(screen.getByText('Таймер прогулки')).toBeTruthy();
     
-    const startBtn = screen.getByText('Начать');
+    const startBtn = screen.getByText('Начать прогулку');
     expect(startBtn).toBeTruthy();
     fireEvent.press(startBtn);
     
-    expect(screen.getByText('Конец прогулки')).toBeTruthy();
+    expect(screen.getByText('Остановить')).toBeTruthy();
   });
 
   it('switches to manual mode and allows saving', async () => {
@@ -50,20 +67,15 @@ describe('WalkScreen', () => {
     render(<WalkScreen />);
     
     fireEvent.press(screen.getByText('Вручную'));
-    expect(screen.getByText('Вышли')).toBeTruthy();
-    expect(screen.getByText('Вернулись')).toBeTruthy();
+    expect(screen.getByText('Начали')).toBeTruthy();
+    expect(screen.getByText('Закончили')).toBeTruthy();
 
     // Change location and weather
     fireEvent.press(screen.getByText('Двор'));
-    fireEvent.press(screen.getByText('☁️ Облачно'));
+    fireEvent.press(screen.getByText('Облачно'));
 
-    // The manual time starts identical, saving might fail duration validation
-    // unless mocked differently. We just trigger save interaction.
     fireEvent.press(screen.getByText('Сохранить'));
-    
-    await waitFor(() => {
-        // Assertions for error because manualEnd === manualStart by default
-        expect(Alert.alert).toHaveBeenCalledWith("Ошибка", "Время окончания должно быть позже времени начала.");
-    });
+
+    expect(saveWalkInterval).not.toHaveBeenCalled();
   });
 });

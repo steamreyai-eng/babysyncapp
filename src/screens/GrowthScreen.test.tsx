@@ -26,6 +26,15 @@ jest.mock('../store/authStore', () => ({
   getAgeLabel: jest.fn().mockReturnValue('1 month'),
 }));
 
+jest.mock('../db/syncHelpers', () => ({
+  resolveBabyId: jest.fn().mockResolvedValue('baby-1'),
+  getCurrentUserId: jest.fn().mockReturnValue('user-1'),
+}));
+
+jest.mock('../db/sync', () => ({
+  pushNow: jest.fn(),
+}));
+
 describe('GrowthScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -43,7 +52,7 @@ describe('GrowthScreen', () => {
     render(<GrowthScreen />);
     
     expect(screen.getByText('Рост и развитие')).toBeTruthy();
-    expect(screen.getByText('Перцентили ВОЗ (Вес)')).toBeTruthy();
+    expect(screen.getByText('Перцентили ВОЗ')).toBeTruthy();
     
     // Check if the loaded active milestone is present (test async storage mock resolves)
     await waitFor(() => {
@@ -58,15 +67,14 @@ describe('GrowthScreen', () => {
 
     render(<GrowthScreen />);
     
-    fireEvent.changeText(screen.getByPlaceholderText('Вес (кг)'), '5.5');
-    fireEvent.changeText(screen.getByPlaceholderText('Рост (см)'), '60');
+    fireEvent.press(screen.getAllByText('Выбрать ↕')[0]);
+    fireEvent.changeText(screen.getByDisplayValue('6.0'), '5.5');
     
-    fireEvent.press(screen.getByText('✓ Сохранить'));
+    fireEvent.press(screen.getByText('✓ Добавить'));
 
     await waitFor(() => {
       expect(database.write).toHaveBeenCalled();
       expect(mockCreate).toHaveBeenCalled();
-      expect(Alert.alert).toHaveBeenCalledWith('✓', 'Измерение сохранено');
     });
   });
 });

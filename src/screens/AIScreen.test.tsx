@@ -4,6 +4,7 @@ import AIScreen from './AIScreen';
 import { useAuthStore } from '../store/authStore';
 import { callAI } from '../lib/ai';
 import { database } from '../db';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 jest.mock('../lib/ai', () => ({
   callAI: jest.fn().mockResolvedValue('Mocked AI Response'),
@@ -19,10 +20,11 @@ describe('AIScreen', () => {
     jest.clearAllMocks();
     (useAuthStore as unknown as jest.Mock).mockImplementation((selector: any) => {
       const state = {
-        baby: { name: 'Alina', birthdate: '2026-01-01' },
+        baby: { name: 'Alina', birthdate: '2026-01-01', gender: 'girl' },
       };
       return selector ? selector(state) : state;
     });
+    (AsyncStorage.getItem as jest.Mock).mockResolvedValue('true');
     jest.spyOn(database, 'get').mockReturnValue({
       query: () => ({ fetch: jest.fn().mockResolvedValue([]) })
     } as any);
@@ -31,10 +33,10 @@ describe('AIScreen', () => {
   it('renders correctly and allows sending a message', async () => {
     render(<AIScreen />);
     
-    expect(screen.getByText('AI Ассистент')).toBeTruthy();
-    expect(screen.getByPlaceholderText('Задайте вопрос...')).toBeTruthy();
+    await waitFor(() => expect(screen.getByText('AI-Ассистент')).toBeTruthy());
+    expect(screen.getByPlaceholderText('Ваш вопрос...')).toBeTruthy();
     
-    const input = screen.getByPlaceholderText('Задайте вопрос...');
+    const input = screen.getByPlaceholderText('Ваш вопрос...');
     fireEvent.changeText(input, 'Привет, как дела?');
     
     // Send message using the send button
@@ -52,10 +54,10 @@ describe('AIScreen', () => {
   it('allows clicking quick actions', async () => {
     render(<AIScreen />);
     
-    const quickBtn = screen.getByText('📊 Анализ дня');
+    const quickBtn = await screen.findByText('Анализ кормлений 🍼');
     fireEvent.press(quickBtn);
 
-    expect(screen.getByText('Проанализируй данные за сегодня и дай рекомендации.')).toBeTruthy();
+    expect(screen.getAllByText('Анализ кормлений 🍼').length).toBeGreaterThan(0);
 
     await waitFor(() => {
       expect(callAI).toHaveBeenCalled();

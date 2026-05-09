@@ -13,28 +13,38 @@ import {
   Modal, TextInput, Alert, Platform, ScrollView, KeyboardAvoidingView,
   Keyboard, Animated as RNAnimated,
 } from 'react-native';
-import { Plus, X, Check, Moon, Milk, Droplets, Droplet, CloudRain, Cloud, Play, Square, Utensils } from 'lucide-react-native';
+import { Plus, X, Check, Moon, Milk, Droplets, Droplet, CloudRain, Cloud, Play, Square, Utensils, Footprints } from 'lucide-react-native';
 import DateTimePickerModal from './DateTimePickerModal';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { useNavigation, NavigationProp } from '@react-navigation/native';
+import { useNavigation, NavigationProp, useNavigationState } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { database } from '../db';
 import { Feeding } from '../db/models/Feeding';
 import { Diaper } from '../db/models/Diaper';
-import { Sleep } from '../db/models/Sleep';
 import { useAuthStore } from '../store/authStore';
 import { useTimerStore } from '../store/timerStore';
 import { startFeedingTimerNotification, cancelFeedingTimerNotification } from '../lib/timerNotifications';
 import { triggerHaptic } from '../utils/haptics';
 import { pushNow } from '../db/sync';
+import { resolveBabyId, getCurrentUserId } from '../db/syncHelpers';
+import { saveSleepInterval, saveWalkInterval } from '../lib/recordMutations';
 
-type ActiveSheet = 'feeding' | 'diaper' | 'sleep' | null;
+type ActiveSheet = 'feeding' | 'diaper' | 'sleep' | 'walk' | null;
+
+const getActiveRouteName = (state: any): string | undefined => {
+  let route = state?.routes?.[state.index ?? 0];
+  while (route?.state?.routes) {
+    route = route.state.routes[route.state.index ?? 0];
+  }
+  return route?.name;
+};
 
 const FAB = () => {
   const session = useAuthStore(state => state.session);
   const activeParent = useAuthStore(state => state.activeParent);
   const navigation = useNavigation<NavigationProp<any>>();
+  const activeRouteName = useNavigationState(getActiveRouteName);
   const insets = useSafeAreaInsets();
   const tabBarHeight = 60 + insets.bottom;
   const fabBottom = tabBarHeight + 16;
@@ -99,8 +109,18 @@ const FAB = () => {
   const [sleepMinutes, setSleepMinutes] = useState('60');
   const [sleepTimerRunning, setSleepTimerRunning] = useState(false);
   const [sleepSeconds, setSleepSeconds] = useState(0);
+  const [sleepTimerStartMs, setSleepTimerStartMs] = useState<number | null>(null);
   const [showManualSleep, setShowManualSleep] = useState(false);
   const sleepIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Walk state
+  const [walkStart, setWalkStart] = useState(new Date());
+  const [walkEnd, setWalkEnd] = useState(new Date(Date.now() + 30 * 60 * 1000));
+  const [walkLocation, setWalkLocation] = useState('park');
+  const [walkWeather, setWalkWeather] = useState('sunny');
+  const [walkNotes, setWalkNotes] = useState('');
+  const [showWalkStartPicker, setShowWalkStartPicker] = useState(false);
+  const [showWalkEndPicker, setShowWalkEndPicker] = useState(false);
 
   // Sync state if stopped from background
   useEffect(() => {
@@ -131,12 +151,15 @@ const FAB = () => {
 
   useEffect(() => {
     if (sleepTimerRunning) {
-      sleepIntervalRef.current = setInterval(() => setSleepSeconds(s => s + 1), 1000);
+      sleepIntervalRef.current = setInterval(() => {
+        const startedAt = sleepTimerStartMs || Date.now();
+        setSleepSeconds(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
+      }, 1000);
     } else if (sleepIntervalRef.current) {
       clearInterval(sleepIntervalRef.current);
     }
     return () => { if (sleepIntervalRef.current) clearInterval(sleepIntervalRef.current); };
-  }, [sleepTimerRunning]);
+  }, [sleepTimerRunning, sleepTimerStartMs]);
 
   const toggleExpand = () => {
     triggerHaptic('light');
@@ -149,6 +172,12 @@ const FAB = () => {
     setExpanded(false);
     Animated.timing(scaleAnim, { toValue: 0, duration: 150, useNativeDriver: true }).start();
     setLogDate(new Date());
+    setSleepTimerStartMs(null);
+    if (type === 'walk') {
+      const now = new Date();
+      setWalkStart(now);
+      setWalkEnd(new Date(now.getTime() + 30 * 60 * 1000));
+    }
     setActiveSheet(type);
   };
 
@@ -211,11 +240,15 @@ const FAB = () => {
   const handleSaveFeeding = async () => {
     if (!session?.user.id) return;
     try {
+      const babyId = await resolveBabyId();
+      const userId = getCurrentUserId();
       await database.write(async () => {
         await database.get<Feeding>('feedings').create(f => {
           f.type = feedingType;
           f.recorded_by = activeParent;
           f.created_at = logDate.getTime();
+          if (babyId) f.baby_id = babyId;
+          if (userId) f.user_id = userId;
           
           if (feedingType === 'breast') {
             const totalSecs = secondsL + secondsR;
@@ -254,6 +287,8 @@ const FAB = () => {
   const handleSaveDiaper = async () => {
     if (!session?.user.id) return;
     try {
+      const babyId = await resolveBabyId();
+      const userId = getCurrentUserId();
       await database.write(async () => {
         await database.get<Diaper>('diapers').create(d => {
           d.type = diaperType;
@@ -261,6 +296,8 @@ const FAB = () => {
           d.note = diaperNote || undefined;
           d.recorded_by = activeParent;
           d.created_at = logDate.getTime();
+          if (babyId) d.baby_id = babyId;
+          if (userId) d.user_id = userId;
         });
       });
       setDiaperNote('');
@@ -276,20 +313,23 @@ const FAB = () => {
   const handleSaveSleep = async () => {
     if (!session?.user.id) return;
     const secs = showManualSleep ? (parseInt(sleepMinutes) || 60) * 60 : sleepSeconds;
-    if (secs === 0) { closeSheet(); return; }
+    const startMs = showManualSleep
+      ? logDate.getTime()
+      : sleepTimerStartMs || Date.now() - (secs * 1000);
+    const endMs = showManualSleep ? startMs + secs * 1000 : Date.now();
+    if (endMs <= startMs) { closeSheet(); return; }
     
     try {
-      await database.write(async () => {
-        await database.get<Sleep>('sleeps').create(s => {
-          s.duration_seconds = secs;
-          s.location = 'crib';
-          s.quality = 0;
-          s.recorded_by = activeParent;
-          s.created_at = logDate.getTime();
-        });
+      await saveSleepInterval({
+        startMs,
+        endMs,
+        location: 'crib',
+        quality: 0,
+        recordedBy: activeParent,
       });
       setSleepSeconds(0);
       setSleepTimerRunning(false);
+      setSleepTimerStartMs(null);
       setShowManualSleep(false);
       closeSheet();
       triggerHaptic('success');
@@ -299,10 +339,48 @@ const FAB = () => {
     }
   };
 
+  const handleSaveWalk = async () => {
+    if (!session?.user.id || walkEnd.getTime() <= walkStart.getTime()) return;
+
+    try {
+      await saveWalkInterval({
+        startMs: walkStart.getTime(),
+        endMs: walkEnd.getTime(),
+        location: walkLocation,
+        weather: walkWeather,
+        notes: walkNotes,
+        recordedBy: activeParent,
+      });
+      setWalkNotes('');
+      closeSheet();
+      triggerHaptic('success');
+      pushNow();
+    } catch (e) {
+      if (__DEV__) console.warn("handleSaveWalk error:", e);
+    }
+  };
+
   const fabItems = [
     { type: 'feeding' as const, label: 'Кормление', icon: Milk, color: '#2563EB', bg: '#EFF6FF' },
     { type: 'diaper' as const, label: 'Подгузник', icon: Droplets, color: '#059669', bg: '#ECFDF5' },
     { type: 'sleep' as const, label: 'Сон', icon: Moon, color: '#8B5CF6', bg: '#F3E8FF' },
+    { type: 'walk' as const, label: 'Прогулка', icon: Footprints, color: '#047857', bg: '#ECFDF5' },
+  ];
+
+  if (activeRouteName === 'Analytics') return null;
+
+  const walkLocations = [
+    { id: 'park', label: 'Парк' },
+    { id: 'yard', label: 'Двор' },
+    { id: 'forest', label: 'Лес' },
+    { id: 'outside', label: 'Улица' },
+  ];
+
+  const walkWeathers = [
+    { id: 'sunny', label: 'Солнечно' },
+    { id: 'cloudy', label: 'Облачно' },
+    { id: 'windy', label: 'Ветрено' },
+    { id: 'rainy', label: 'Дождь' },
   ];
 
   const renderInlineIOSPicker = (colorHex: string, bgColorHex: string) => {
@@ -311,7 +389,7 @@ const FAB = () => {
       <View style={{ marginTop: 8 }}>
         <DateTimePicker
           value={logDate}
-          mode="time"
+          mode="datetime"
           is24Hour={true}
           display="spinner"
           textColor="#1A1A2E"
@@ -461,7 +539,18 @@ const FAB = () => {
               </View>
               <TouchableOpacity
                 style={[styles.saveBtn, { backgroundColor: sleepTimerRunning ? '#D94F4F' : '#8B6FD4' }]}
-                onPress={() => { if (sleepTimerRunning) { setSleepTimerRunning(false); handleSaveSleep(); } else { setSleepSeconds(0); setSleepTimerRunning(true); } }}
+                onPress={() => {
+                  if (sleepTimerRunning) {
+                    setSleepTimerRunning(false);
+                    handleSaveSleep();
+                  } else {
+                    const now = Date.now();
+                    setLogDate(new Date(now));
+                    setSleepTimerStartMs(now);
+                    setSleepSeconds(0);
+                    setSleepTimerRunning(true);
+                  }
+                }}
               >
                 {sleepTimerRunning ? <Square size={20} color="white" strokeWidth={2.5} /> : <Play size={20} color="white" strokeWidth={2.5} />}
                 <Text style={styles.saveBtnText}>{sleepTimerRunning ? 'Остановить и сохранить' : 'Начать сон'}</Text>
@@ -507,6 +596,75 @@ const FAB = () => {
           )}
         </View>
       )}
+
+      {activeSheet === 'walk' && (
+        <View>
+          <View style={styles.sheetHeader}>
+            <View style={[styles.sheetIcon, { backgroundColor: '#D4F3EC' }]}>
+              <Footprints size={22} color="#047857" strokeWidth={1.5} />
+            </View>
+            <Text style={styles.sheetTitle}>Новая прогулка</Text>
+          </View>
+
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            <View style={[styles.fieldGroup, { flex: 1 }]}>
+              <Text style={styles.fieldLabel}>Начало</Text>
+              <TouchableOpacity style={styles.input} onPress={() => setShowWalkStartPicker(true)}>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: '#1A1A2E', fontFamily: 'Nunito_700Bold' }}>{formatDate(walkStart)}</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={[styles.fieldGroup, { flex: 1 }]}>
+              <Text style={styles.fieldLabel}>Конец</Text>
+              <TouchableOpacity style={styles.input} onPress={() => setShowWalkEndPicker(true)}>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: '#1A1A2E', fontFamily: 'Nunito_700Bold' }}>{formatDate(walkEnd)}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <DateTimePickerModal visible={showWalkStartPicker} value={walkStart} mode="datetime" is24Hour
+            onChange={(d) => { if (d) setWalkStart(d); }} onClose={() => setShowWalkStartPicker(false)} />
+          <DateTimePickerModal visible={showWalkEndPicker} value={walkEnd} mode="datetime" is24Hour
+            onChange={(d) => { if (d) setWalkEnd(d); }} onClose={() => setShowWalkEndPicker(false)} />
+
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>Место</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              {walkLocations.map(item => (
+                <TouchableOpacity key={item.id} onPress={() => setWalkLocation(item.id)}
+                  style={{ paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14, backgroundColor: walkLocation === item.id ? '#059669' : '#F1F5F9' }}>
+                  <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 12, color: walkLocation === item.id ? 'white' : '#64748B' }}>{item.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>Погода</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              {walkWeathers.map(item => (
+                <TouchableOpacity key={item.id} onPress={() => setWalkWeather(item.id)}
+                  style={{ paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14, backgroundColor: walkWeather === item.id ? '#F97316' : '#F1F5F9' }}>
+                  <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 12, color: walkWeather === item.id ? 'white' : '#64748B' }}>{item.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>Заметка</Text>
+            <TextInput style={[styles.input, { minHeight: 64, textAlignVertical: 'top' }]} value={walkNotes} onChangeText={setWalkNotes} placeholder="Необязательно" placeholderTextColor="#94A3B8" multiline />
+          </View>
+
+          {walkEnd.getTime() <= walkStart.getTime() && (
+            <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 12, color: '#EF4444', marginBottom: 12 }}>Конец должен быть после начала</Text>
+          )}
+
+          <TouchableOpacity style={[styles.saveBtn, { backgroundColor: walkEnd.getTime() <= walkStart.getTime() ? '#A8A8B6' : '#059669' }]} disabled={walkEnd.getTime() <= walkStart.getTime()} onPress={handleSaveWalk}>
+            <Check size={20} color="white" strokeWidth={2.5} />
+            <Text style={styles.saveBtnText}>Сохранить</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </>
   );
 
@@ -534,9 +692,10 @@ const FAB = () => {
         <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={toggleExpand}>
           {fabItems.map((item, i) => {
             const getOffsets = (index: number) => {
-              if (index === 0) return { tx: -65, ty: -160 };
-              if (index === 1) return { tx: -25, ty: -90 };
-              if (index === 2) return { tx: -105, ty: -90 };
+              if (index === 0) return { tx: -65, ty: -210 };
+              if (index === 1) return { tx: -25, ty: -140 };
+              if (index === 2) return { tx: -105, ty: -140 };
+              if (index === 3) return { tx: -145, ty: -70 };
               return { tx: 0, ty: 0 };
             };
             const { tx, ty } = getOffsets(i);
@@ -581,7 +740,7 @@ const FAB = () => {
         <DateTimePickerModal
           visible={showDatePicker}
           value={logDate}
-          mode="time"
+          mode="datetime"
           is24Hour={true}
           onChange={(selectedDate) => { if (selectedDate) setLogDate(selectedDate); }}
           onClose={() => setShowDatePicker(false)}

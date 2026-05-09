@@ -31,6 +31,7 @@ const ShiftsScreenContent = ({ feedings, sleeps, diapers, tasks, shiftsData }: a
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskTime, setNewTaskTime] = useState<Date | null>(null);
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [editingTask, setEditingTask] = useState<any | null>(null);
 
   // Debounce flag to prevent rapid clicks on same cell
   const [isAssigning, setIsAssigning] = useState(false);
@@ -85,7 +86,7 @@ const ShiftsScreenContent = ({ feedings, sleeps, diapers, tasks, shiftsData }: a
             if (next) {
                await existing.update((s: any) => { s.assigned_to = next; });
             } else {
-               await existing.destroyPermanently();
+               await existing.markAsDeleted();
             }
          } else if (next) {
             await database.get('shifts').create((s: any) => {
@@ -123,6 +124,14 @@ const ShiftsScreenContent = ({ feedings, sleeps, diapers, tasks, shiftsData }: a
     return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
   };
 
+  const parseTaskDate = (value: any) => {
+    if (!value) return null;
+    if (typeof value === 'number') return new Date(value);
+    if (typeof value === 'string' && /^\d+$/.test(value)) return new Date(parseInt(value, 10));
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+  };
+
   const allEvents = useMemo(() => {
     const events = [
       ...feedings.slice(0, 3).map((f: any) => ({
@@ -157,26 +166,46 @@ const ShiftsScreenContent = ({ feedings, sleeps, diapers, tasks, shiftsData }: a
     return events.sort((a, b) => b.time.localeCompare(a.time)).slice(0, 5);
   }, [feedings, sleeps, diapers]);
 
+  const resetTaskForm = () => {
+    setEditingTask(null);
+    setNewTaskTitle('');
+    setNewTaskTime(null);
+  };
+
+  const openEditTask = (task: any) => {
+    setEditingTask(task);
+    setNewTaskTitle(task.title || '');
+    setNewTaskTime(parseTaskDate(task.due_time));
+  };
+
   const handleAddTask = async () => {
     if (!newTaskTitle.trim()) return;
     try {
       const babyId = await resolveBabyId();
       const userId = getCurrentUserId();
+      const dueTime = newTaskTime ? newTaskTime.toISOString() : null;
       await database.write(async () => {
-        await database.get('tasks').create((task: any) => {
-          task.title = newTaskTitle.trim();
-          task.is_completed = false;
-          task.recorded_by = activeParent;
-          task.created_at = Date.now();
-          if (newTaskTime) {
-             task.due_time = newTaskTime.toISOString();
-          }
-          if (babyId) task.baby_id = babyId;
-          if (userId) task.user_id = userId;
-        });
+        if (editingTask) {
+          await editingTask.update((task: any) => {
+            task.title = newTaskTitle.trim();
+            task.due_time = dueTime;
+            task.recorded_by = activeParent;
+            if (babyId) task.baby_id = babyId;
+            if (userId) task.user_id = userId;
+          });
+        } else {
+          await database.get('tasks').create((task: any) => {
+            task.title = newTaskTitle.trim();
+            task.is_completed = false;
+            task.recorded_by = activeParent;
+            task.created_at = Date.now();
+            task.due_time = dueTime;
+            if (babyId) task.baby_id = babyId;
+            if (userId) task.user_id = userId;
+          });
+        }
       });
-      setNewTaskTitle('');
-      setNewTaskTime(null);
+      resetTaskForm();
       triggerSync();
     } catch (e) {
       if (__DEV__) console.warn("handleAddTask err", e);
@@ -197,6 +226,7 @@ const ShiftsScreenContent = ({ feedings, sleeps, diapers, tasks, shiftsData }: a
   const deleteTask = async (task: any) => {
     try {
       await database.write(async () => { await task.markAsDeleted(); });
+      if (editingTask?.id === task.id) resetTaskForm();
       triggerSync();
     } catch (e) {
       if (__DEV__) console.warn("deleteTask err", e);
@@ -382,10 +412,16 @@ const ShiftsScreenContent = ({ feedings, sleeps, diapers, tasks, shiftsData }: a
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.taskTitle, t.is_completed && styles.taskTitleDone]} numberOfLines={1}>{t.title}</Text>
                       <Text style={styles.taskMeta}>
-                        {t.due_time ? `До: ${new Date(t.due_time).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} • ` : ''}
+                        {parseTaskDate(t.due_time) ? `До: ${parseTaskDate(t.due_time)?.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} • ` : ''}
                         Добавил(а): {t.recorded_by === 'mom' ? 'Мама' : 'Папа'}
                       </Text>
                     </View>
+                    <TouchableOpacity
+                      onPress={() => openEditTask(t)}
+                      style={[styles.deleteBtn, { backgroundColor: '#EEF2FF' }]}
+                    >
+                      <Ionicons name="create-outline" size={14} color="#6366F1" />
+                    </TouchableOpacity>
                     <TouchableOpacity
                       onPress={() => deleteTask(t)}
                       style={[styles.deleteBtn, { opacity: t.is_completed ? 1 : 0.2 }]}
@@ -402,7 +438,7 @@ const ShiftsScreenContent = ({ feedings, sleeps, diapers, tasks, shiftsData }: a
         <View style={styles.addTaskRow}>
           <TextInput
             style={styles.taskInput}
-            placeholder="Напр. дать витамин Д"
+            placeholder={editingTask ? "Редактирование задачи" : "Напр. дать витамин Д"}
             placeholderTextColor="#94A3B8"
             value={newTaskTitle}
             onChangeText={setNewTaskTitle}
@@ -416,7 +452,7 @@ const ShiftsScreenContent = ({ feedings, sleeps, diapers, tasks, shiftsData }: a
           >
              {newTaskTime ? (
                 <Text style={{ fontSize: 11, fontFamily: 'Nunito_800ExtraBold', color: '#6366F1' }}>
-                   {fmtTime(newTaskTime.getTime())}
+                   {newTaskTime.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
                 </Text>
              ) : (
                 <Ionicons name="calendar" size={18} color="#6366F1" />
@@ -424,14 +460,20 @@ const ShiftsScreenContent = ({ feedings, sleeps, diapers, tasks, shiftsData }: a
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.addTaskBtn} onPress={handleAddTask}>
-            <Ionicons name="add" size={18} color="white" />
+            <Ionicons name={editingTask ? "checkmark" : "add"} size={18} color="white" />
           </TouchableOpacity>
         </View>
+        {editingTask && (
+          <TouchableOpacity onPress={resetTaskForm} style={{ alignSelf: 'flex-start', marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, backgroundColor: 'white' }}>
+            <Ionicons name="close" size={13} color="#6B7280" />
+            <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 11, color: '#6B7280' }}>Отмена редактирования</Text>
+          </TouchableOpacity>
+        )}
 
          <DateTimePickerModal
            visible={showTimePicker}
            value={newTaskTime || new Date()}
-           mode="time"
+           mode="datetime"
            is24Hour={true}
            onChange={(date) => { if (date) setNewTaskTime(date); }}
            onClose={() => setShowTimePicker(false)}

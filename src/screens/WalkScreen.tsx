@@ -15,7 +15,7 @@ import EditRecordModal from '../components/EditRecordModal';
 import { useTimerStore } from '../store/timerStore';
 import { startWalkTimerNotification, cancelWalkTimerNotification } from '../lib/timerNotifications';
 import { pushNow } from '../db/sync';
-import { resolveBabyId, getCurrentUserId } from '../db/syncHelpers';
+import { saveWalkInterval } from '../lib/recordMutations';
 
 const LOCATIONS = [
   { id: 'park', label: 'Парк', icon: 'leaf', color: '#059669' },
@@ -79,19 +79,15 @@ function WalkScreenContent({ walks }: { walks: Walk[] }) {
     setWalkConfig({ isRunning: false });
     if (seconds > 0) {
        try {
-         const babyId = await resolveBabyId();
-         const userId = getCurrentUserId();
-         await database.write(async () => {
-           await database.get<Walk>('walks').create(walk => {
-             walk.duration_seconds = seconds;
-             walk.location = location;
-             walk.weather = weather;
-             walk.notes = notes.trim() || undefined;
-             walk.created_at = startTime || Date.now() - (seconds * 1000);
-             walk.recorded_by = activeParent;
-             if (babyId) walk.baby_id = babyId;
-             if (userId) walk.user_id = userId;
-           });
+         const actualStartMs = startTime || Date.now() - (seconds * 1000);
+         const actualEndMs = Date.now();
+         await saveWalkInterval({
+           startMs: actualStartMs,
+           endMs: actualEndMs,
+           location,
+           weather,
+           notes,
+           recordedBy: activeParent,
          });
          pushNow();
        } catch (error) {
@@ -108,22 +104,14 @@ function WalkScreenContent({ walks }: { walks: Walk[] }) {
     if (manualEnd.getTime() <= manualStart.getTime()) {
       return;
     }
-    const durationSeconds = Math.floor((manualEnd.getTime() - manualStart.getTime()) / 1000);
-    
     try {
-      const babyId = await resolveBabyId();
-      const userId = getCurrentUserId();
-      await database.write(async () => {
-        await database.get<Walk>('walks').create(walk => {
-          walk.duration_seconds = durationSeconds;
-          walk.location = location;
-          walk.weather = weather;
-          walk.notes = notes.trim() || undefined;
-          walk.created_at = manualStart.getTime();
-          walk.recorded_by = activeParent;
-          if (babyId) walk.baby_id = babyId;
-          if (userId) walk.user_id = userId;
-        });
+      await saveWalkInterval({
+        startMs: manualStart.getTime(),
+        endMs: manualEnd.getTime(),
+        location,
+        weather,
+        notes,
+        recordedBy: activeParent,
       });
       pushNow();
       triggerHaptic('success');

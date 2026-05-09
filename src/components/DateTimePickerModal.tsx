@@ -29,29 +29,60 @@ const DateTimePickerModal: React.FC<Props> = ({
   onClose,
 }) => {
   const [tempDate, setTempDate] = useState(value);
+  const [androidStep, setAndroidStep] = useState<'date' | 'time'>('date');
+
+  const mergeByMode = (base: Date, selected: Date, pickerMode: 'date' | 'time' | 'datetime') => {
+    const next = new Date(base);
+
+    if (pickerMode === 'date') {
+      next.setFullYear(selected.getFullYear(), selected.getMonth(), selected.getDate());
+      return next;
+    }
+
+    if (pickerMode === 'time') {
+      next.setHours(selected.getHours(), selected.getMinutes(), selected.getSeconds(), selected.getMilliseconds());
+      return next;
+    }
+
+    return selected;
+  };
 
   // Sync tempDate when value prop changes or modal opens
   useEffect(() => {
     if (visible) {
       setTempDate(value);
+      setAndroidStep('date');
     }
   }, [visible, value]);
 
   if (!visible) return null;
 
-  // Android: use native dialog picker
+  // Android: native picker does not support datetime, so run date then time.
   if (Platform.OS === 'android') {
+    const nativeMode = mode === 'datetime' ? androidStep : mode;
+
     return (
       <DateTimePicker
-        value={value}
-        mode={mode}
+        key={nativeMode}
+        value={mode === 'datetime' ? tempDate : value}
+        mode={nativeMode}
         is24Hour={is24Hour}
         display="default"
         onChange={(event: DateTimePickerEvent, selectedDate?: Date) => {
-          onClose();
-          if (event.type === 'set' && selectedDate) {
-            onChange(selectedDate);
+          if (event.type !== 'set' || !selectedDate) {
+            onClose();
+            return;
           }
+
+          if (mode === 'datetime' && androidStep === 'date') {
+            setTempDate(mergeByMode(tempDate, selectedDate, 'date'));
+            setAndroidStep('time');
+            return;
+          }
+
+          const base = mode === 'datetime' ? tempDate : value;
+          onChange(mergeByMode(base, selectedDate, nativeMode));
+          onClose();
         }}
       />
     );
@@ -105,7 +136,7 @@ const DateTimePickerModal: React.FC<Props> = ({
             textColor="#1A1A2E"
             onChange={(event: DateTimePickerEvent, selectedDate?: Date) => {
               if (selectedDate) {
-                setTempDate(selectedDate);
+                setTempDate(mergeByMode(tempDate, selectedDate, mode));
               }
             }}
             style={{ height: 200, width: '100%' }}

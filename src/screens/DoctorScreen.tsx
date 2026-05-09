@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { pushNow } from '../db/sync';
 import { resolveBabyId, getCurrentUserId } from '../db/syncHelpers';
+import DateTimePickerModal from '../components/DateTimePickerModal';
 
 type DocTab = 'visits' | 'vaccines';
 
@@ -117,7 +118,10 @@ const DoctorScreenContent = ({ doctorVisits, vaccinations }: { doctorVisits: Doc
   const [newDoctor, setNewDoctor] = useState('');
   const [newType, setNewType] = useState('');
   const [newNotes, setNewNotes] = useState('');
+  const [newVisitDate, setNewVisitDate] = useState(new Date());
+  const [showVisitDatePicker, setShowVisitDatePicker] = useState(false);
   const [newPhotoUri, setNewPhotoUri] = useState<string | null>(null);
+  const [editingVisit, setEditingVisit] = useState<DoctorVisitModel | null>(null);
   const [aiCheckingId, setAiCheckingId] = useState<string | null>(null);
   const [aiResultMap, setAiResultMap] = useState<Record<string, string>>({});
 
@@ -201,6 +205,36 @@ const DoctorScreenContent = ({ doctorVisits, vaccinations }: { doctorVisits: Doc
     }
   };
 
+  const resetVisitForm = () => {
+    setEditingVisit(null);
+    setNewDoctor('');
+    setNewType('');
+    setNewNotes('');
+    setNewVisitDate(new Date());
+    setNewPhotoUri(null);
+    setShowAddForm(false);
+  };
+
+  const openAddVisit = () => {
+    setEditingVisit(null);
+    setNewDoctor('');
+    setNewType('');
+    setNewNotes('');
+    setNewVisitDate(new Date());
+    setNewPhotoUri(null);
+    setShowAddForm(true);
+  };
+
+  const openEditVisit = (visit: DoctorVisitModel) => {
+    setEditingVisit(visit);
+    setNewDoctor(visit.doctor || '');
+    setNewType(visit.visit_type || '');
+    setNewNotes(visit.notes || '');
+    setNewVisitDate(new Date(visit.visit_date || visit.created_at));
+    setNewPhotoUri(null);
+    setShowAddForm(true);
+  };
+
   const handleAddVisit = async () => {
     if (!newDoctor || !newType) return;
     if (!session?.user.id) return;
@@ -209,30 +243,69 @@ const DoctorScreenContent = ({ doctorVisits, vaccinations }: { doctorVisits: Doc
       const babyId = await resolveBabyId();
       const userId = getCurrentUserId();
       await database.write(async () => {
-         await database.get<DoctorVisitModel>('doctor_visits').create(v => {
-           v.visit_date = new Date().toISOString();
-           v.doctor = newDoctor;
-           v.visit_type = newType;
-          v.notes = newNotes;
-          v.has_photo = !!newPhotoUri;
-          v.created_at = Date.now();
-          v.recorded_by = activeParent || 'user';
-          if (babyId) v.baby_id = babyId;
-          if (userId) v.user_id = userId;
-         });
+        if (editingVisit) {
+          await editingVisit.update(v => {
+            v.visit_date = newVisitDate.toISOString();
+            v.doctor = newDoctor;
+            v.visit_type = newType;
+            v.notes = newNotes;
+            v.has_photo = newPhotoUri ? true : v.has_photo;
+            v.created_at = newVisitDate.getTime();
+            v.recorded_by = activeParent || 'user';
+            if (babyId) v.baby_id = babyId;
+            if (userId) v.user_id = userId;
+          });
+        } else {
+          await database.get<DoctorVisitModel>('doctor_visits').create(v => {
+            v.visit_date = newVisitDate.toISOString();
+            v.doctor = newDoctor;
+            v.visit_type = newType;
+            v.notes = newNotes;
+            v.has_photo = !!newPhotoUri;
+            v.created_at = newVisitDate.getTime();
+            v.recorded_by = activeParent || 'user';
+            if (babyId) v.baby_id = babyId;
+            if (userId) v.user_id = userId;
+          });
+        }
       });
       
       // If photo exists, we ideally would copy it to document directory
       // For now we just reset state
       
-      // pushNow(); - removed backend sync mention
-      setNewDoctor(''); setNewType(''); setNewNotes(''); setNewPhotoUri(null);
-      setShowAddForm(false);
-      Alert.alert('✓', 'Визит добавлен');
+      pushNow();
+      resetVisitForm();
+      Alert.alert('✓', editingVisit ? 'Визит обновлен' : 'Визит добавлен');
     } catch(err) {
       if (__DEV__) console.warn("handleAddVisit error:", err);
       Alert.alert('Ошибка', 'Не удалось сохранить визит');
     }
+  };
+
+  const handleDeleteVisit = (visit: DoctorVisitModel) => {
+    Alert.alert('Удалить визит?', 'Запись о посещении врача будет удалена.', [
+      { text: 'Отмена', style: 'cancel' },
+      {
+        text: 'Удалить',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await database.write(async () => {
+              await visit.markAsDeleted();
+            });
+            pushNow();
+            setAiResultMap(prev => {
+              const next = { ...prev };
+              delete next[visit.id];
+              return next;
+            });
+            if (editingVisit?.id === visit.id) resetVisitForm();
+          } catch {
+            Alert.alert('Ошибка', 'Не удалось удалить визит');
+          }
+        },
+      },
+    ]);
   };
 
   const handleToggleVaccination = async (vaccineName: string, isDone: boolean) => {
@@ -254,11 +327,11 @@ const DoctorScreenContent = ({ doctorVisits, vaccinations }: { doctorVisits: Doc
         } else {
           const existing = await database.get<VaccinationModel>('vaccinations').query(Q.where('vaccine_name', vaccineName)).fetch();
           for (const v of existing) {
-            await v.destroyPermanently();
+            await v.markAsDeleted();
           }
         }
       });
-      // pushNow(); - removed backend sync mention
+      pushNow();
     } catch (err) {
       if (__DEV__) console.warn("handleToggleVaccination error:", err);
     }
@@ -300,17 +373,30 @@ const DoctorScreenContent = ({ doctorVisits, vaccinations }: { doctorVisits: Doc
         <View>
           <TouchableOpacity
             style={styles.addVisitBtn}
-            onPress={() => setShowAddForm(!showAddForm)}
+            onPress={() => showAddForm ? resetVisitForm() : openAddVisit()}
           >
-            <Ionicons name="add" size={20} color="#2563EB" />
-            <Text style={styles.addVisitText}>Добавить посещение</Text>
+            <Ionicons name={showAddForm ? "close" : "add"} size={20} color="#2563EB" />
+            <Text style={styles.addVisitText}>{showAddForm ? 'Закрыть форму' : 'Добавить посещение'}</Text>
           </TouchableOpacity>
 
           {showAddForm && (
             <View style={styles.card}>
-              <Text style={styles.cardTitle}>Новое посещение</Text>
+              <Text style={styles.cardTitle}>{editingVisit ? 'Редактировать посещение' : 'Новое посещение'}</Text>
               <TextInput style={styles.input} placeholder="Врач (Др. Смирнова)" placeholderTextColor="#94A3B8" value={newDoctor} onChangeText={setNewDoctor} />
               <TextInput style={styles.input} placeholder="Тип (Плановый осмотр)" placeholderTextColor="#94A3B8" value={newType} onChangeText={setNewType} />
+              <TouchableOpacity style={styles.input} onPress={() => setShowVisitDatePicker(true)}>
+                <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 16, color: '#1A1A2E' }}>
+                  {newVisitDate.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                </Text>
+              </TouchableOpacity>
+              <DateTimePickerModal
+                visible={showVisitDatePicker}
+                value={newVisitDate}
+                mode="datetime"
+                is24Hour
+                onChange={(date) => { if (date) setNewVisitDate(date); }}
+                onClose={() => setShowVisitDatePicker(false)}
+              />
               <TextInput
                 style={[styles.input, { minHeight: 64, textAlignVertical: 'top' }]}
                 placeholder="Заметки..."
@@ -333,8 +419,18 @@ const DoctorScreenContent = ({ doctorVisits, vaccinations }: { doctorVisits: Doc
                 </TouchableOpacity>
               )}
               <TouchableOpacity style={styles.saveBtn} onPress={handleAddVisit}>
-                <Text style={styles.saveBtnText}>Сохранить</Text>
+                <Text style={styles.saveBtnText}>{editingVisit ? 'Сохранить изменения' : 'Сохранить'}</Text>
               </TouchableOpacity>
+              {editingVisit && (
+                <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
+                  <TouchableOpacity onPress={() => handleDeleteVisit(editingVisit)} style={{ flex: 1, backgroundColor: '#FEE2E2', borderRadius: 14, paddingVertical: 13, alignItems: 'center' }}>
+                    <Text style={{ fontFamily: 'Nunito_900Black', color: '#EF4444' }}>Удалить</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={resetVisitForm} style={{ flex: 1, backgroundColor: '#F3F4F6', borderRadius: 14, paddingVertical: 13, alignItems: 'center' }}>
+                    <Text style={{ fontFamily: 'Nunito_900Black', color: '#6B7280' }}>Отмена</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
           )}
 
@@ -348,8 +444,16 @@ const DoctorScreenContent = ({ doctorVisits, vaccinations }: { doctorVisits: Doc
                       <Text style={styles.visitType}>{v.visit_type}</Text>
                       <Text style={styles.visitDoctor}>{v.doctor}</Text>
                     </View>
-                    <View style={styles.dateBadge}>
-                      <Text style={styles.dateBadgeText}>{fmtDate(v.visit_date)}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <TouchableOpacity onPress={() => openEditVisit(v)} style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: '#EEF2FF', alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name="create-outline" size={15} color="#2563EB" />
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => handleDeleteVisit(v)} style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name="trash-outline" size={15} color="#EF4444" />
+                      </TouchableOpacity>
+                      <View style={styles.dateBadge}>
+                        <Text style={styles.dateBadgeText}>{fmtDate(v.visit_date)}</Text>
+                      </View>
                     </View>
                   </View>
                   {v.notes ? <Text style={styles.visitNotes}>{v.notes}</Text> : null}

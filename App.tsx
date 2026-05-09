@@ -547,6 +547,7 @@ const TabNavigator = () => {
 const MainAppContent = () => {
   return (
     <View style={{ flex: 1 }}>
+        <LiveActivityBanner />
         <RootStack.Navigator screenOptions={{ headerShown: false }}>
            <RootStack.Screen name="MainTabs" component={TabNavigator} />
            <RootStack.Group screenOptions={{ presentation: 'modal' }}>
@@ -561,7 +562,6 @@ const MainAppContent = () => {
         </RootStack.Navigator>
         <FAB />
         <AIBubble />
-        <LiveActivityBanner />
     </View>
   );
 };

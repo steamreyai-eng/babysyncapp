@@ -60,7 +60,10 @@ function DiaperScreenContent({ diapers }: { diapers: Diaper[] }) {
       setSaved(true);
       setNotes('');
       setColor('');
-      setManualTime(new Date());
+      const nextTime = new Date(selectedDate);
+      const now = new Date();
+      nextTime.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
+      setManualTime(nextTime);
       setTimeout(() => setSaved(false), 2000);
     } catch (error) {
       Alert.alert("Ошибка", "Не удалось сохранить подгузник.");
@@ -92,6 +95,11 @@ function DiaperScreenContent({ diapers }: { diapers: Diaper[] }) {
     const d = new Date(selectedDate);
     d.setDate(d.getDate() + days);
     setSelectedDate(d);
+    setManualTime(prev => {
+      const next = new Date(prev);
+      next.setFullYear(d.getFullYear(), d.getMonth(), d.getDate());
+      return next;
+    });
   };
 
   const today = diapers.filter(d => {

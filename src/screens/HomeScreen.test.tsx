@@ -5,8 +5,13 @@ import { database } from '../db';
 import { useAuthStore } from '../store/authStore';
 
 const mockNavigation = { navigate: jest.fn() };
+const mockTransferShift = jest.fn();
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => mockNavigation,
+}));
+
+jest.mock('../store/dataStore', () => ({
+  useDataStore: jest.fn(() => ({ transferShift: mockTransferShift })),
 }));
 
 // Mock FAB, as it has its own complex tests
@@ -18,6 +23,15 @@ jest.mock('../components/FAB', () => {
 jest.mock('../store/authStore', () => ({
   useAuthStore: jest.fn((selector) => { const state = { session: { user: { id: 'test-user' } }, activeParent: 'mom' }; return selector ? selector(state) : state; }),
   getAgeLabel: jest.fn().mockReturnValue('1 месяц'),
+}));
+
+jest.mock('../db/syncHelpers', () => ({
+  resolveBabyId: jest.fn().mockResolvedValue('baby-1'),
+  getCurrentUserId: jest.fn().mockReturnValue('user-1'),
+}));
+
+jest.mock('../db/sync', () => ({
+  pushNow: jest.fn(),
 }));
 
 // Critical: Mock withObservables to bypass RxJS queries and inject static arrays
@@ -53,13 +67,13 @@ describe('HomeScreen', () => {
     render(<HomeScreen />);
     expect(screen.getByText('Leo')).toBeTruthy();
     expect(screen.getByText('1 месяц')).toBeTruthy();
-    expect(screen.getByText('Мама на смене')).toBeTruthy();
+    expect(screen.getByText('Мама активна')).toBeTruthy();
   });
 
   it('handles transfer shift', () => {
     render(<HomeScreen />);
-    fireEvent.press(screen.getByText('Передать'));
-    expect(mockSetActiveParent).toHaveBeenCalledWith('dad');
+    fireEvent.press(screen.getByText('Передать →'));
+    expect(mockTransferShift).toHaveBeenCalled();
   });
 
   it('renders active tasks and allows adding new ones', async () => {
@@ -75,7 +89,7 @@ describe('HomeScreen', () => {
     expect(screen.getByText('1 ост.')).toBeTruthy();
 
     // Add new task
-    const input = screen.getByPlaceholderText('Напр. купить подгузники');
+    const input = screen.getByPlaceholderText('Напр. дать витамин Д');
     fireEvent.changeText(input, 'Call doctor');
     
     // Let's submit via the onSubmitEditing on TextInput
@@ -92,6 +106,6 @@ describe('HomeScreen', () => {
     render(<HomeScreen />);
     
     fireEvent.press(screen.getByText('Сон')); // One of the quick cards
-    expect(mockNavigation.navigate).toHaveBeenCalledWith('Tracker', { screen: 'Sleep' });
+    expect(mockNavigation.navigate).toHaveBeenCalledWith('Sleep');
   });
 });

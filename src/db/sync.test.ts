@@ -29,7 +29,7 @@ describe('WatermelonDB SyncAdapter', () => {
   it('calls synchronize with the exact config structure', async () => {
     (synchronize as jest.Mock).mockResolvedValueOnce(undefined);
 
-    await syncWithSupabase();
+    await syncWithSupabase(true);
 
     expect(synchronize).toHaveBeenCalledTimes(1);
     
@@ -47,7 +47,7 @@ describe('WatermelonDB SyncAdapter', () => {
 
     (synchronize as jest.Mock).mockResolvedValueOnce(undefined);
 
-    await syncWithSupabase();
+    await syncWithSupabase(true);
 
     expect(getLastSyncedAt()).toBe('2026-03-20T12:00:00.000Z');
     
@@ -61,7 +61,7 @@ describe('WatermelonDB SyncAdapter', () => {
     const error = new Error('Network error');
     (synchronize as jest.Mock).mockRejectedValueOnce(error);
 
-    await expect(syncWithSupabase()).rejects.toThrow('Network error');
+    await expect(syncWithSupabase(true)).rejects.toThrow('Network error');
 
     // lastSyncedAt shouldn't be updated if it fails
     // (If it was null before, it should stay null)

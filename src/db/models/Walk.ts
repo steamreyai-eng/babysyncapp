@@ -9,6 +9,7 @@ export class Walk extends Model {
   @field('weather') weather!: string
   @field('distance_m') distance_m?: number
   @field('notes') notes?: string
+  @field('group_id') group_id?: string
   @field('recorded_by') recorded_by!: string
   @field('baby_id') baby_id?: string
   @field('user_id') user_id?: string

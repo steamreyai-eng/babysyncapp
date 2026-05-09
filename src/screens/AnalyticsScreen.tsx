@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator, StyleSheet, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, RefreshControl, useWindowDimensions } from 'react-native';
 import {
   Milk, Moon, Baby, Footprints, Brain, TrendingUp,
   Clock, Activity, Droplets, AlertCircle, TrendingDown,
@@ -20,8 +20,7 @@ import * as Sharing from 'expo-sharing';
 
 import { calcDayIndex, scoreColor } from '../utils/metrics';
 import { callAI } from '../lib/ai';
-
-const { width } = Dimensions.get('window');
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const COLORS = {
   feed: "#2563EB", 
@@ -37,6 +36,101 @@ const COLORS = {
   scoreGreen: "#4DBFAA", 
   scoreYellow: "#F0A500", 
   scoreRed: "#E05A5A", 
+};
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const toMs = (value: any): number | null => {
+  if (value == null) return null;
+  if (value instanceof Date) {
+    const time = value.getTime();
+    return Number.isFinite(time) ? time : null;
+  }
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value === 'string') {
+    const parsed = /^\d+$/.test(value) ? Number(value) : new Date(value).getTime();
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  const parsed = new Date(value).getTime();
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const startOfLocalDay = (date: Date) => {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+};
+
+const endOfLocalDay = (date: Date) => {
+  const d = new Date(date);
+  d.setHours(23, 59, 59, 999);
+  return d;
+};
+
+const recordTime = (item: any) => toMs(item?.created_at) ?? 0;
+
+const getSleepBounds = (sleep: any) => {
+  const startMs = toMs(sleep?.start_time) ?? toMs(sleep?.created_at);
+  const durationMs = Math.max(0, (Number(sleep?.duration_seconds) || 0) * 1000);
+  const endMs = toMs(sleep?.end_time) ?? (startMs != null ? startMs + durationMs : null);
+
+  if (startMs == null || endMs == null || endMs <= startMs) return null;
+  return { startMs, endMs };
+};
+
+const nextDayPeriodBoundary = (ms: number) => {
+  const d = new Date(ms);
+  const h = d.getHours();
+  if (h < 7) {
+    d.setHours(7, 0, 0, 0);
+  } else if (h < 19) {
+    d.setHours(19, 0, 0, 0);
+  } else {
+    d.setDate(d.getDate() + 1);
+    d.setHours(7, 0, 0, 0);
+  }
+  return d.getTime();
+};
+
+const splitSleepByDayPeriod = (startMs: number, endMs: number) => {
+  let dayMs = 0;
+  let nightMs = 0;
+  let cursor = startMs;
+
+  while (cursor < endMs) {
+    const boundary = Math.min(nextDayPeriodBoundary(cursor), endMs);
+    if (boundary <= cursor) break;
+    const h = new Date(cursor).getHours();
+    if (h >= 7 && h < 19) dayMs += boundary - cursor;
+    else nightMs += boundary - cursor;
+    cursor = boundary;
+  }
+
+  return { dayMs, nightMs };
+};
+
+const getTimelineSegments = (sleep: any) => {
+  const bounds = getSleepBounds(sleep);
+  if (!bounds) return [];
+  const segments: { left: number; width: number }[] = [];
+  let cursor = bounds.startMs;
+
+  while (cursor < bounds.endMs) {
+    const dayEnd = endOfLocalDay(new Date(cursor)).getTime() + 1;
+    const segmentEnd = Math.min(bounds.endMs, dayEnd);
+    if (segmentEnd <= cursor) break;
+
+    const startDate = new Date(cursor);
+    const startMinutes = startDate.getHours() * 60 + startDate.getMinutes();
+    const durationMinutes = (segmentEnd - cursor) / 60000;
+    segments.push({
+      left: (startMinutes / (24 * 60)) * 100,
+      width: Math.min(100 - (startMinutes / (24 * 60)) * 100, (durationMinutes / (24 * 60)) * 100),
+    });
+    cursor = segmentEnd;
+  }
+
+  return segments;
 };
 
 // scoreColor is now imported from '../utils/metrics'
@@ -138,15 +232,17 @@ const DayIndexCard = ({ score, rows, periodLabel }: any) => {
            
            return (
              <View key={row.label}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, marginBottom: 6 }}>
+                   <View style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
                       <View style={{ padding: 4, borderRadius: 8, backgroundColor: `${row.color}15` }}>
                          <IconComponent size={14} color={row.color} />
                       </View>
-                      <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 13, color: '#0F172A' }}>{row.label}</Text>
-                      <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 12, color: '#475569' }}>— {row.val}</Text>
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 13, color: '#0F172A', lineHeight: 17 }} numberOfLines={2}>{row.label}</Text>
+                        <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 12, color: '#475569', lineHeight: 16 }}>— {row.val}</Text>
+                      </View>
                    </View>
-                   <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 13, color: scoreColor(row.score) }}>{row.score}%</Text>
+                   <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 13, color: scoreColor(row.score), flexShrink: 0 }}>{row.score}%</Text>
                 </View>
                 <View style={{ height: 8, borderRadius: 4, overflow: 'hidden', width: '100%', backgroundColor: '#F0ECE8', marginBottom: 4 }}>
                    <View style={{ height: '100%', borderRadius: 4, width: `${row.score}%`, backgroundColor: scoreColor(row.score) }} />
@@ -162,6 +258,9 @@ const DayIndexCard = ({ score, rows, periodLabel }: any) => {
 
 const AnalyticsScreenContent = ({ feedingsAll = [], sleepsAll = [], diapersAll = [], walksAll = [] }: any) => {
   const { baby } = useAuthStore();
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const chartWidth = Math.max(220, width - 96);
   const [period, setPeriod] = useState('day'); // 'day', 'week', 'month', 'all'
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [loading, setLoading] = useState(true);
@@ -181,7 +280,6 @@ const AnalyticsScreenContent = ({ feedingsAll = [], sleepsAll = [], diapersAll =
   
   const [aiRecs, setAiRecs] = useState<string[]>([]);
   const [aiLoading, setAiLoading] = useState(false);
-  const [aiLoaded, setAiLoaded] = useState(false);
   
   const [feedings, setFeedings] = useState<any[]>([]);
   const [sleeps, setSleeps] = useState<any[]>([]);
@@ -197,29 +295,39 @@ const AnalyticsScreenContent = ({ feedingsAll = [], sleepsAll = [], diapersAll =
     setLoading(true);
     const now = new Date();
     const refDate = period === "day" ? new Date(selectedDate) : now;
-    const daysBack = period === "day" ? 1 : period === "week" ? 7 : period === "month" ? 30 : 3650; // all ~ 10 years
-    
-    const currentStart = new Date(refDate);
-    if (period !== "all") {
-       currentStart.setDate(currentStart.getDate() - (period === "day" ? 0 : daysBack));
+    const daysBack = period === "day" ? 1 : period === "week" ? 7 : period === "month" ? 30 : 0;
+    const allTimes = [...feedingsAll, ...sleepsAll, ...diapersAll, ...walksAll]
+      .map(recordTime)
+      .filter(t => t > 0);
+
+    let currentStartMs: number;
+    let currentEndMs: number;
+    let prevStartMs: number;
+
+    if (period === "day") {
+      currentStartMs = startOfLocalDay(refDate).getTime();
+      currentEndMs = endOfLocalDay(refDate).getTime();
+      prevStartMs = currentStartMs - DAY_MS;
+    } else if (period === "all") {
+      currentStartMs = allTimes.length > 0 ? startOfLocalDay(new Date(Math.min(...allTimes))).getTime() : 0;
+      currentEndMs = now.getTime();
+      prevStartMs = currentStartMs;
     } else {
-       currentStart.setFullYear(2000);
+      currentEndMs = now.getTime();
+      currentStartMs = currentEndMs - daysBack * DAY_MS;
+      prevStartMs = currentStartMs - daysBack * DAY_MS;
     }
-    if (period === "day") currentStart.setHours(0, 0, 0, 0);
-    
-    const prevStart = new Date(currentStart);
-    prevStart.setDate(prevStart.getDate() - daysBack);
-    
-    const currentEnd = period === "day" ? new Date(refDate) : new Date();
-    if (period === "day") currentEnd.setHours(23, 59, 59, 999);
 
     const filterCurrent = (arr: any[]) => arr.filter(item => {
-        const t = new Date(item.created_at).getTime();
-        return t >= currentStart.getTime() && t <= currentEnd.getTime();
+        const t = recordTime(item);
+        if (t <= 0) return false;
+        return t >= currentStartMs && t <= currentEndMs;
     });
     const filterPrev = (arr: any[]) => arr.filter(item => {
-        const t = new Date(item.created_at).getTime();
-        return t >= prevStart.getTime() && t < currentStart.getTime();
+        if (period === "all") return false;
+        const t = recordTime(item);
+        if (t <= 0) return false;
+        return t >= prevStartMs && t < currentStartMs;
     });
 
     setFeedings(filterCurrent(feedingsAll));
@@ -235,14 +343,12 @@ const AnalyticsScreenContent = ({ feedingsAll = [], sleepsAll = [], diapersAll =
     setPrevWalks(filterPrev(walksAll));
 
     setLoading(false);
-    setAiLoaded(false); // Reset AI on change
   }, [period, selectedDate, feedingsAll, sleepsAll, diapersAll, walksAll]);
 
   const fetchAiInsight = useCallback(async () => {
     setAiLoading(true);
-    setAiLoaded(false);
     try {
-       const prompt = `Ты педиатрический AI-ассистент. Проанализируй данные ребёнка (записей: кормлений ${feedings.length}, сна ${sleeps.length}, подгузников ${diapers.length}) и дай 3-4 конкретные персонализированные рекомендации. Верни только JSON массив оборванных строк ["рек1", "рек2"].`;
+       const prompt = `Ты педиатрический AI-ассистент. Проанализируй данные ребёнка (записей: кормлений ${feedings.length}, сна ${sleeps.length}, подгузников ${diapers.length}) и дай 3-4 конкретные персонализированные рекомендации. Верни только JSON массив коротких строк ["рек1", "рек2"].`;
        const result = await callAI(prompt, {});
        if (result && typeof result === 'string') {
          try {
@@ -258,7 +364,6 @@ const AnalyticsScreenContent = ({ feedingsAll = [], sleepsAll = [], diapersAll =
        setAiRecs(["⚠️ Не удалось получить рекомендации."]);
     }
     setAiLoading(false);
-    setAiLoaded(true);
   }, [feedings.length, sleeps.length, diapers.length]);
 
   const handleExportExcel = async () => {
@@ -284,7 +389,8 @@ const AnalyticsScreenContent = ({ feedingsAll = [], sleepsAll = [], diapersAll =
         sections.push('--- СОН ---');
         sections.push('Дата,Длительность (мин)');
         sleeps.forEach((s: any) => {
-          const date = new Date(s.created_at).toLocaleString('ru-RU');
+          const bounds = getSleepBounds(s);
+          const date = new Date(bounds?.startMs ?? recordTime(s)).toLocaleString('ru-RU');
           sections.push(`"${date}",${Math.round(s.duration_seconds / 60)}`);
         });
         sections.push('');
@@ -331,13 +437,26 @@ const AnalyticsScreenContent = ({ feedingsAll = [], sleepsAll = [], diapersAll =
   };
 
   const ageMo = baby?.birthdate
-    ? (Date.now() - new Date(baby.birthdate).getTime()) / (30.44 * 24 * 3600 * 1000)
+    ? Math.max(0, (Date.now() - new Date(baby.birthdate).getTime()) / (30.44 * 24 * 3600 * 1000))
     : 4;
 
   const totalFormulaVolumeML = feedings.reduce((a, f) => a + (f.formula_volume_ml || 0), 0);
   
   // Averages for day index depending on period
-  const daysInPeriod = period === "day" ? 1 : period === "week" ? 7 : period === "month" ? 30 : Math.max(1, feedings.length);
+  const daysInPeriod = useMemo(() => {
+    if (period === "day") return 1;
+    if (period === "week") return 7;
+    if (period === "month") return 30;
+
+    const times = [...feedings, ...sleeps, ...diapers, ...walks]
+      .map(recordTime)
+      .filter(t => t > 0);
+    if (times.length === 0) return 1;
+
+    const firstDay = startOfLocalDay(new Date(Math.min(...times))).getTime();
+    const lastDay = endOfLocalDay(new Date(Math.max(...times))).getTime();
+    return Math.max(1, Math.ceil((lastDay - firstDay + 1) / DAY_MS));
+  }, [period, feedings, sleeps, diapers, walks]);
   const feedCountForIndex = period === "day" ? feedings.length : feedings.length / daysInPeriod;
   const sleepSecForIndex = period === "day" ? sleeps.reduce((a,s)=>a+s.duration_seconds,0) : sleeps.reduce((a,s)=>a+s.duration_seconds,0) / daysInPeriod;
   const diaperCountForIndex = period === "day" ? diapers.length : diapers.length / daysInPeriod;
@@ -359,14 +478,12 @@ const AnalyticsScreenContent = ({ feedingsAll = [], sleepsAll = [], diapersAll =
 
   const deltaFeedings = feedings.length - prevFeedings.length;
   const deltaDiapers = diapers.length - prevDiapers.length;
+  const deltaWalks = walks.length - prevWalks.length;
 
   const totalWalkSec = walks.reduce((acc, w) => acc + w.duration_seconds, 0);
   const totalWalkMinStr = Math.floor(totalWalkSec / 60);
   const totalWalkStr = totalWalkMinStr >= 60 ? `${Math.floor(totalWalkMinStr / 60)}ч ${totalWalkMinStr % 60}м` : `${totalWalkMinStr}м`;
   
-  const prevWalkSec = prevWalks.reduce((acc, w) => acc + w.duration_seconds, 0);
-  const deltaWalkMin = Math.round((totalWalkSec - prevWalkSec) / 60);
-
   const avgFeedingsPerDay = feedings.length > 0 ? (feedings.length / daysInPeriod).toFixed(1) : "—";
   const avgSleepSec = totalSleepSec / daysInPeriod;
   const avgSleepStr = totalSleepSec > 0 ? `${Math.floor(avgSleepSec / 3600)}ч ${Math.floor((avgSleepSec % 3600) / 60)}м` : "—";
@@ -375,20 +492,23 @@ const AnalyticsScreenContent = ({ feedingsAll = [], sleepsAll = [], diapersAll =
   // Sleep Metrics
   let daySec = 0, nightSec = 0;
   sleeps.forEach(s => {
-    const endD = new Date(s.end_time || s.created_at);
-    const start = new Date(endD.getTime() - s.duration_seconds * 1000);
-    const h = start.getHours();
-    if (h >= 7 && h < 19) daySec += s.duration_seconds;
-    else nightSec += s.duration_seconds;
+    const bounds = getSleepBounds(s);
+    if (!bounds) return;
+    const split = splitSleepByDayPeriod(bounds.startMs, bounds.endMs);
+    daySec += Math.round(split.dayMs / 1000);
+    nightSec += Math.round(split.nightMs / 1000);
   });
 
   let wakeTotalMin = 0;
   let wakeCount = 0;
   if (sleeps.length >= 2) {
-    const sorted = [...sleeps].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    const sorted = sleeps
+      .map((sleep: any) => getSleepBounds(sleep))
+      .filter((bounds): bounds is { startMs: number; endMs: number } => Boolean(bounds))
+      .sort((a, b) => a.startMs - b.startMs);
     for (let i = 0; i < sorted.length - 1; i++) {
-      const wokeUpAt = new Date(sorted[i].created_at).getTime();
-      const fellAsleepAt = new Date(new Date(sorted[i + 1].created_at).getTime() - sorted[i + 1].duration_seconds * 1000).getTime();
+      const wokeUpAt = sorted[i].endMs;
+      const fellAsleepAt = sorted[i + 1].startMs;
       const diffMin = (fellAsleepAt - wokeUpAt) / 60000;
       if (diffMin > 15 && diffMin < 600) { wakeTotalMin += diffMin; wakeCount++; }
     }
@@ -398,25 +518,25 @@ const AnalyticsScreenContent = ({ feedingsAll = [], sleepsAll = [], diapersAll =
   // Feeding Intervals
   const feedingIntervals = () => {
     if (feedings.length < 2) return [];
-    return feedings.slice(1).map((f, i) => {
-      const prev = feedings[i];
-      const diff = Math.round((new Date(f.created_at).getTime() - new Date(prev.created_at).getTime()) / 60000);
+    const sorted = [...feedings].sort((a, b) => recordTime(a) - recordTime(b));
+    return sorted.slice(1).map((f, i) => {
+      const prev = sorted[i];
+      const diff = Math.round((recordTime(f) - recordTime(prev)) / 60000);
       if (diff < 0 || diff > 600) return null;
-      return { value: diff, label: new Date(f.created_at).getHours() + "ч" };
+      return { value: diff, label: new Date(recordTime(f)).getHours() + "ч" };
     }).filter(Boolean) as { value: number; label: string }[];
   };
   const intervals = feedingIntervals();
   const avgIntervalMin = intervals.length ? Math.round(intervals.reduce((a, x) => a + x.value, 0) / intervals.length) : 0;
 
-  // --- BAR CHART DATA (Feed Volumes) ---
+  // --- BAR CHART DATA (Feed counts) ---
   const getBarData = () => {
     if (feedings.length === 0) return [];
     const hourlyGroups: Record<number, number> = {};
     feedings.forEach(f => {
-       const d = new Date(f.created_at);
+       const d = new Date(recordTime(f));
        const h = d.getHours();
-       const vol = f.formula_volume_ml || f.solid_volume_g || (f.duration_seconds ? Math.round(f.duration_seconds / 60 * 10) : 0);
-       hourlyGroups[h] = (hourlyGroups[h] || 0) + vol;
+       hourlyGroups[h] = (hourlyGroups[h] || 0) + 1;
     });
     return Object.keys(hourlyGroups)
       .map(k => Number(k))
@@ -477,7 +597,7 @@ const AnalyticsScreenContent = ({ feedingsAll = [], sleepsAll = [], diapersAll =
   return (
     <ScrollView 
        style={{ flex: 1, backgroundColor: '#FAFBFC' }} 
-       contentContainerStyle={{ paddingBottom: 100 }}
+       contentContainerStyle={{ paddingBottom: Math.max(insets.bottom + 112, 140) }}
        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#6366F1']} />}
     >
        <View style={{ paddingHorizontal: 20, paddingTop: Math.max(20, 40), paddingBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -543,7 +663,7 @@ const AnalyticsScreenContent = ({ feedingsAll = [], sleepsAll = [], diapersAll =
              <StatCard icon={Milk} iconColor={COLORS.feed} value={feedings.length} label="Кормлений" bg={COLORS.feedBg} delta={period !== "all" ? deltaFeedings : undefined} deltaUnit=" раз" />
              <StatCard icon={Moon} iconColor={COLORS.sleep} value={totalSleepStr} label="Сон всего" bg={COLORS.sleepBg} delta={period !== "all" ? deltaSleepHr : undefined} deltaUnit="ч" />
              <StatCard icon={Baby} iconColor={COLORS.diaper} value={diapers.length} label="Подгузники" bg={COLORS.diaperBg} delta={period !== "all" ? deltaDiapers : undefined} deltaUnit=" шт" />
-             <StatCard icon={Footprints} iconColor={COLORS.walk} value={walks.length} label="Прогулок" bg={COLORS.walkBg} delta={period !== "all" ? deltaWalkMin : undefined} deltaUnit=" мин" />
+             <StatCard icon={Footprints} iconColor={COLORS.walk} value={walks.length} label="Прогулок" bg={COLORS.walkBg} delta={period !== "all" ? deltaWalks : undefined} deltaUnit=" раз" />
 
              <StatCard icon={BarChart3} iconColor="#EF4444" value={feedings.length + sleeps.length + diapers.length + walks.length} label="Записей всего" bg="#FFE4E4" />
              <StatCard icon={TrendingUp} iconColor={COLORS.feed} value={avgFeedingsPerDay} label="Кормлений/день" bg={COLORS.feedBg} />
@@ -567,7 +687,7 @@ const AnalyticsScreenContent = ({ feedingsAll = [], sleepsAll = [], diapersAll =
                     </View>
                  </View>
                  {!aiLoading && (
-                   <TouchableOpacity onPress={fetchAiInsight} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, backgroundColor: '#F3E8FF' }}>
+                   <TouchableOpacity onPress={fetchAiInsight} style={{ minHeight: 40, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12, backgroundColor: '#F3E8FF', alignItems: 'center', justifyContent: 'center' }}>
                       <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 11, color: '#8B5CF6' }}>Обновить</Text>
                    </TouchableOpacity>
                  )}
@@ -602,7 +722,7 @@ const AnalyticsScreenContent = ({ feedingsAll = [], sleepsAll = [], diapersAll =
                  </View>
                  <View>
                     <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 18, color: '#0F172A' }}>Кормления по часам</Text>
-                    <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 12, color: '#6B6B80' }}>Объём по времени суток</Text>
+                    <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 12, color: '#6B6B80' }}>Количество записей по времени суток</Text>
                  </View>
               </View>
               {barData.length === 1 && barData[0].value === 0 ? (
@@ -619,7 +739,7 @@ const AnalyticsScreenContent = ({ feedingsAll = [], sleepsAll = [], diapersAll =
                       xAxisThickness={0}
                       rulesColor="#E2E8F0"
                       hideRules={false}
-                      width={width - 90}
+                      width={chartWidth}
                       spacing={barData.length > 5 ? 20 : 36}
                       initialSpacing={15}
                       yAxisTextStyle={{ color: '#6B6B80', fontSize: 10, fontFamily: 'Nunito_700Bold' }}
@@ -673,7 +793,7 @@ const AnalyticsScreenContent = ({ feedingsAll = [], sleepsAll = [], diapersAll =
                       rulesColor="#E2E8F0"
                       yAxisThickness={0}
                       xAxisThickness={0}
-                      width={width - 80}
+                      width={chartWidth}
                       areaChart
                       startFillColor="#2563EB"
                       startOpacity={0.2}
@@ -691,7 +811,7 @@ const AnalyticsScreenContent = ({ feedingsAll = [], sleepsAll = [], diapersAll =
                       referenceLine2Position={150}
                       referenceLine2Config={{ color: '#059669', type: 'dashed', dashWidth: 4, dashGap: 4, thickness: 1 }}
                       initialSpacing={20}
-                      spacing={50}
+                      spacing={Math.max(28, Math.min(50, intervals.length > 1 ? (chartWidth - 40) / (intervals.length - 1) : 50))}
                    />
                 </View>
              </View>
@@ -740,22 +860,16 @@ const AnalyticsScreenContent = ({ feedingsAll = [], sleepsAll = [], diapersAll =
                 </View>
                 
                 <View style={{ height: 24, borderRadius: 12, backgroundColor: '#F4F4F8', width: '100%' }}>
-                  {sleeps.map(s => {
-                    const endD = new Date(s.end_time || s.created_at);
-                    const start = new Date(endD.getTime() - s.duration_seconds * 1000);
-                    const sp = ((start.getHours() * 60) + start.getMinutes()) / (24 * 60) * 100;
-                    let wp = (s.duration_seconds / (24 * 3600)) * 100;
-                    if (sp + wp > 100) wp = 100 - sp; 
-                    
-                    return (
+                  {sleeps.flatMap((s: any) =>
+                    getTimelineSegments(s).map((segment, index) => (
                       <LinearGradient
-                        key={s.id}
+                        key={`${s.id || recordTime(s)}-${index}`}
                         colors={['#A78BFA', '#8B5CF6']}
                         start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                        style={{ position: 'absolute', height: '100%', left: `${sp}%`, width: `${Math.max(1.5, wp)}%`, borderRadius: 12 }}
+                        style={{ position: 'absolute', height: '100%', left: `${segment.left}%`, width: `${Math.max(1.5, segment.width)}%`, borderRadius: 12 }}
                       />
-                    );
-                  })}
+                    ))
+                  )}
                 </View>
                 
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 12, paddingHorizontal: 4 }}>
@@ -793,7 +907,7 @@ const AnalyticsScreenContent = ({ feedingsAll = [], sleepsAll = [], diapersAll =
                     />
                   </View>
                   <View style={{ flex: 1, paddingLeft: 10, gap: 16 }}>
-                     {pieData.sort((a,b) => b.value - a.value).map((p: any, i) => (
+                     {[...pieData].sort((a,b) => b.value - a.value).map((p: any, i) => (
                         <View key={i}>
                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -829,7 +943,7 @@ const styles = StyleSheet.create({
     width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginBottom: 8
   },
   sleepBlock: {
-    padding: 12, borderRadius: 14, flex: 1, minWidth: 140
+    padding: 12, borderRadius: 14, width: '48%', minHeight: 104
   },
   sleepBlockTitle: {
     fontSize: 11, fontFamily: 'Nunito_800ExtraBold', color: '#8A8A9E', marginBottom: 4, textTransform: 'uppercase'

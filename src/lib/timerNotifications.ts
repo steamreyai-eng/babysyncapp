@@ -13,14 +13,10 @@
 import notifee, { AndroidImportance, AndroidVisibility, EventType } from '@notifee/react-native';
 import { Platform } from 'react-native';
 import { LiveActivities } from './liveActivities';
-import { database } from '../db';
-import { Sleep } from '../db/models/Sleep';
-import { Walk } from '../db/models/Walk';
-import { Feeding } from '../db/models/Feeding';
 import { useTimerStore } from '../store/timerStore';
 import { useAuthStore } from '../store/authStore';
 import { pushNow } from '../db/sync';
-import { resolveBabyId, getCurrentUserId } from '../db/syncHelpers';
+import { saveSleepInterval, saveWalkInterval } from './recordMutations';
 
 const SLEEP_NOTIF_ID = 'babysync-sleep-timer';
 const WALK_NOTIF_ID = 'babysync-walk-timer';
@@ -249,20 +245,12 @@ export async function handleBackgroundStopSleep() {
   const seconds = Math.floor((Date.now() - startTime) / 1000);
   if (seconds > 0) {
      try {
-       const babyId = await resolveBabyId();
-       const userId = getCurrentUserId();
-       await database.write(async () => {
-         await database.get<Sleep>('sleeps').create(sleep => {
-           sleep.duration_seconds = seconds;
-           sleep.location = location || 'crib';
-           sleep.quality = quality || 0;
-           sleep.start_time = startTime;
-           sleep.end_time = Date.now();
-           sleep.created_at = startTime;
-           sleep.recorded_by = useAuthStore.getState().activeParent || 'mom';
-           if (babyId) sleep.baby_id = babyId;
-           if (userId) sleep.user_id = userId;
-         });
+       await saveSleepInterval({
+         startMs: startTime,
+         endMs: Date.now(),
+         location: location || 'crib',
+         quality: quality || 0,
+         recordedBy: useAuthStore.getState().activeParent || 'mom',
        });
      } catch (error) {
        if (__DEV__) console.warn("Error saving sleep from bg notification", error);
@@ -281,19 +269,13 @@ export async function handleBackgroundStopWalk() {
   const seconds = Math.floor((Date.now() - startTime) / 1000);
   if (seconds > 0) {
      try {
-       const babyId = await resolveBabyId();
-       const userId = getCurrentUserId();
-       await database.write(async () => {
-         await database.get<Walk>('walks').create(walk => {
-           walk.duration_seconds = seconds;
-           walk.location = location || 'park';
-           walk.weather = weather || 'sunny';
-           walk.notes = (notes || '').trim() || undefined;
-           walk.created_at = startTime;
-           walk.recorded_by = useAuthStore.getState().activeParent || 'mom';
-           if (babyId) walk.baby_id = babyId;
-           if (userId) walk.user_id = userId;
-         });
+       await saveWalkInterval({
+         startMs: startTime,
+         endMs: Date.now(),
+         location: location || 'park',
+         weather: weather || 'sunny',
+         notes,
+         recordedBy: useAuthStore.getState().activeParent || 'mom',
        });
      } catch (error) {
        if (__DEV__) console.warn("Error saving walk from bg notification", error);

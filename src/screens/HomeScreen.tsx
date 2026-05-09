@@ -4,7 +4,7 @@ import { View, Text, TouchableOpacity, ScrollView, TextInput, Dimensions, Device
 import { 
   Bell, Users, Milk, Moon, Droplets, Footprints, Bot, 
   Baby, ClipboardList, ChevronRight, CheckCircle, Circle, 
-  Trash2, Plus, Calendar, Zap 
+  Trash2, Plus, Calendar, Zap, Pencil, X
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAuthStore, getAgeLabel } from '../store/authStore';
@@ -18,10 +18,10 @@ import { NotificationSettingsModal } from '../components/NotificationSettingsMod
 // FAB is rendered globally in App.tsx — no need to import here
 import { COLORS, FONTS } from '../lib/theme';
 import { useRoutineEngine } from '../hooks/useRoutineEngine';
-import { fetchSleepPrediction } from '../lib/sleepPrediction';
+import { formatSleepPredictionDuration, useSleepPrediction } from '../hooks/useSleepPrediction';
 import { pushNow } from '../db/sync';
 import { resolveBabyId, getCurrentUserId } from '../db/syncHelpers';
-import { supabase } from '../lib/supabase';
+import { saveSleepInterval } from '../lib/recordMutations';
 
 const MS_IN_24H = 24 * 3600 * 1000;
 const { width } = Dimensions.get('window');
@@ -36,6 +36,7 @@ const HomeScreenContent = ({ feedings, sleeps, diapers, walks, tasks, insights }
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskTime, setNewTaskTime] = useState<Date | null>(null);
   const [showTaskPicker, setShowTaskPicker] = useState(false);
+  const [editingTask, setEditingTask] = useState<any | null>(null);
   const [notifModalOpen, setNotifModalOpen] = useState(false);
 
   const babyName = baby?.name || "Малыш";
@@ -122,47 +123,17 @@ const HomeScreenContent = ({ feedings, sleeps, diapers, walks, tasks, insights }
     neutral: { bg: "white", dot: "transparent", text: "#8A8A9E" },
   };
 
-  const [mlPrediction, setMlPrediction] = React.useState<any>(null);
-
-  React.useEffect(() => {
-    const abortController = new AbortController();
-    // Auto-abort after 10 seconds to prevent hanging on cold starts
-    const timeout = setTimeout(() => abortController.abort(), 10_000);
-
-    async function fetchPrediction() {
-      if (!sleeps || sleeps.length === 0) return;
-      try {
-        const babyId = await resolveBabyId();
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (!babyId || !session?.access_token) {
-          if (__DEV__) console.warn('Missing babyId or access token for ML Predictor');
-          return;
-        }
-
-        const data = await fetchSleepPrediction(babyId, ageMo, sleeps);
-        if (abortController.signal.aborted) return;
-        
-        if (data && data.next_sleep_time_ms) {
-          setMlPrediction(data);
-        }
-      } catch (e) {
-        if (abortController.signal.aborted) return; // Don't warn on intentional abort
-        if (__DEV__) console.warn('ML Predictor error:', e);
-      }
-    }
-    fetchPrediction();
-    return () => {
-      clearTimeout(timeout);
-      abortController.abort();
-    };
-  }, [sleeps, ageMo]);
+  const { prediction: mlPrediction } = useSleepPrediction({
+    sleeps,
+    babyBirthdate: baby?.birthdate,
+  });
 
   const nextSleepTimeMs = mlPrediction 
     ? mlPrediction.next_sleep_time_ms 
     : (lastSleep ? getSleepEndMs(lastSleep) + wakeWindowMs : null);
     
   const nextSleepTimeStr = nextSleepTimeMs ? new Date(nextSleepTimeMs).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : null;
+  const predictedSleepDurationStr = formatSleepPredictionDuration(mlPrediction?.predicted_duration_seconds);
   const isNight = new Date().getHours() >= 20 || new Date().getHours() <= 6;
   const timeToSleepMs = nextSleepTimeMs ? nextSleepTimeMs - Date.now() : wakeWindowMs;
   
@@ -322,25 +293,47 @@ const HomeScreenContent = ({ feedings, sleeps, diapers, walks, tasks, insights }
     })),
   ].sort((a:any, b:any) => b.ts - a.ts).slice(0, 5);
 
+  const resetTaskForm = () => {
+    setEditingTask(null);
+    setNewTaskTitle('');
+    setNewTaskTime(null);
+  };
+
+  const openEditTask = (task: any) => {
+    const dueMs = safeTime(task.due_time);
+    setEditingTask(task);
+    setNewTaskTitle(task.title || '');
+    setNewTaskTime(dueMs ? new Date(dueMs) : null);
+  };
+
   const addTask = async () => {
     if (!newTaskTitle.trim()) return;
     try {
       const babyId = await resolveBabyId();
       const userId = getCurrentUserId();
+      const dueTime = newTaskTime ? newTaskTime.toISOString() : null;
       await database.write(async () => {
-        await database.get('tasks').create((task: any) => {
-          task.title = newTaskTitle.trim();
-          task.is_completed = false;
-          task.recorded_by = activeParent;
-          if (newTaskTime) {
-            task.due_time = String(newTaskTime.getTime());
-          }
-          if (babyId) task.baby_id = babyId;
-          if (userId) task.user_id = userId;
-        });
+        if (editingTask) {
+          await editingTask.update((task: any) => {
+            task.title = newTaskTitle.trim();
+            task.due_time = dueTime;
+            task.recorded_by = activeParent;
+            if (babyId) task.baby_id = babyId;
+            if (userId) task.user_id = userId;
+          });
+        } else {
+          await database.get('tasks').create((task: any) => {
+            task.title = newTaskTitle.trim();
+            task.is_completed = false;
+            task.recorded_by = activeParent;
+            task.created_at = Date.now();
+            task.due_time = dueTime;
+            if (babyId) task.baby_id = babyId;
+            if (userId) task.user_id = userId;
+          });
+        }
       });
-      setNewTaskTitle('');
-      setNewTaskTime(null);
+      resetTaskForm();
       pushNow();
     } catch (e) {
       if (__DEV__) console.warn("Error adding task", e);
@@ -367,21 +360,13 @@ const HomeScreenContent = ({ feedings, sleeps, diapers, walks, tasks, insights }
     
     const now = Date.now();
     try {
-      const babyId = await resolveBabyId();
-      const userId = getCurrentUserId();
-      await database.write(async () => {
-        await database.get('sleeps').create((sleep: any) => {
-          sleep.duration_seconds = avgDuration;
-          sleep.start_time = now - avgDuration * 1000;
-          sleep.end_time = now;
-          sleep.location = 'crib';
-          sleep.quality = 3;
-          sleep.recorded_by = activeParent;
-          sleep.is_synthetic = true;
-          sleep.created_at = now - avgDuration * 1000;
-          if (babyId) sleep.baby_id = babyId;
-          if (userId) sleep.user_id = userId;
-        });
+      await saveSleepInterval({
+        startMs: now - avgDuration * 1000,
+        endMs: now,
+        location: 'crib',
+        quality: 3,
+        recordedBy: activeParent,
+        isSynthetic: true,
       });
       pushNow();
     } catch(e) {
@@ -394,6 +379,7 @@ const HomeScreenContent = ({ feedings, sleeps, diapers, walks, tasks, insights }
       await database.write(async () => {
         await task.markAsDeleted();
       });
+      if (editingTask?.id === task.id) resetTaskForm();
       pushNow();
     } catch (e) {
       if (__DEV__) console.warn("Error deleting task", e);
@@ -502,11 +488,20 @@ const HomeScreenContent = ({ feedings, sleeps, diapers, walks, tasks, insights }
                 {widgetTitle}
               </Text>
               {(widgetType === 'sleep' || widgetType === 'sleep_soon') && nextSleepTimeStr && (
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, alignSelf: 'flex-start' }}>
-                  <Moon size={14} color="#FFF" style={{ marginRight: 6 }} />
-                  <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 13, color: '#FFFFFF' }}>
-                    Сон в: {nextSleepTimeStr} {mlPrediction ? `(точн. ${Math.round(mlPrediction.confidence_score * 100)}%)` : ''}
-                  </Text>
+                <View style={{ marginTop: 8, gap: 6, alignSelf: 'flex-start' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
+                    <Moon size={14} color="#FFF" style={{ marginRight: 6 }} />
+                    <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 13, color: '#FFFFFF' }}>
+                      Сон в: {nextSleepTimeStr} {typeof mlPrediction?.confidence_score === 'number' ? `(точн. ${Math.round(mlPrediction.confidence_score * 100)}%)` : ''}
+                    </Text>
+                  </View>
+                  {predictedSleepDurationStr ? (
+                    <View style={{ backgroundColor: 'rgba(255,255,255,0.14)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
+                      <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 12, color: 'rgba(255,255,255,0.92)' }}>
+                        Ожидаемо: {predictedSleepDurationStr}
+                      </Text>
+                    </View>
+                  ) : null}
                 </View>
               )}
               {widgetExplanation ? (
@@ -655,6 +650,9 @@ const HomeScreenContent = ({ feedings, sleeps, diapers, walks, tasks, insights }
                       </Text>
                     </View>
                   </TouchableOpacity>
+                  <TouchableOpacity onPress={() => openEditTask(t)} style={{ padding: 6, borderRadius: 8, backgroundColor: '#EEF2FF' }}>
+                    <Pencil size={14} color="#6366F1" />
+                  </TouchableOpacity>
                   <TouchableOpacity onPress={() => deleteTask(t)} style={{ padding: 6, borderRadius: 8, backgroundColor: '#FFE4E4', opacity: t.is_completed ? 1 : 0.2 }}>
                     <Trash2 size={14} color="#D94F4F" />
                   </TouchableOpacity>
@@ -665,7 +663,7 @@ const HomeScreenContent = ({ feedings, sleeps, diapers, walks, tasks, insights }
 
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <TextInput 
-              placeholder="Напр. дать витамин Д" 
+              placeholder={editingTask ? "Редактирование задачи" : "Напр. дать витамин Д"}
               placeholderTextColor="#8A8A9E"
               style={{ flex: 1, backgroundColor: '#FFFFFF', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontFamily: 'Nunito_700Bold', fontSize: 13, color: '#1A1A2E' }}
               value={newTaskTitle}
@@ -678,7 +676,7 @@ const HomeScreenContent = ({ feedings, sleeps, diapers, walks, tasks, insights }
             >
               {newTaskTime ? (
                 <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 11, color: '#6366F1' }}>
-                  {newTaskTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  {newTaskTime.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
                 </Text>
               ) : (
                 <Calendar size={18} color="#6366F1" />
@@ -688,6 +686,12 @@ const HomeScreenContent = ({ feedings, sleeps, diapers, walks, tasks, insights }
               <Plus size={18} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
+          {editingTask && (
+            <TouchableOpacity onPress={resetTaskForm} style={{ alignSelf: 'flex-start', marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, backgroundColor: '#FFFFFF' }}>
+              <X size={13} color="#6B7280" />
+              <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 11, color: '#6B7280' }}>Отмена редактирования</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Recent Events */}
@@ -724,7 +728,7 @@ const HomeScreenContent = ({ feedings, sleeps, diapers, walks, tasks, insights }
       <DateTimePickerModal
         visible={showTaskPicker}
         value={newTaskTime || new Date()}
-        mode="time"
+        mode="datetime"
         is24Hour={true}
         onChange={(selectedDate) => { if (selectedDate) setNewTaskTime(selectedDate); }}
         onClose={() => setShowTaskPicker(false)}

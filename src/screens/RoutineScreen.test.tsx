@@ -23,6 +23,9 @@ jest.mock('../db', () => ({
     get: jest.fn().mockReturnValue({
       query: () => ({
         fetch: jest.fn().mockResolvedValue([]),
+        observe: jest.fn(() => ({
+          subscribe: jest.fn(() => ({ unsubscribe: jest.fn() })),
+        })),
       })
     })
   }
@@ -68,9 +71,9 @@ describe('RoutineScreen', () => {
     render(<RoutineScreen />);
     
     expect(screen.getByText('Режим')).toBeTruthy();
-    expect(screen.getByText('🧒 Статус')).toBeTruthy();
-    expect(screen.getByText('🌙 Ритуалы')).toBeTruthy();
-    expect(screen.getByText('📅 План')).toBeTruthy();
+    expect(screen.getByText('Статус')).toBeTruthy();
+    expect(screen.getByText('Ритуалы')).toBeTruthy();
+    expect(screen.getByText('План')).toBeTruthy();
     
     // Content of status dashboard
     expect(screen.getByText('2 мес 0 дн')).toBeTruthy();
@@ -80,7 +83,7 @@ describe('RoutineScreen', () => {
   it('switches to Rituals tab', () => {
     render(<RoutineScreen />);
     
-    fireEvent.press(screen.getByText('🌙 Ритуалы'));
+    fireEvent.press(screen.getByText('Ритуалы'));
     
     // Bedtime ritual injected by engine should be visible
     expect(screen.getByText('Вечерний (0-3)')).toBeTruthy();
@@ -91,7 +94,7 @@ describe('RoutineScreen', () => {
   it('switches to Schedule tab', () => {
     render(<RoutineScreen />);
     
-    fireEvent.press(screen.getByText('📅 План'));
+    fireEvent.press(screen.getByText('План'));
     
     // Schedule generic components
     expect(screen.getByText('Окна бодрствования: 60–90 мин')).toBeTruthy();

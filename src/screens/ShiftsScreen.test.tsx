@@ -11,6 +11,7 @@ jest.mock('@nozbe/with-observables', () => {
       feedings={[]} 
       sleeps={[]} 
       diapers={[]} 
+      shiftsData={[]}
       tasks={[{ id: 't1', title: 'Test Task', is_completed: false, recorded_by: 'mom', update: jest.fn(), markAsDeleted: jest.fn() }]}
     />
   );
@@ -19,6 +20,15 @@ jest.mock('@nozbe/with-observables', () => {
 jest.mock('../store/authStore', () => ({
   useAuthStore: jest.fn((selector) => { const state = { session: { user: { id: 'test-user' } }, activeParent: 'mom' }; return selector ? selector(state) : state; }),
   getAgeLabel: jest.fn().mockReturnValue('1 month'),
+}));
+
+jest.mock('../db/syncHelpers', () => ({
+  resolveBabyId: jest.fn().mockResolvedValue('baby-1'),
+  getCurrentUserId: jest.fn().mockReturnValue('user-1'),
+}));
+
+jest.mock('../db/sync', () => ({
+  pushNow: jest.fn(),
 }));
 
 describe('ShiftsScreen', () => {
@@ -44,8 +54,7 @@ describe('ShiftsScreen', () => {
     expect(screen.getByText('СЕЙЧАС АКТИВЕН')).toBeTruthy();
     expect(screen.getByText('Anna')).toBeTruthy();
     
-    // Switch active parent manually
-    fireEvent.press(screen.getAllByText('Папа')[0]); // Use first match in parent buttons
+    fireEvent.press(screen.getByText('Передать →'));
     expect(mockSetActiveParent).toHaveBeenCalledWith('dad');
   });
 

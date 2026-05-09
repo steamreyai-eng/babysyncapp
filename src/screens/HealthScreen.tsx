@@ -34,6 +34,9 @@ function HealthScreenContent({ medications, growthRecords, healthLogs, doctorVis
   
   const [temp, setTemp] = useState("36.6");
   const tempFloat = parseFloat(temp) || 0;
+  const [healthLogTime, setHealthLogTime] = useState(new Date());
+  const [showHealthLogTimePicker, setShowHealthLogTimePicker] = useState(false);
+  const [editingHealthLog, setEditingHealthLog] = useState<HealthLogModel | null>(null);
   
   const [symptoms, setSymptoms] = useState<string[]>([]);
   const [symptomNote, setSymptomNote] = useState("");
@@ -47,6 +50,7 @@ function HealthScreenContent({ medications, growthRecords, healthLogs, doctorVis
   const [medVisitId, setMedVisitId] = useState("");
   const [medTime, setMedTime] = useState(new Date());
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [editingMed, setEditingMed] = useState<MedicationModel | null>(null);
 
   const [refreshing, setRefreshing] = useState(false);
   const onRefresh = React.useCallback(async () => {
@@ -74,36 +78,112 @@ function HealthScreenContent({ medications, growthRecords, healthLogs, doctorVis
            d.getFullYear() === selectedDate.getFullYear();
   });
 
+  const resetMedForm = () => {
+    setEditingMed(null);
+    setMedName("");
+    setMedDose("");
+    setMedUnit("капли");
+    setMedFreq("");
+    setMedDoctor("");
+    setMedVisitId("");
+    setMedTime(new Date());
+    setShowAddMed(false);
+  };
+
+  const openAddMed = () => {
+    setEditingMed(null);
+    setMedName("");
+    setMedDose("");
+    setMedUnit("капли");
+    setMedFreq("");
+    setMedDoctor("");
+    setMedVisitId("");
+    setMedTime(new Date());
+    setShowAddMed(true);
+  };
+
+  const openEditMed = (med: MedicationModel) => {
+    const createdAt = new Date(med.created_at);
+    setEditingMed(med);
+    setMedName(med.name || "");
+    setMedDose(med.dose || "");
+    setMedUnit(med.unit || "капли");
+    setMedFreq(med.frequency || "");
+    setMedDoctor(med.prescribing_doctor || "");
+    setMedVisitId(med.doctor_visit_id || "");
+    setMedTime(createdAt);
+    setSelectedDate(createdAt);
+    setShowAddMed(true);
+  };
+
   const handleAddMed = async () => {
     if (!medName || !medDose) return;
     const timeStr = `${medTime.getHours().toString().padStart(2, '0')}:${medTime.getMinutes().toString().padStart(2, '0')}`;
+    const dt = new Date(selectedDate);
+    dt.setHours(medTime.getHours(), medTime.getMinutes(), 0, 0);
     try {
       const babyId = await resolveBabyId();
       const userId = getCurrentUserId();
       await database.write(async () => {
-        await database.get<MedicationModel>('medications').create(m => {
-          m.name = medName;
-          m.dose = medDose;
-          m.unit = medUnit;
-          m.frequency = medFreq;
-          m.time_str = timeStr;
-          m.prescribing_doctor = medDoctor;
-          m.doctor_visit_id = medVisitId;
-          m.start_date = selectedDate.toISOString();
-          m.taken = false;
-          const dt = new Date(selectedDate);
-          dt.setHours(medTime.getHours(), medTime.getMinutes(), 0, 0);
-          m.created_at = dt.getTime();
-          m.recorded_by = activeParent || 'user';
-          if (babyId) m.baby_id = babyId;
-          if (userId) m.user_id = userId;
-        });
+        if (editingMed) {
+          await editingMed.update(m => {
+            m.name = medName;
+            m.dose = medDose;
+            m.unit = medUnit;
+            m.frequency = medFreq;
+            m.time_str = timeStr;
+            m.prescribing_doctor = medDoctor;
+            m.doctor_visit_id = medVisitId;
+            m.start_date = selectedDate.toISOString();
+            m.created_at = dt.getTime();
+            m.recorded_by = activeParent || 'user';
+            if (babyId) m.baby_id = babyId;
+            if (userId) m.user_id = userId;
+          });
+        } else {
+          await database.get<MedicationModel>('medications').create(m => {
+            m.name = medName;
+            m.dose = medDose;
+            m.unit = medUnit;
+            m.frequency = medFreq;
+            m.time_str = timeStr;
+            m.prescribing_doctor = medDoctor;
+            m.doctor_visit_id = medVisitId;
+            m.start_date = selectedDate.toISOString();
+            m.taken = false;
+            m.created_at = dt.getTime();
+            m.recorded_by = activeParent || 'user';
+            if (babyId) m.baby_id = babyId;
+            if (userId) m.user_id = userId;
+          });
+        }
       });
-      // pushNow(); - removed backend sync mention
-      setMedName(""); setMedDose(""); setMedFreq(""); setMedDoctor(""); setMedVisitId(""); setMedTime(new Date()); setShowAddMed(false);
+      pushNow();
+      resetMedForm();
     } catch (error) {
       Alert.alert("Ошибка", "Не удалось сохранить лекарство.");
     }
+  };
+
+  const handleDeleteMed = (med: MedicationModel) => {
+    Alert.alert("Удалить лекарство?", "Запись будет удалена из выбранного дня.", [
+      { text: "Отмена", style: "cancel" },
+      {
+        text: "Удалить",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await database.write(async () => {
+              await med.markAsDeleted();
+            });
+            pushNow();
+            if (editingMed?.id === med.id) resetMedForm();
+          } catch {
+            Alert.alert("Ошибка", "Не удалось удалить лекарство.");
+          }
+        },
+      },
+    ]);
   };
 
   const toggleMedication = async (id: string, taken: boolean) => {
@@ -128,6 +208,61 @@ function HealthScreenContent({ medications, growthRecords, healthLogs, doctorVis
     setSelectedDate(d);
   };
 
+  const selectedDateWithTime = (time = new Date()) => {
+    const d = new Date(selectedDate);
+    d.setHours(time.getHours(), time.getMinutes(), time.getSeconds(), time.getMilliseconds());
+    return d;
+  };
+
+  const resetHealthLogEdit = () => {
+    setEditingHealthLog(null);
+    setHealthLogTime(new Date());
+    setSymptoms([]);
+    setSymptomNote("");
+  };
+
+  const openEditHealthLog = (log: HealthLogModel) => {
+    const createdAt = new Date(log.created_at);
+    setEditingHealthLog(log);
+    setSelectedDate(createdAt);
+    setHealthLogTime(createdAt);
+
+    if (log.temperature != null) {
+      setActiveTab('vitals');
+      setTemp(String(log.temperature));
+      return;
+    }
+
+    setActiveTab('symptoms');
+    try {
+      setSymptoms(log.symptoms ? JSON.parse(log.symptoms) : []);
+    } catch {
+      setSymptoms([]);
+    }
+    setSymptomNote(log.notes || "");
+  };
+
+  const handleDeleteHealthLog = (log: HealthLogModel) => {
+    Alert.alert("Удалить запись?", "Запись о самочувствии будет удалена.", [
+      { text: "Отмена", style: "cancel" },
+      {
+        text: "Удалить",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await database.write(async () => {
+              await log.markAsDeleted();
+            });
+            pushNow();
+            if (editingHealthLog?.id === log.id) resetHealthLogEdit();
+          } catch {
+            Alert.alert("Ошибка", "Не удалось удалить запись.");
+          }
+        },
+      },
+    ]);
+  };
+
   const latestWeight = growthRecords.find(r => r.weight_kg);
   const latestHeight = growthRecords.find(r => r.height_cm);
   const latestHead = growthRecords.find(r => r.head_cm);
@@ -140,16 +275,29 @@ function HealthScreenContent({ medications, growthRecords, healthLogs, doctorVis
       const babyId = await resolveBabyId();
       const userId = getCurrentUserId();
       await database.write(async () => {
-        await database.get<HealthLogModel>('health_logs').create(log => {
-          log.temperature = tempFloat;
-          log.created_at = Date.now();
-          log.recorded_by = activeParent || 'user';
-          if (babyId) log.baby_id = babyId;
-          if (userId) log.user_id = userId;
-        });
+        if (editingHealthLog) {
+          await editingHealthLog.update(log => {
+            log.temperature = tempFloat;
+            log.symptoms = undefined;
+            log.notes = undefined;
+            log.created_at = selectedDateWithTime(healthLogTime).getTime();
+            log.recorded_by = activeParent || 'user';
+            if (babyId) log.baby_id = babyId;
+            if (userId) log.user_id = userId;
+          });
+        } else {
+          await database.get<HealthLogModel>('health_logs').create(log => {
+            log.temperature = tempFloat;
+            log.created_at = selectedDateWithTime(healthLogTime).getTime();
+            log.recorded_by = activeParent || 'user';
+            if (babyId) log.baby_id = babyId;
+            if (userId) log.user_id = userId;
+          });
+        }
       });
-      // pushNow(); - removed backend sync mention
-      Alert.alert('✓', "Температура сохранена локально");
+      pushNow();
+      Alert.alert('✓', editingHealthLog ? "Температура обновлена" : "Температура сохранена локально");
+      resetHealthLogEdit();
     } catch (err) {
       Alert.alert('Ошибка', "Не удалось сохранить");
     }
@@ -161,19 +309,32 @@ function HealthScreenContent({ medications, growthRecords, healthLogs, doctorVis
       const babyId = await resolveBabyId();
       const userId = getCurrentUserId();
       await database.write(async () => {
-        await database.get<HealthLogModel>('health_logs').create(log => {
-          log.symptoms = JSON.stringify(symptoms);
-          log.notes = symptomNote;
-          log.created_at = Date.now();
-          log.recorded_by = activeParent || 'user';
-          if (babyId) log.baby_id = babyId;
-          if (userId) log.user_id = userId;
-        });
+        if (editingHealthLog) {
+          await editingHealthLog.update(log => {
+            log.temperature = undefined;
+            log.symptoms = JSON.stringify(symptoms);
+            log.notes = symptomNote;
+            log.created_at = selectedDateWithTime(healthLogTime).getTime();
+            log.recorded_by = activeParent || 'user';
+            if (babyId) log.baby_id = babyId;
+            if (userId) log.user_id = userId;
+          });
+        } else {
+          await database.get<HealthLogModel>('health_logs').create(log => {
+            log.symptoms = JSON.stringify(symptoms);
+            log.notes = symptomNote;
+            log.created_at = selectedDateWithTime(healthLogTime).getTime();
+            log.recorded_by = activeParent || 'user';
+            if (babyId) log.baby_id = babyId;
+            if (userId) log.user_id = userId;
+          });
+        }
       });
-      // pushNow(); - removed backend sync mention
-      Alert.alert('✓', "Симптомы сохранены локально");
+      pushNow();
+      Alert.alert('✓', editingHealthLog ? "Симптомы обновлены" : "Симптомы сохранены локально");
       setSymptoms([]);
       setSymptomNote("");
+      resetHealthLogEdit();
     } catch (err) {
       Alert.alert('Ошибка', "Не удалось сохранить");
     }
@@ -197,7 +358,7 @@ function HealthScreenContent({ medications, growthRecords, healthLogs, doctorVis
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#6366F1']} />}
         >
 
-        {activeTab === 'meds' && (
+        {(activeTab === 'meds' || activeTab === 'vitals' || activeTab === 'symptoms') && (
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'white', borderRadius: 14, padding: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 12, elevation: 2, marginBottom: 20 }}>
             <TouchableOpacity onPress={() => changeDate(-1)} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#F5F0E6', alignItems: 'center', justifyContent: 'center' }}>
               <Ionicons name="chevron-back" size={20} color="#6B6B80" />
@@ -249,9 +410,21 @@ function HealthScreenContent({ medications, growthRecords, healthLogs, doctorVis
                 </Text>
               </View>
 
-              <TouchableOpacity onPress={handleSaveTemp} style={{ backgroundColor: '#2563EB', paddingVertical: 14, borderRadius: 16, alignItems: 'center', marginTop: 16, shadowColor: '#2563EB', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 12, elevation: 2 }}>
-                <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 15, color: 'white' }}>Сохранить температуру</Text>
+              <TouchableOpacity onPress={() => setShowHealthLogTimePicker(true)} style={{ backgroundColor: '#F9F8F6', borderRadius: 16, padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 16 }}>
+                <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 14, color: '#1A1A2E' }}>
+                  Время: {healthLogTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </Text>
+                <Ionicons name="time-outline" size={18} color="#8A8A9E" />
               </TouchableOpacity>
+
+              <TouchableOpacity onPress={handleSaveTemp} style={{ backgroundColor: '#2563EB', paddingVertical: 14, borderRadius: 16, alignItems: 'center', marginTop: 16, shadowColor: '#2563EB', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 12, elevation: 2 }}>
+                <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 15, color: 'white' }}>{editingHealthLog ? 'Сохранить изменения' : 'Сохранить температуру'}</Text>
+              </TouchableOpacity>
+              {editingHealthLog && (
+                <TouchableOpacity onPress={resetHealthLogEdit} style={{ alignSelf: 'flex-start', marginTop: 10, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, backgroundColor: '#F3F4F6' }}>
+                  <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 11, color: '#6B7280' }}>Отмена редактирования</Text>
+                </TouchableOpacity>
+              )}
             </View>
 
             <View style={{ backgroundColor: 'white', borderRadius: 24, padding: 20, shadowColor: '#8A8A9E', shadowOpacity: 0.08, shadowRadius: 32, elevation: 4, borderWidth: 1, borderColor: '#F0ECE8' }}>
@@ -284,9 +457,17 @@ function HealthScreenContent({ medications, growthRecords, healthLogs, doctorVis
               ) : (
                 healthLogs.slice(0, 5).map((log, idx) => (
                   <View key={log.id} style={{ paddingVertical: 12, borderBottomWidth: idx < Math.min(healthLogs.length, 5) - 1 ? 1 : 0, borderBottomColor: 'rgba(224, 221, 216, 0.5)' }}>
-                    <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 14, color: '#1A1A2E' }}>
-                      {new Date(log.created_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                      <Text style={{ flex: 1, fontFamily: 'Nunito_800ExtraBold', fontSize: 14, color: '#1A1A2E' }}>
+                        {new Date(log.created_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                      </Text>
+                      <TouchableOpacity onPress={() => openEditHealthLog(log)} style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#EEF2FF', alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name="create-outline" size={15} color="#2563EB" />
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => handleDeleteHealthLog(log)} style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name="trash-outline" size={15} color="#EF4444" />
+                      </TouchableOpacity>
+                    </View>
                     {log.temperature ? (
                       <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 14, color: log.temperature >= 38 ? '#EF4444' : '#059669', marginTop: 4 }}>
                         🌡 {log.temperature}°C
@@ -316,7 +497,12 @@ function HealthScreenContent({ medications, growthRecords, healthLogs, doctorVis
             <View style={{ backgroundColor: 'white', borderRadius: 24, padding: 20, shadowColor: '#8A8A9E', shadowOpacity: 0.08, shadowRadius: 32, elevation: 4, borderWidth: 1, borderColor: '#F0ECE8', marginBottom: 16 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
                 <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 18, color: '#1A1A2E', letterSpacing: -0.5 }}>Лекарства сегодня</Text>
-                <TouchableOpacity onPress={() => setShowAddMed(!showAddMed)} style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#2563EB', alignItems: 'center', justifyContent: 'center', shadowColor: '#2563EB', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 4 }}>
+                <TouchableOpacity
+                  testID="add-med-btn"
+                  accessibilityLabel={showAddMed ? "Закрыть форму лекарства" : "Добавить лекарство"}
+                  onPress={() => showAddMed ? resetMedForm() : openAddMed()}
+                  style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#2563EB', alignItems: 'center', justifyContent: 'center', shadowColor: '#2563EB', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 4 }}
+                >
                   <Ionicons name={showAddMed ? "close" : "add"} size={20} color="white" />
                 </TouchableOpacity>
               </View>
@@ -342,9 +528,17 @@ function HealthScreenContent({ medications, growthRecords, healthLogs, doctorVis
                           <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 10, color: '#2563EB', marginTop: 2 }}>Врач: {m.prescribing_doctor}</Text>
                         ) : null}
                       </View>
-                      <TouchableOpacity onPress={() => toggleMedication(m.id, !m.taken)} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: m.taken ? '#10B981' : '#E0DDD8', alignItems: 'center', justifyContent: 'center', shadowColor: m.taken ? '#059669' : 'transparent', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: m.taken ? 4 : 0 }}>
-                        <Ionicons name="checkmark" size={18} color="white" />
-                      </TouchableOpacity>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <TouchableOpacity onPress={() => openEditMed(m)} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#EEF2FF', alignItems: 'center', justifyContent: 'center' }}>
+                          <Ionicons name="create-outline" size={16} color="#2563EB" />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => handleDeleteMed(m)} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center' }}>
+                          <Ionicons name="trash-outline" size={16} color="#EF4444" />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => toggleMedication(m.id, !m.taken)} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: m.taken ? '#10B981' : '#E0DDD8', alignItems: 'center', justifyContent: 'center', shadowColor: m.taken ? '#059669' : 'transparent', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: m.taken ? 4 : 0 }}>
+                          <Ionicons name="checkmark" size={18} color="white" />
+                        </TouchableOpacity>
+                      </View>
                     </View>
                   ))}
                 </View>
@@ -353,7 +547,7 @@ function HealthScreenContent({ medications, growthRecords, healthLogs, doctorVis
 
             {showAddMed && (
               <View style={{ backgroundColor: 'white', borderRadius: 24, padding: 20, shadowColor: '#8A8A9E', shadowOpacity: 0.08, shadowRadius: 32, elevation: 4, borderWidth: 1, borderColor: '#F0ECE8' }}>
-                <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 18, color: '#1A1A2E', letterSpacing: -0.5, marginBottom: 16 }}>Добавить лекарство</Text>
+                <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 18, color: '#1A1A2E', letterSpacing: -0.5, marginBottom: 16 }}>{editingMed ? 'Редактировать лекарство' : 'Добавить лекарство'}</Text>
                 
                 <TextInput value={medName} onChangeText={setMedName} placeholder="Название лекарства" placeholderTextColor="#A0A0B0" style={{ backgroundColor: '#F9F8F6', borderRadius: 16, padding: 16, fontFamily: 'Nunito_800ExtraBold', fontSize: 16, color: '#1A1A2E', marginBottom: 12 }} />
                 
@@ -392,8 +586,18 @@ function HealthScreenContent({ medications, growthRecords, healthLogs, doctorVis
                 </TouchableOpacity>
 
                 <TouchableOpacity onPress={handleAddMed} style={{ backgroundColor: '#2563EB', paddingVertical: 16, borderRadius: 16, alignItems: 'center', shadowColor: '#2563EB', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 24, elevation: 5 }}>
-                  <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 16, color: 'white' }}>Сохранить лекарство</Text>
+                  <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 16, color: 'white' }}>{editingMed ? 'Сохранить изменения' : 'Сохранить лекарство'}</Text>
                 </TouchableOpacity>
+                {editingMed && (
+                  <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
+                    <TouchableOpacity onPress={() => handleDeleteMed(editingMed)} style={{ flex: 1, backgroundColor: '#FEE2E2', paddingVertical: 14, borderRadius: 16, alignItems: 'center' }}>
+                      <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 14, color: '#EF4444' }}>Удалить</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={resetMedForm} style={{ flex: 1, backgroundColor: '#F3F4F6', paddingVertical: 14, borderRadius: 16, alignItems: 'center' }}>
+                      <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 14, color: '#6B7280' }}>Отмена</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </View>
             )}
           </View>
@@ -438,9 +642,20 @@ function HealthScreenContent({ medications, growthRecords, healthLogs, doctorVis
                     <TextInput value={symptomNote} onChangeText={setSymptomNote} placeholder="Подробности для педиатра..." placeholderTextColor="#A0A0B0" multiline numberOfLines={4} style={{ backgroundColor: '#F9F8F6', borderRadius: 16, padding: 16, marginTop: 12, fontFamily: 'Nunito_700Bold', fontSize: 15, color: '#1A1A2E', minHeight: 100, textAlignVertical: 'top' }} />
                   </View>
                 </View>
-                <TouchableOpacity onPress={handleSaveSymptoms} style={{ backgroundColor: '#EF4444', paddingVertical: 16, borderRadius: 16, alignItems: 'center', shadowColor: '#EF4444', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 24, elevation: 5 }}>
-                  <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 16, color: 'white' }}>Сохранить локально</Text>
+                <TouchableOpacity onPress={() => setShowHealthLogTimePicker(true)} style={{ backgroundColor: '#F9F8F6', borderRadius: 16, padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 14, color: '#1A1A2E' }}>
+                    Время: {healthLogTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </Text>
+                  <Ionicons name="time-outline" size={18} color="#8A8A9E" />
                 </TouchableOpacity>
+                <TouchableOpacity onPress={handleSaveSymptoms} style={{ backgroundColor: '#EF4444', paddingVertical: 16, borderRadius: 16, alignItems: 'center', shadowColor: '#EF4444', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 24, elevation: 5 }}>
+                  <Text style={{ fontFamily: 'Nunito_900Black', fontSize: 16, color: 'white' }}>{editingHealthLog ? 'Сохранить изменения' : 'Сохранить локально'}</Text>
+                </TouchableOpacity>
+                {editingHealthLog && (
+                  <TouchableOpacity onPress={resetHealthLogEdit} style={{ alignSelf: 'flex-start', marginTop: 10, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, backgroundColor: '#F3F4F6' }}>
+                    <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 11, color: '#6B7280' }}>Отмена редактирования</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             )}
           </View>
@@ -454,6 +669,14 @@ function HealthScreenContent({ medications, growthRecords, healthLogs, doctorVis
         is24Hour={true}
         onChange={(date) => { if (date) setMedTime(date); }}
         onClose={() => setShowTimePicker(false)}
+      />
+      <DateTimePickerModal
+        visible={showHealthLogTimePicker}
+        value={healthLogTime}
+        mode="time"
+        is24Hour={true}
+        onChange={(date) => { if (date) setHealthLogTime(date); }}
+        onClose={() => setShowHealthLogTimePicker(false)}
       />
       </KeyboardAvoidingView>
     </View>

@@ -16,6 +16,25 @@ jest.mock('../lib/supabase', () => ({
   }
 }));
 
+jest.mock('../store/dataStore', () => ({
+  useDataStore: {
+    getState: jest.fn(() => ({ clearData: jest.fn() })),
+  },
+}));
+
+jest.mock('../store/timerStore', () => ({
+  useTimerStore: {
+    getState: jest.fn(() => ({ clearAllTimers: jest.fn() })),
+  },
+}));
+
+jest.mock('../db', () => ({
+  database: {
+    write: jest.fn(async (cb) => cb()),
+    unsafeResetDatabase: jest.fn(),
+  },
+}));
+
 jest.mock('../store/authStore', () => ({
   useAuthStore: jest.fn((selector) => { const state = { session: { user: { id: 'test-user' } }, activeParent: 'mom' }; return selector ? selector(state) : state; }),
   getAgeLabel: jest.fn().mockReturnValue('1 month'),
@@ -33,6 +52,7 @@ jest.mock('@react-navigation/native', () => ({
 
 describe('SettingsScreen', () => {
   const mockSetSession = jest.fn();
+  const mockSetBaby = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -41,6 +61,7 @@ describe('SettingsScreen', () => {
         session: { user: { id: 'user-1' } },
       activeParent: 'mom',
       setSession: mockSetSession,
+      setBaby: mockSetBaby,
       baby: { name: "Alina", mom_name: "Anna", dad_name: "Bob" },
       };
       return selector ? selector(state) : state;
@@ -63,10 +84,10 @@ describe('SettingsScreen', () => {
   it('triggers JSON export', async () => {
     render(<SettingsScreen />);
     
-    await waitFor(() => expect(screen.getByText('Экспорт данных')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('Экспорт данных (PDF)')).toBeTruthy());
     
     await act(async () => {
-      fireEvent.press(screen.getByText('Экспорт данных'));
+      fireEvent.press(screen.getByText('Экспорт данных (PDF)'));
     });
     expect(exportDataAsJSON).toHaveBeenCalled();
   });
@@ -80,8 +101,16 @@ describe('SettingsScreen', () => {
     await act(async () => {
       fireEvent.press(screen.getByText('Выйти из аккаунта'));
     });
+
+    const alertCall = (Alert.alert as jest.Mock).mock.calls[0];
+    const buttons = alertCall[2];
+    const signOutButton = buttons.find((b: any) => b.style === 'destructive');
+    await act(async () => {
+      await signOutButton.onPress();
+    });
     
     expect(supabase.auth.signOut).toHaveBeenCalled();
     expect(mockSetSession).toHaveBeenCalledWith(null);
+    expect(mockSetBaby).toHaveBeenCalledWith(null);
   });
 });

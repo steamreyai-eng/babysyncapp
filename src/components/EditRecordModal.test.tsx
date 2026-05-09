@@ -16,6 +16,10 @@ jest.mock('../db', () => ({
   },
 }));
 
+jest.mock('../db/sync', () => ({
+  pushNow: jest.fn(),
+}));
+
 jest.spyOn(Alert, 'alert');
 
 describe('EditRecordModal Component', () => {
@@ -46,7 +50,7 @@ describe('EditRecordModal Component', () => {
     render(<EditRecordModal target={mockTarget} onClose={mockOnClose} />);
 
     // Check title
-    expect(screen.getByText('Кормление')).toBeTruthy();
+    expect(screen.getByText('Редактировать кормление')).toBeTruthy();
 
     // Check initial text input value
     expect(screen.getByDisplayValue('Грудь (15м)')).toBeTruthy();
@@ -61,7 +65,6 @@ describe('EditRecordModal Component', () => {
     await waitFor(() => {
       expect(database.write).toHaveBeenCalled();
       expect(mockRecord.update).toHaveBeenCalled();
-      expect(Alert.alert).toHaveBeenCalledWith('✓', 'Запись обновлена');
       expect(mockOnClose).toHaveBeenCalled();
     });
   });
@@ -69,7 +72,7 @@ describe('EditRecordModal Component', () => {
   it('handles delete action', async () => {
     render(<EditRecordModal target={mockTarget} onClose={mockOnClose} />);
 
-    fireEvent.press(screen.getByText('Удалить'));
+    fireEvent.press(screen.getByLabelText('Удалить'));
     
     expect(Alert.alert).toHaveBeenCalled();
     

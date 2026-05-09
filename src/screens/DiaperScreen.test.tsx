@@ -10,11 +10,26 @@ jest.mock('@react-navigation/native', () => ({
   useNavigation: () => mockNavigation,
 }));
 
+jest.mock('@nozbe/with-observables', () => {
+  return () => (Component: any) => (props: any) => (
+    <Component {...props} diapers={[]} />
+  );
+});
+
 jest.spyOn(Alert, 'alert');
 
 jest.mock('../store/authStore', () => ({
   useAuthStore: jest.fn((selector) => { const state = { session: { user: { id: 'test-user' } }, activeParent: 'mom' }; return selector ? selector(state) : state; }),
   getAgeLabel: jest.fn().mockReturnValue('1 month'),
+}));
+
+jest.mock('../db/syncHelpers', () => ({
+  resolveBabyId: jest.fn().mockResolvedValue('baby-1'),
+  getCurrentUserId: jest.fn().mockReturnValue('user-1'),
+}));
+
+jest.mock('../db/sync', () => ({
+  pushNow: jest.fn(),
 }));
 
 describe('DiaperScreen', () => {
@@ -32,9 +47,9 @@ describe('DiaperScreen', () => {
   it('renders content correctly', () => {
     render(<DiaperScreen />);
     
-    expect(screen.getByText('Подгузник')).toBeTruthy();
-    expect(screen.getByText('Только попис')).toBeTruthy();
-    expect(screen.getByText('Только покак')).toBeTruthy();
+    expect(screen.getByText('Подгузники')).toBeTruthy();
+    expect(screen.getByText('Мокрый')).toBeTruthy();
+    expect(screen.getByText('Грязный')).toBeTruthy();
     expect(screen.getByText('Оба')).toBeTruthy();
   });
 
@@ -42,10 +57,10 @@ describe('DiaperScreen', () => {
     render(<DiaperScreen />);
     
     // Switch type
-    fireEvent.press(screen.getByText('Только покак'));
+    fireEvent.press(screen.getByText('Грязный'));
     
     // Add notes
-    const input = screen.getByPlaceholderText('Пример: Краснота на коже...');
+    const input = screen.getByPlaceholderText('Дополнительные заметки...');
     fireEvent.changeText(input, 'Rash observed');
     
     expect(input.props.value).toBe('Rash observed');
@@ -59,13 +74,12 @@ describe('DiaperScreen', () => {
     render(<DiaperScreen />);
     
     fireEvent.press(screen.getByText('Оба'));
-    fireEvent.press(screen.getByText('Сохранить'));
+    fireEvent.press(screen.getByText('Сохранить подгузник'));
 
     await waitFor(() => {
       expect(database.write).toHaveBeenCalled();
       expect(mockCreate).toHaveBeenCalled();
-      expect(Alert.alert).toHaveBeenCalledWith('Сохранено!', 'Запись о подгузнике успешно добавлена.');
-      expect(mockNavigation.goBack).toHaveBeenCalled();
+      expect(screen.getByText('Сохранено!')).toBeTruthy();
     });
   });
 });
