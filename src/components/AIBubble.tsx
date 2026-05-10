@@ -4,21 +4,15 @@ import { Sparkles, X } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AIScreen from '../screens/AIScreen';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigationState } from '@react-navigation/native';
 
-const getActiveRouteName = (state: any): string | undefined => {
-    let route = state?.routes?.[state.index ?? 0];
-    while (route?.state?.routes) {
-        route = route.state.routes[route.state.index ?? 0];
-    }
-    return route?.name;
+type AIBubbleProps = {
+    hidden?: boolean;
 };
 
-const AIBubble = () => {
+const AIBubble = ({ hidden = false }: AIBubbleProps) => {
     const [open, setOpen] = useState(false);
     const [payload, setPayload] = useState<any>(null);
     const insets = useSafeAreaInsets();
-    const activeRouteName = useNavigationState(getActiveRouteName);
 
     React.useEffect(() => {
         const listener = DeviceEventEmitter.addListener('openAIBubble', (p) => {
@@ -28,7 +22,7 @@ const AIBubble = () => {
         return () => listener.remove();
     }, []);
 
-    if (activeRouteName === 'Analytics') return null;
+    if (hidden) return null;
 
     return (
         <>

@@ -60,6 +60,7 @@ class PredictionRequest(BaseModel):
 class PredictionResponse(BaseModel):
     next_sleep_time_ms: int
     recommended_duration_seconds: int
+    predicted_duration_seconds: Optional[int] = None
     confidence_score: float
     source: str
     model_version: Optional[str] = None
@@ -161,11 +162,12 @@ def record_prediction_audit(req: PredictionRequest, prediction: PredictionRespon
     """
     Best-effort audit write. Prediction delivery must not depend on audit table availability.
     """
+    predicted_duration_seconds = prediction.predicted_duration_seconds or prediction.recommended_duration_seconds
     payload = {
         "baby_id": req.baby_id,
         "request_time_ms": req.current_time_ms,
         "predicted_next_sleep_time_ms": prediction.next_sleep_time_ms,
-        "predicted_duration_seconds": prediction.recommended_duration_seconds,
+        "predicted_duration_seconds": predicted_duration_seconds,
         "confidence_score": prediction.confidence_score,
         "source": prediction.source,
         "model_version": prediction.model_version,
@@ -222,6 +224,7 @@ async def predict_next_sleep(
         response = PredictionResponse(
             next_sleep_time_ms=next_sleep_start,
             recommended_duration_seconds=rec_duration,
+            predicted_duration_seconds=rec_duration,
             confidence_score=0.4, # Low confidence due to hardcoded rules
             source="rule_based"
         )
@@ -252,6 +255,7 @@ async def predict_next_sleep(
         response = PredictionResponse(
             next_sleep_time_ms=next_sleep_start,
             recommended_duration_seconds=predicted_duration,
+            predicted_duration_seconds=predicted_duration,
             confidence_score=0.6,
             source="ema"
         )
@@ -304,6 +308,7 @@ async def predict_next_sleep(
     response = PredictionResponse(
         next_sleep_time_ms=next_sleep_start,
         recommended_duration_seconds=predicted_duration,
+        predicted_duration_seconds=predicted_duration,
         confidence_score=round(final_confidence, 2),
         source=source,
         model_version=model_version,

@@ -15,7 +15,6 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useTimerStore } from '../store/timerStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '../store/authStore';
 import { cancelSleepTimerNotification, cancelWalkTimerNotification } from '../lib/timerNotifications';
 import { pushNow } from '../db/sync';
@@ -36,6 +35,11 @@ interface BannerConfig {
   startTime: number;
   route: string;
 }
+
+type LiveActivityBannerProps = {
+  onOpenSleep?: () => void;
+  onOpenWalk?: () => void;
+};
 
 const SLEEP_CONFIG: Omit<BannerConfig, 'startTime'> = {
   type: 'sleep',
@@ -243,9 +247,8 @@ const BannerItem = ({
 };
 
 // ── Main Component ──
-export default function LiveActivityBanner() {
+export default function LiveActivityBanner({ onOpenSleep, onOpenWalk }: LiveActivityBannerProps = {}) {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation<any>();
   const { sleepConfig, walkConfig, clearSleepTimer, clearWalkTimer } = useTimerStore();
 
   const sleepRunning = sleepConfig.isRunning && sleepConfig.startTime;
@@ -302,7 +305,7 @@ export default function LiveActivityBanner() {
 
   const handleSleepPress = () => {
     try {
-      navigation.navigate('Tracker', { screen: 'Sleep' });
+      onOpenSleep?.();
     } catch (e) {
       // Navigation may not be ready
     }
@@ -310,7 +313,7 @@ export default function LiveActivityBanner() {
 
   const handleWalkPress = () => {
     try {
-      navigation.navigate('Tracker', { screen: 'Walk' });
+      onOpenWalk?.();
     } catch (e) {
       // Navigation may not be ready
     }

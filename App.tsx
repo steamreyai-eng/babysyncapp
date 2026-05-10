@@ -471,11 +471,25 @@ export default Sentry.wrap(function App() {
 
 
 // ── TabNavigator: defined OUTSIDE App to prevent unmounting on re-render ──
-const TabNavigator = () => {
+const TabNavigator = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
+  const [activeTab, setActiveTab] = useState('Home');
+  const hideFloatingActions = activeTab === 'Analytics';
+
   return (
     <View style={{ flex: 1 }}>
+        <LiveActivityBanner
+          onOpenSleep={() => navigation.navigate('Sleep')}
+          onOpenWalk={() => navigation.navigate('Walk')}
+        />
         <Tab.Navigator
+          screenListeners={{
+            state: (event) => {
+              const state = event.data.state;
+              const route = state.routes[state.index];
+              if (route?.name) setActiveTab(route.name);
+            },
+          }}
           screenOptions={({ route }) => ({
             headerShown: false,
             tabBarIcon: ({ focused, color, size }) => {
@@ -539,6 +553,8 @@ const TabNavigator = () => {
           <Tab.Screen name="Shifts" component={ShiftsScreen} options={{ title: 'Смены' }} />
           <Tab.Screen name="Settings" component={SettingsScreen} options={{ title: 'Профиль' }} />
         </Tab.Navigator>
+        <FAB hidden={hideFloatingActions} />
+        <AIBubble hidden={hideFloatingActions} />
     </View>
   );
 };
@@ -547,7 +563,6 @@ const TabNavigator = () => {
 const MainAppContent = () => {
   return (
     <View style={{ flex: 1 }}>
-        <LiveActivityBanner />
         <RootStack.Navigator screenOptions={{ headerShown: false }}>
            <RootStack.Screen name="MainTabs" component={TabNavigator} />
            <RootStack.Group screenOptions={{ presentation: 'modal' }}>
@@ -560,8 +575,6 @@ const MainAppContent = () => {
              <RootStack.Screen name="Growth" component={GrowthScreen} />
            </RootStack.Group>
         </RootStack.Navigator>
-        <FAB />
-        <AIBubble />
     </View>
   );
 };

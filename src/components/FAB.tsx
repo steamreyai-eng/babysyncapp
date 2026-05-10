@@ -16,7 +16,6 @@ import {
 import { Plus, X, Check, Moon, Milk, Droplets, Droplet, CloudRain, Cloud, Play, Square, Utensils, Footprints } from 'lucide-react-native';
 import DateTimePickerModal from './DateTimePickerModal';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { useNavigation, NavigationProp, useNavigationState } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { database } from '../db';
@@ -32,19 +31,13 @@ import { saveSleepInterval, saveWalkInterval } from '../lib/recordMutations';
 
 type ActiveSheet = 'feeding' | 'diaper' | 'sleep' | 'walk' | null;
 
-const getActiveRouteName = (state: any): string | undefined => {
-  let route = state?.routes?.[state.index ?? 0];
-  while (route?.state?.routes) {
-    route = route.state.routes[route.state.index ?? 0];
-  }
-  return route?.name;
+type FABProps = {
+  hidden?: boolean;
 };
 
-const FAB = () => {
+const FAB = ({ hidden = false }: FABProps) => {
   const session = useAuthStore(state => state.session);
   const activeParent = useAuthStore(state => state.activeParent);
-  const navigation = useNavigation<NavigationProp<any>>();
-  const activeRouteName = useNavigationState(getActiveRouteName);
   const insets = useSafeAreaInsets();
   const tabBarHeight = 60 + insets.bottom;
   const fabBottom = tabBarHeight + 16;
@@ -367,7 +360,7 @@ const FAB = () => {
     { type: 'walk' as const, label: 'Прогулка', icon: Footprints, color: '#047857', bg: '#ECFDF5' },
   ];
 
-  if (activeRouteName === 'Analytics') return null;
+  if (hidden) return null;
 
   const walkLocations = [
     { id: 'park', label: 'Парк' },

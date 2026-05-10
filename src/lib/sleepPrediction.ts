@@ -5,6 +5,7 @@ import { Q } from '@nozbe/watermelondb';
 export interface SleepPredictionResponse {
   next_sleep_time_ms?: number;
   predicted_duration_seconds?: number;
+  recommended_duration_seconds?: number;
   confidence_score?: number;
   explanation?: string;
   source?: string;
@@ -84,11 +85,20 @@ export async function fetchSleepPrediction(babyId: string, ageMo: number, sleeps
     });
     
     if (response.status === 401 || response.status === 403 || !response.ok) {
+       if (__DEV__) {
+         const errorBody = await response.text().catch(() => '');
+         console.warn('ML Predictor response error:', response.status, errorBody);
+       }
        return null;
     }
 
     const data = await response.json();
-    return data;
+    const durationSeconds = data.predicted_duration_seconds ?? data.recommended_duration_seconds;
+    return {
+      ...data,
+      predicted_duration_seconds: durationSeconds,
+      recommended_duration_seconds: durationSeconds,
+    };
   } catch (e) {
     if (__DEV__) console.warn('ML Predictor error:', e);
     return null;

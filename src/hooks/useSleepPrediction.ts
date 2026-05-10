@@ -52,6 +52,17 @@ export function formatSleepPredictionDuration(seconds: any) {
   return `около ${minutes} мин`;
 }
 
+export function getSleepPredictionDurationSeconds(prediction?: SleepPredictionResponse | null) {
+  return prediction?.predicted_duration_seconds ?? prediction?.recommended_duration_seconds ?? null;
+}
+
+export function formatSleepPredictionConfidence(score: any) {
+  const value = Number(score);
+  if (!Number.isFinite(value)) return null;
+  const pct = value > 1 ? value : value * 100;
+  return `${Math.round(Math.max(0, Math.min(100, pct)))}%`;
+}
+
 async function getCachedPrediction(babyId: string, ageMonths: number, sleeps: any[]) {
   const cacheKey = `${babyId}:${Math.round(ageMonths * 10) / 10}:${sleepSignature(sleeps)}`;
   const now = Date.now();

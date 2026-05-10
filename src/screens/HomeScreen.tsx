@@ -18,7 +18,7 @@ import { NotificationSettingsModal } from '../components/NotificationSettingsMod
 // FAB is rendered globally in App.tsx — no need to import here
 import { COLORS, FONTS } from '../lib/theme';
 import { useRoutineEngine } from '../hooks/useRoutineEngine';
-import { formatSleepPredictionDuration, useSleepPrediction } from '../hooks/useSleepPrediction';
+import { formatSleepPredictionConfidence, formatSleepPredictionDuration, getSleepPredictionDurationSeconds, useSleepPrediction } from '../hooks/useSleepPrediction';
 import { pushNow } from '../db/sync';
 import { resolveBabyId, getCurrentUserId } from '../db/syncHelpers';
 import { saveSleepInterval } from '../lib/recordMutations';
@@ -133,7 +133,17 @@ const HomeScreenContent = ({ feedings, sleeps, diapers, walks, tasks, insights }
     : (lastSleep ? getSleepEndMs(lastSleep) + wakeWindowMs : null);
     
   const nextSleepTimeStr = nextSleepTimeMs ? new Date(nextSleepTimeMs).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : null;
-  const predictedSleepDurationStr = formatSleepPredictionDuration(mlPrediction?.predicted_duration_seconds);
+  const fallbackSleepDurationSeconds = (() => {
+    const recentDurations = sleeps
+      .slice(0, 5)
+      .map((sleep: any) => Number(sleep.duration_seconds))
+      .filter((duration: number) => Number.isFinite(duration) && duration > 0);
+    return recentDurations.length > 0
+      ? recentDurations.reduce((sum: number, duration: number) => sum + duration, 0) / recentDurations.length
+      : null;
+  })();
+  const predictedSleepDurationStr = formatSleepPredictionDuration(getSleepPredictionDurationSeconds(mlPrediction) ?? fallbackSleepDurationSeconds);
+  const sleepConfidenceStr = formatSleepPredictionConfidence(mlPrediction?.confidence_score);
   const isNight = new Date().getHours() >= 20 || new Date().getHours() <= 6;
   const timeToSleepMs = nextSleepTimeMs ? nextSleepTimeMs - Date.now() : wakeWindowMs;
   
@@ -492,7 +502,7 @@ const HomeScreenContent = ({ feedings, sleeps, diapers, walks, tasks, insights }
                   <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
                     <Moon size={14} color="#FFF" style={{ marginRight: 6 }} />
                     <Text style={{ fontFamily: 'Nunito_800ExtraBold', fontSize: 13, color: '#FFFFFF' }}>
-                      Сон в: {nextSleepTimeStr} {typeof mlPrediction?.confidence_score === 'number' ? `(точн. ${Math.round(mlPrediction.confidence_score * 100)}%)` : ''}
+                      Сон в: {nextSleepTimeStr} {sleepConfidenceStr ? `(точн. ${sleepConfidenceStr})` : ''}
                     </Text>
                   </View>
                   {predictedSleepDurationStr ? (

@@ -16,7 +16,7 @@ import { useTimerStore } from '../store/timerStore';
 import { startSleepTimerNotification, cancelSleepTimerNotification } from '../lib/timerNotifications';
 import { pushNow } from '../db/sync';
 import { saveSleepInterval } from '../lib/recordMutations';
-import { formatSleepPredictionDuration, useSleepPrediction } from '../hooks/useSleepPrediction';
+import { formatSleepPredictionConfidence, formatSleepPredictionDuration, getSleepPredictionDurationSeconds, useSleepPrediction } from '../hooks/useSleepPrediction';
 
 const LOCATIONS = [
   { id: 'crib', label: 'Кроватка', icon: 'bed', color: '#8B5CF6' },
@@ -193,15 +193,22 @@ function SleepScreenContent({ sleeps }: { sleeps: Sleep[] }) {
 
   const mlNextSleepMs = Number(mlPrediction?.next_sleep_time_ms);
   const hasMlPrediction = selectedDateIsToday && Number.isFinite(mlNextSleepMs) && mlNextSleepMs > 0;
-  const predictedSleepDurationStr = hasMlPrediction ? formatSleepPredictionDuration(mlPrediction?.predicted_duration_seconds) : null;
-  const confidenceScore = Number(mlPrediction?.confidence_score);
-  const confidenceStr = hasMlPrediction && Number.isFinite(confidenceScore)
-    ? `${Math.round(confidenceScore * 100)}%`
-    : null;
+  const sortedSleeps = [...sleeps].sort((a,b) => b.created_at - a.created_at);
+  const fallbackSleepDurationSeconds = (() => {
+    const recentDurations = sortedSleeps
+      .slice(0, 5)
+      .map((sleep: any) => Number(sleep.duration_seconds))
+      .filter((duration: number) => Number.isFinite(duration) && duration > 0);
+    return recentDurations.length > 0
+      ? recentDurations.reduce((sum: number, duration: number) => sum + duration, 0) / recentDurations.length
+      : null;
+  })();
+  const predictedSleepDurationStr = formatSleepPredictionDuration(
+    hasMlPrediction ? getSleepPredictionDurationSeconds(mlPrediction) : fallbackSleepDurationSeconds,
+  );
+  const confidenceStr = hasMlPrediction ? formatSleepPredictionConfidence(mlPrediction?.confidence_score) : null;
   let fallbackNextSleepMsg = "—";
   let hasFallbackPrediction = false;
-
-  const sortedSleeps = [...sleeps].sort((a,b) => b.created_at - a.created_at);
 
   if (sortedSleeps.length >= 3 && selectedDateIsToday) {
     hasFallbackPrediction = true;
