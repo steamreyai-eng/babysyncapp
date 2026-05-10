@@ -1,4 +1,8 @@
 import os
+import json
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
+
 from fastapi import HTTPException, Security
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt, JWTError
@@ -6,6 +10,11 @@ from supabase import create_client, Client
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+SUPABASE_AUTH_API_KEY = (
+    os.environ.get("SUPABASE_PUBLISHABLE_KEY")
+    or os.environ.get("SUPABASE_ANON_KEY")
+    or SUPABASE_SERVICE_ROLE_KEY
+)
 SUPABASE_JWT_SECRET = os.environ.get("SUPABASE_JWT_SECRET")
 
 security = HTTPBearer()
@@ -17,15 +26,37 @@ def get_supabase_client() -> Client:
 
 async def verify_jwt(credentials: HTTPAuthorizationCredentials = Security(security)) -> str:
     """
-    Decodes the Supabase JWT locally and returns the user_id (sub).
+    Verifies a Supabase access token and returns the user_id.
     Raises 401 if invalid.
     """
     token = credentials.credentials
+
+    if SUPABASE_URL and SUPABASE_AUTH_API_KEY:
+        try:
+            request = Request(
+                f"{SUPABASE_URL.rstrip('/')}/auth/v1/user",
+                headers={
+                    "apikey": SUPABASE_AUTH_API_KEY,
+                    "Authorization": f"Bearer {token}",
+                },
+            )
+            with urlopen(request, timeout=10) as response:
+                user = json.loads(response.read().decode("utf-8"))
+            user_id = user.get("id")
+            if user_id:
+                return user_id
+            raise HTTPException(status_code=401, detail="Invalid token payload: no user id")
+        except HTTPError as e:
+            if e.code in (401, 403):
+                raise HTTPException(status_code=401, detail="Invalid authentication token")
+            print(f"Supabase token verification HTTP error: {e}")
+        except (URLError, TimeoutError, json.JSONDecodeError) as e:
+            print(f"Supabase token verification failed, falling back to legacy JWT secret: {e}")
+
     if not SUPABASE_JWT_SECRET:
-        # If secret is missing, we log it and reject to be safe.
         print("WARNING: SUPABASE_JWT_SECRET is not set")
         raise HTTPException(status_code=500, detail="JWT secret not configured")
-        
+
     try:
         payload = jwt.decode(token, SUPABASE_JWT_SECRET, algorithms=["HS256"], options={"verify_aud": False})
         user_id: str = payload.get("sub")
