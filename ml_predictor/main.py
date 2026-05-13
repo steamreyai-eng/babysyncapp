@@ -30,6 +30,8 @@ try:
 except ValueError:
     AUTO_RETRAIN_MAX_AGE_HOURS = 24
 CRON_SECRET = os.environ.get("CRON_SECRET") or os.environ.get("ML_CRON_SECRET")
+MIN_PREDICTED_DURATION_SECONDS = 15 * 60
+MAX_PREDICTED_DURATION_SECONDS = 12 * 3600
 
 _training_lock = threading.Lock()
 _training_state = {
@@ -95,6 +97,12 @@ def _parse_trained_at(value: str | None) -> datetime | None:
         return parsed
     except ValueError:
         return None
+
+def clamp_predicted_duration(value: int) -> int:
+    return max(MIN_PREDICTED_DURATION_SECONDS, min(int(value), MAX_PREDICTED_DURATION_SECONDS))
+
+def clamp_next_sleep_time(value: int, current_time_ms: int) -> int:
+    return max(int(value), int(current_time_ms))
 
 def model_needs_training(source: str | None = None) -> bool:
     if source == "ema" or not has_global_model():
@@ -215,7 +223,10 @@ async def predict_next_sleep(
         else: wake_window_hours = 4.0
         
         if last_sleep:
-            next_sleep_start = last_sleep.end_time + int(wake_window_hours * 3600 * 1000)
+            next_sleep_start = clamp_next_sleep_time(
+                last_sleep.end_time + int(wake_window_hours * 3600 * 1000),
+                req.current_time_ms,
+            )
             rec_duration = 3600
         else:
             next_sleep_start = req.current_time_ms + 3600 * 1000
@@ -250,8 +261,10 @@ async def predict_next_sleep(
     if not model_wake or not model_duration or len(X) < 2:
         intervals = [y for y in y_wake if y < 8 * 3600 * 1000] if 'y_wake' in locals() else []
         ema_interval = int(np.mean(intervals[-3:])) if len(intervals) >= 3 else (intervals[-1] if intervals else 2 * 3600 * 1000)
-        next_sleep_start = last_sleep.end_time + ema_interval
-        predicted_duration = int(np.mean(y_duration[-3:])) if 'y_duration' in locals() and len(y_duration) >= 3 else 3600
+        next_sleep_start = clamp_next_sleep_time(last_sleep.end_time + ema_interval, req.current_time_ms)
+        predicted_duration = clamp_predicted_duration(
+            int(np.mean(y_duration[-3:])) if 'y_duration' in locals() and len(y_duration) >= 3 else 3600
+        )
         response = PredictionResponse(
             next_sleep_time_ms=next_sleep_start,
             recommended_duration_seconds=predicted_duration,
@@ -278,9 +291,11 @@ async def predict_next_sleep(
     # Sanity checks (bounds)
     if predicted_wake_window < 1800 * 1000: predicted_wake_window = 1800 * 1000
     if predicted_wake_window > 8 * 3600 * 1000: predicted_wake_window = 8 * 3600 * 1000
-    if predicted_duration < 900: predicted_duration = 900
+    predicted_duration = clamp_predicted_duration(predicted_duration)
     
     next_sleep_start = last_sleep.end_time + predicted_wake_window
+    prediction_was_overdue = next_sleep_start < req.current_time_ms
+    next_sleep_start = clamp_next_sleep_time(next_sleep_start, req.current_time_ms)
     
     # Расчет точности (Confidence Score) на основе Mean Absolute Error (MAE) по недавним снам
     predictions = model_wake.predict(X)
@@ -294,6 +309,8 @@ async def predict_next_sleep(
     source_bonus = 0.05 if source == "personal" else 0.0
     
     final_confidence = float(np.clip(confidence + source_bonus, 0.4, 0.96))
+    if prediction_was_overdue:
+        final_confidence = min(final_confidence, 0.65)
     
     explanation_text = generate_explanation(
         age_months=req.baby_age_months,

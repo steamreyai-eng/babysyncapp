@@ -150,7 +150,13 @@ def maybe_create_mock_data(reason: str):
     return create_mock_data()
 
 
-def fetch_table(supabase: Client, table: str, columns: str, since_iso: str | None = None) -> list[dict]:
+def fetch_table(
+    supabase: Client,
+    table: str,
+    columns: str,
+    since_iso: str | None = None,
+    include_deleted: bool = True,
+) -> list[dict]:
     page_size = 1000
     offset = 0
     rows: list[dict] = []
@@ -159,6 +165,8 @@ def fetch_table(supabase: Client, table: str, columns: str, since_iso: str | Non
         query = supabase.table(table).select(columns)
         if since_iso:
             query = query.gte("created_at", since_iso)
+        if not include_deleted:
+            query = query.is_("deleted_at", "null")
         response = query.range(offset, offset + page_size - 1).execute()
         page = response.data or []
         rows.extend(page)
@@ -172,9 +180,10 @@ def fetch_optional_table(
     table: str,
     columns: str,
     since_iso: str | None = None,
+    include_deleted: bool = True,
 ) -> list[dict]:
     try:
-        return fetch_table(supabase, table, columns, since_iso)
+        return fetch_table(supabase, table, columns, since_iso, include_deleted=include_deleted)
     except Exception as e:
         print(f"Skipping optional context table {table}: {e}")
         return []
@@ -408,14 +417,15 @@ def fetch_and_prepare_data():
             "sleeps",
             "id,baby_id,duration_seconds,start_time,end_time,quality,created_at",
             since_iso,
+            include_deleted=False,
         )
         if not sleeps or len(sleeps) < MIN_REAL_SAMPLES:
             return maybe_create_mock_data("Not enough real sleep rows found")
 
         profiles_by_baby_id = fetch_profiles(supabase)
-        feedings = fetch_optional_table(supabase, "feedings", "baby_id,created_at", context_since_iso)
-        walks = fetch_optional_table(supabase, "walks", "baby_id,created_at,duration_seconds", context_since_iso)
-        health_logs = fetch_optional_table(supabase, "health_logs", "baby_id,created_at,is_sick", context_since_iso)
+        feedings = fetch_optional_table(supabase, "feedings", "baby_id,created_at", context_since_iso, include_deleted=False)
+        walks = fetch_optional_table(supabase, "walks", "baby_id,created_at,duration_seconds", context_since_iso, include_deleted=False)
+        health_logs = fetch_optional_table(supabase, "health_logs", "baby_id,created_at,is_sick", context_since_iso, include_deleted=False)
 
         X, y_wake, y_duration, feature_times, summary = build_training_dataset(
             sleeps=sleeps,

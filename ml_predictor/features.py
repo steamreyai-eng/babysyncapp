@@ -72,6 +72,8 @@ def extract_features_next(last_sleep: dict, sleeps: List[dict], age_months: floa
     """
     Extracts features for the next prediction based on the last sleep and context.
     """
+    sorted_sleeps = sorted(sleeps, key=lambda x: x.get('start_time', 0))
+
     hour = (last_sleep.get('end_time', 0) // 3600000) % 24
     hour_sin = math.sin(2 * math.pi * hour / 24)
     hour_cos = math.cos(2 * math.pi * hour / 24)
@@ -82,11 +84,12 @@ def extract_features_next(last_sleep: dict, sleeps: List[dict], age_months: floa
     dow_sin = math.sin(2 * math.pi * dow / 7)
     dow_cos = math.cos(2 * math.pi * dow / 7)
     
-    durations = [s.get('duration_seconds', 0) for s in sleeps]
+    durations = [s.get('duration_seconds', 0) for s in sorted_sleeps]
     wakes = []
-    for i in range(1, len(sleeps)):
-        w = sleeps[i].get('start_time', 0) - sleeps[i-1].get('end_time', 0)
-        wakes.append(w)
+    for i in range(1, len(sorted_sleeps)):
+        w = sorted_sleeps[i].get('start_time', 0) - sorted_sleeps[i-1].get('end_time', 0)
+        if 0 < w <= 12 * 3600 * 1000:
+            wakes.append(w)
         
     avg_dur = np.mean(durations[-3:]) if len(durations) > 0 else 0
     avg_wake = np.mean(wakes[-3:]) / 1000 if len(wakes) > 0 else 0
@@ -104,7 +107,7 @@ def extract_features_next(last_sleep: dict, sleeps: List[dict], age_months: floa
         last_sleep.get('quality', 3),          # 10
         avg_dur,                               # 11
         avg_wake,                              # 12
-        len(sleeps)                            # 13
+        len(sorted_sleeps)                     # 13
     ]
     
     return np.array([features])
