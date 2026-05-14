@@ -3,6 +3,7 @@ import { fetchSleepPrediction, SleepPredictionResponse } from '../lib/sleepPredi
 import { resolveBabyId } from '../db/syncHelpers';
 
 const CACHE_TTL_MS = 10 * 60 * 1000;
+const NULL_RETRY_MS = 30 * 1000;
 
 type CacheEntry = {
   expiresAt: number;
@@ -81,7 +82,11 @@ async function getCachedPrediction(babyId: string, ageMonths: number, sleeps: an
 
   try {
     const prediction = await promise;
-    predictionCache.set(cacheKey, { expiresAt: Date.now() + CACHE_TTL_MS, prediction });
+    if (prediction?.next_sleep_time_ms) {
+      predictionCache.set(cacheKey, { expiresAt: Date.now() + CACHE_TTL_MS, prediction });
+    } else {
+      predictionCache.delete(cacheKey);
+    }
     return prediction;
   } catch (error) {
     predictionCache.delete(cacheKey);
@@ -106,9 +111,18 @@ export function useSleepPrediction({
   const signature = useMemo(() => sleepSignature(sortedSleeps), [sortedSleeps]);
   const [prediction, setPrediction] = useState<SleepPredictionResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [retryNonce, setRetryNonce] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+
+    function scheduleRetry() {
+      if (!enabled || sortedSleeps.length === 0) return;
+      retryTimer = setTimeout(() => {
+        if (!cancelled) setRetryNonce(value => value + 1);
+      }, NULL_RETRY_MS);
+    }
 
     async function loadPrediction() {
       if (!enabled || sortedSleeps.length === 0) {
@@ -127,11 +141,16 @@ export function useSleepPrediction({
 
         const nextPrediction = await getCachedPrediction(babyId, ageMonths, sortedSleeps);
         if (!cancelled) {
-          setPrediction(nextPrediction?.next_sleep_time_ms ? nextPrediction : null);
+          const validPrediction = nextPrediction?.next_sleep_time_ms ? nextPrediction : null;
+          setPrediction(validPrediction);
+          if (!validPrediction) scheduleRetry();
         }
       } catch (error) {
         if (__DEV__) console.warn('ML Predictor error:', error);
-        if (!cancelled) setPrediction(null);
+        if (!cancelled) {
+          setPrediction(null);
+          scheduleRetry();
+        }
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -140,8 +159,9 @@ export function useSleepPrediction({
     loadPrediction();
     return () => {
       cancelled = true;
+      if (retryTimer) clearTimeout(retryTimer);
     };
-  }, [ageMonths, enabled, signature, sortedSleeps]);
+  }, [ageMonths, enabled, retryNonce, signature, sortedSleeps]);
 
   return { prediction, isLoading };
 }
