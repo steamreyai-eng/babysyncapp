@@ -274,12 +274,14 @@ function HealthScreenContent({ medications, growthRecords, healthLogs, doctorVis
     try {
       const babyId = await resolveBabyId();
       const userId = getCurrentUserId();
+      const isSickVal = tempFloat >= 38.0;
       await database.write(async () => {
         if (editingHealthLog) {
           await editingHealthLog.update(log => {
             log.temperature = tempFloat;
             log.symptoms = undefined;
             log.notes = undefined;
+            log.isSick = isSickVal;
             log.created_at = selectedDateWithTime(healthLogTime).getTime();
             log.recorded_by = activeParent || 'user';
             if (babyId) log.baby_id = babyId;
@@ -288,6 +290,7 @@ function HealthScreenContent({ medications, growthRecords, healthLogs, doctorVis
         } else {
           await database.get<HealthLogModel>('health_logs').create(log => {
             log.temperature = tempFloat;
+            log.isSick = isSickVal;
             log.created_at = selectedDateWithTime(healthLogTime).getTime();
             log.recorded_by = activeParent || 'user';
             if (babyId) log.baby_id = babyId;
@@ -314,6 +317,7 @@ function HealthScreenContent({ medications, growthRecords, healthLogs, doctorVis
             log.temperature = undefined;
             log.symptoms = JSON.stringify(symptoms);
             log.notes = symptomNote;
+            log.isSick = true;
             log.created_at = selectedDateWithTime(healthLogTime).getTime();
             log.recorded_by = activeParent || 'user';
             if (babyId) log.baby_id = babyId;
@@ -323,6 +327,7 @@ function HealthScreenContent({ medications, growthRecords, healthLogs, doctorVis
           await database.get<HealthLogModel>('health_logs').create(log => {
             log.symptoms = JSON.stringify(symptoms);
             log.notes = symptomNote;
+            log.isSick = true;
             log.created_at = selectedDateWithTime(healthLogTime).getTime();
             log.recorded_by = activeParent || 'user';
             if (babyId) log.baby_id = babyId;

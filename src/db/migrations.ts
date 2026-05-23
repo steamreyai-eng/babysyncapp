@@ -18,6 +18,12 @@ export const migrations = schemaMigrations({
             { name: 'group_id', type: 'string', isOptional: true },
           ],
         }),
+        addColumns({
+          table: 'health_logs',
+          columns: [
+            { name: 'is_sick', type: 'boolean', isOptional: true },
+          ],
+        }),
       ],
     },
     {
