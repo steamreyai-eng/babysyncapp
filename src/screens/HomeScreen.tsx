@@ -123,7 +123,7 @@ const HomeScreenContent = ({ feedings, sleeps, diapers, walks, tasks, insights }
     neutral: { bg: "white", dot: "transparent", text: "#8A8A9E" },
   };
 
-  const { prediction: mlPrediction } = useSleepPrediction({
+  const { prediction: mlPrediction, isLoading: isMlLoading } = useSleepPrediction({
     sleeps,
     babyBirthdate: baby?.birthdate,
   });
@@ -174,8 +174,8 @@ const HomeScreenContent = ({ feedings, sleeps, diapers, walks, tasks, insights }
   if (sleepUrgent) {
     widgetType = 'sleep';
     widgetTitle = isNight ? "Пора укладывать в ночь" : "Время дневного сна";
-    widgetSubtitle = mlPrediction ? "🧠 ИИ-Анализ" : "💡 Рекомендация";
-    widgetExplanation = mlPrediction?.explanation || "Подходит время сна по расписанию.";
+    widgetSubtitle = isMlLoading ? "⏳ Вычисление ИИ..." : (mlPrediction ? "🧠 ИИ-Анализ" : "💡 Рекомендация");
+    widgetExplanation = isMlLoading ? "Нейросеть рассчитывает идеальное окно..." : (mlPrediction?.explanation || "Подходит время сна по расписанию.");
     widgetColor = isNight ? '#1E1B4B' : '#4E8FD4';
     widgetRoute = 'Sleep';
   } else if (showFeedAction) {
@@ -195,8 +195,8 @@ const HomeScreenContent = ({ feedings, sleeps, diapers, walks, tasks, insights }
   } else if (timeToSleepMs < 45 * 60000 && timeToSleepMs >= 20 * 60000) {
     widgetType = 'sleep_soon';
     widgetTitle = "Скоро сон";
-    widgetSubtitle = mlPrediction ? "🧠 ИИ-Анализ" : "💡 Рекомендация";
-    widgetExplanation = mlPrediction?.explanation || "Пора начинать спокойные игры и готовиться ко сну.";
+    widgetSubtitle = isMlLoading ? "⏳ Вычисление ИИ..." : (mlPrediction ? "🧠 ИИ-Анализ" : "💡 Рекомендация");
+    widgetExplanation = isMlLoading ? "Нейросеть рассчитывает идеальное окно..." : (mlPrediction?.explanation || "Пора начинать спокойные игры и готовиться ко сну.");
     widgetColor = '#3A78C0';
     widgetRoute = 'Sleep';
   } else {
